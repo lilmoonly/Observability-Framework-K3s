@@ -1,0 +1,76 @@
+---
+# ==========================================
+# 1. CLUSTER INFRASTRUCTURE (K3s)
+# ==========================================
+k3s_version: "v1.31.0+k3s1"
+master_ip: "192.168.56.10"
+
+# This token is used by workers to join the master. 
+# In a real setup, use 'ansible-vault' to encrypt this.
+k3s_token: "SuperSecretTokenForK3sClusterJoin123!"
+
+# ==========================================
+# 2. SYSTEM SETTINGS
+# ==========================================
+ansible_user: "vagrant"         
+system_timezone: "UTC"
+disable_swap: true             # K8s requirement
+
+# ==========================================
+# 3. LOGGING (OpenSearch) - VM 4
+# ==========================================
+# We use OpenSearch because it is 100% Open Source and free.
+opensearch:
+  version: "2.12.0"
+  admin_password: "AdminPassword123!" # Must be strong
+  # LIGHTWEIGHT TUNING:
+  # OpenSearch is heavy. We limit JVM heap to 1GB to fit in a VM.
+  heap_size: "1g" 
+  storage_size: "10Gi"
+  retention_days: 7
+  node_selector_label: "logging"
+
+# ==========================================
+# 4. MONITORING (Prometheus & Grafana) - VM 5
+# ==========================================
+monitoring:
+  prometheus_retention: "7d"
+  grafana_admin_password: "admin"
+  # Resource limits for the monitoring stack
+  prometheus_storage: "5Gi"
+  node_selector_label: "monitoring"
+
+# ==========================================
+# 5. DATABASE WORKER (CloudNativePG) - VM 3
+# ==========================================
+database:
+  type: "postgresql"
+  cluster_name: "app-db-cluster"
+  instances: 1                 # Keep it to 1 for lightweight lab
+  storage_size: "2Gi"
+  node_selector_label: "db"
+
+# ==========================================
+# 6. AI ANOMALY ENGINE - VM 6
+# ==========================================
+# Variables for the anomaly detection scripts
+ai_engine:
+  # Threshold for flagging an anomaly (0.0 to 1.0)
+  anomaly_threshold: 0.90
+  # How far back the AI should look for training data
+  training_window: "24h"
+  # Interval for the AI to run its analysis
+  check_interval_seconds: 300
+  node_selector_label: "ai"
+
+# ==========================================
+# 7. NODE ROLE MAPPING
+# ==========================================
+# This map is used by Ansible to automatically label your nodes 
+# after they join the cluster.
+node_roles:
+  "app-worker": "app"
+  "db-worker": "db"
+  "logging-node": "logging"
+  "monitor-node": "monitoring"
+  "ai-node": "ai"

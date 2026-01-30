@@ -1,0 +1,40 @@
+---
+# tasks file for k3s_master role to install the K3s control plane
+- name: Install K3s control plane
+  become: true
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='{{ k3s_version }}' K3S_TOKEN='{{ k3s_token }}' sh -s - server --node-ip={{ master_ip }} --flannel-backend=host-gw
+  args:
+    creates: /usr/local/bin/k3s
+
+- name: Wait for K3s kubeconfig to exist
+  become: true
+  ansible.builtin.wait_for:
+    path: /etc/rancher/k3s/k3s.yaml
+    state: present
+    timeout: 120
+
+- name: Set permissions on kubeconfig for non-root access
+  become: true
+  ansible.builtin.file:
+    path: /etc/rancher/k3s/k3s.yaml
+    mode: '0644'
+
+- name: Ensure .kube directory exists in user's home
+  become: true
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    mode: '0755'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Copy kubeconfig to user's .kube/config
+  become: true
+  ansible.builtin.copy:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+    remote_src: yes

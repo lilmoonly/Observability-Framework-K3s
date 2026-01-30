@@ -1,0 +1,20 @@
+---
+# site.yml - Main playbook to orchestrate K3s cluster deployment
+
+- name: Phase 1 - Prepare All Nodes
+  hosts: k8s_cluster
+  become: true
+  roles:
+    - common
+
+- name: Phase 2 - Setup Control Plane
+  hosts: master
+  become: true
+  roles:
+    - k3s_master
+
+- name: Phase 3 - Setup Workers & Labeling
+  hosts: workers
+  become: true
+  roles:
+    - k3s_worker

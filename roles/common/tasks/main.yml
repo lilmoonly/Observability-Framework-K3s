@@ -1,0 +1,41 @@
+---
+# tasks file for common role to prepare a Linux node for K3s cluster
+- name: Disable swap immediately
+  become: true
+  ansible.builtin.command: swapoff -a
+  when: ansible_swaptotal_mb > 0
+
+- name: Remove swap entry from /etc/fstab
+  become: true
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s)'
+    replace: '# \1'
+
+- name: Update apt cache
+  become: true
+  ansible.builtin.apt:
+    update_cache: yes
+  when: ansible_os_family == 'Debian'
+
+- name: Install required packages
+  become: true
+  ansible.builtin.apt:
+    name:
+      - curl
+      - nfs-common
+      - tar
+      - python3-pip
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: Set system timezone
+  become: true
+  ansible.builtin.timezone:
+    name: "{{ system_timezone }}"
+
+- name: Ensure python3-kubernetes is installed via pip
+  become: true
+  ansible.builtin.pip:
+    name: kubernetes
+    executable: pip3
