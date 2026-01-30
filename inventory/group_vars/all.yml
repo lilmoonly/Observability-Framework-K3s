@@ -15,6 +15,8 @@ k3s_token: "SuperSecretTokenForK3sClusterJoin123!"
 ansible_user: "vagrant"         
 system_timezone: "UTC"
 disable_swap: true             # K8s requirement
+# The network interface used for cluster communication (192.168.56.x)
+flannel_interface: "enp0s8" 
 
 # ==========================================
 # 3. LOGGING (OpenSearch) - VM 4

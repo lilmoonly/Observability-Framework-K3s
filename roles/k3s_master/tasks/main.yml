@@ -3,7 +3,7 @@
 - name: Install K3s control plane
   become: true
   ansible.builtin.shell: |
-    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='{{ k3s_version }}' K3S_TOKEN='{{ k3s_token }}' sh -s - server --node-ip={{ master_ip }} --flannel-backend=host-gw
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='{{ k3s_version }}' K3S_TOKEN='{{ k3s_token }}' sh -s - server --node-ip={{ master_ip }} --flannel-backend=host-gw --flannel-iface={{ flannel_interface }}
   args:
     creates: /usr/local/bin/k3s
 

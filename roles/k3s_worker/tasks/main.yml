@@ -1,16 +1,17 @@
 ---
+
 # tasks file for k3s_worker role to join a worker node to the K3s cluster and label it
-- name: Join worker node to K3s cluster
+- name: Join worker node to K3s cluster with correct networking
   become: true
   ansible.builtin.shell: |
-    curl -sfL https://get.k3s.io | K3S_URL='https://{{ master_ip }}:6443' K3S_TOKEN='{{ k3s_token }}' sh -
+    curl -sfL https://get.k3s.io | K3S_URL='https://{{ master_ip }}:6443' K3S_TOKEN='{{ k3s_token }}' sh -s - agent --node-ip={{ ansible_host }} --flannel-iface={{ flannel_interface }}
   args:
     creates: /etc/rancher/k3s/config.yaml.d
 
-- name: Label node with workload type
+- name: Label node with workload and role
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
-    kubectl label node {{ inventory_hostname }} workload={{ role }} --overwrite
+    kubectl label node {{ inventory_hostname }} workload={{ role }} kubernetes.io/role=worker --overwrite
   register: label_result
   changed_when: "'labeled' in label_result.stdout"
