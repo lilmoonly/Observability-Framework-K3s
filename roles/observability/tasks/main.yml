@@ -56,6 +56,30 @@
           memory: 1Gi
           cpu: 1000m
 
+- name: Deploy OpenSearch Dashboards via Helm
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: opensearch-dashboards
+    chart_ref: opensearch/opensearch-dashboards
+    release_namespace: opensearch
+    create_namespace: true
+    wait: yes
+    values:
+      opensearchHosts: "https://opensearch-cluster-master:9200"
+      nodeSelector:
+        workload: "logging"
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "logging"
+          effect: "NoSchedule"
+      resources:
+        limits:
+          memory: 512Mi
+          cpu: 500m
+
 - name: Deploy kube-prometheus-stack via Helm
   become: true
   delegate_to: k8s-ctrl
