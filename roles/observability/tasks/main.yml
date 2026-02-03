@@ -1,0 +1,161 @@
+---
+# tasks file for observability role to deploy the observability stack
+
+- name: Ensure Helm is installed on master
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  args:
+    creates: /usr/local/bin/helm
+
+- name: Add Helm repos for OpenSearch, Prometheus, and CloudNativePG
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    helm repo add opensearch https://opensearch-project.github.io/helm-charts/
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    helm repo add cnpg https://cloudnative-pg.github.io/charts
+    helm repo update
+
+- name: Deploy OpenSearch via Helm
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    name: opensearch
+    chart_ref: opensearch/opensearch
+    release_namespace: opensearch
+    create_namespace: true
+    wait: yes
+    values:
+      persistence:
+        enabled: true
+        storageClass: "{{ storage.storage_class }}"
+      singleNode: true
+      securityConfig:
+        enabled: true
+      extraEnvs:
+        - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+          value: "{{ opensearch.admin_password }}"
+      nodeSelector:
+        workload: "{{ opensearch.node_selector_label }}"
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "{{ opensearch.node_selector_label }}"
+          effect: "NoSchedule"
+      opensearchJavaOpts: "-Xmx{{ opensearch.heap_size }} -Xms{{ opensearch.heap_size }}"
+
+- name: Deploy kube-prometheus-stack via Helm
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    name: prometheus
+    chart_ref: prometheus-community/kube-prometheus-stack
+    release_namespace: monitoring
+    create_namespace: true
+    wait: yes
+    values:
+      prometheus:
+        prometheusSpec:
+          retention: "{{ monitoring.prometheus_retention }}"
+          storageSpec:
+            volumeClaimTemplate:
+              spec:
+                storageClassName: "{{ storage.storage_class }}"
+                accessModes: [ "ReadWriteOnce" ]
+                resources:
+                  requests:
+                    storage: "{{ storage.prometheus_size }}"
+      grafana:
+        adminPassword: "{{ monitoring.grafana_admin_password }}"
+      nodeSelector:
+        workload: "{{ monitoring.node_selector_label }}"
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "{{ monitoring.node_selector_label }}"
+          effect: "NoSchedule"
+
+- name: Install CloudNativePG operator via Helm
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    name: cnpg-operator
+    chart_ref: cnpg/cloudnative-pg
+    release_namespace: cnpg-system
+    create_namespace: true
+    wait: yes
+
+- name: Taint worker nodes for observability workloads
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl taint nodes app-worker workload=app:NoSchedule --overwrite
+    kubectl taint nodes db-worker workload=db:NoSchedule --overwrite
+    kubectl taint nodes logging-node workload=logging:NoSchedule --overwrite
+    kubectl taint nodes monitor-node workload=monitoring:NoSchedule --overwrite
+    kubectl taint nodes ai-node workload=ai:NoSchedule --overwrite
+
+- name: Create db namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: db
+
+- name: Create app-db-secret in db namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: app-db-secret
+        namespace: db
+      type: Opaque
+      data:
+        # FIXED: Quoted the Jinja2 filters
+        username: "{{ 'appuser' | b64encode }}"
+        password: "{{ 'appuserpassword' | b64encode }}"
+
+- name: Deploy PostgreSQL Cluster resource (HA)
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      metadata:
+        name: "{{ database.cluster_name }}"
+        namespace: db
+      spec:
+        # FIXED: Corrected indentation
+        instances: "{{ replicas.postgres }}"
+        storage:
+          size: "{{ storage.postgres_size }}"
+          storageClass: "{{ storage.storage_class }}"
+        nodeSelector:
+          workload: "{{ database.node_selector_label }}"
+        tolerations:
+          - key: "workload"
+            operator: "Equal"
+            value: "{{ database.node_selector_label }}"
+            effect: "NoSchedule"
+        bootstrap:
+          initdb:
+            database: app
+            owner: appuser
+            secret:
+              name: app-db-secret
+        superuserSecret:
+          name: app-db-secret
+        enableSuperuserAccess: true
+    wait: yes

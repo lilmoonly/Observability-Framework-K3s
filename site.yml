@@ -18,3 +18,9 @@
   become: true
   roles:
     - k3s_worker
+
+- name: Phase 4 - Deploy Observability Workloads
+  hosts: master
+  become: true
+  roles:
+    - observability

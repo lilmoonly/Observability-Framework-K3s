@@ -76,3 +76,19 @@ node_roles:
   "logging-node": "logging"
   "monitor-node": "monitoring"
   "ai-node": "ai"
+
+# ==========================================
+# 8. PRODUCTION STORAGE SETTINGS
+# ==========================================
+storage:
+  opensearch_size: "10Gi"
+  prometheus_size: "5Gi"
+  postgres_size: "5Gi"
+  storage_class: "local-path" # K3s default persistent storage
+
+# ==========================================
+# 9. PRODUCTION REPLICAS
+# ==========================================
+replicas:
+  opensearch: 1 # In a true prod cluster this would be 3, but we have 1 logging VM
+  postgres: 2   # High Availability: 1 Primary, 1 Replica
