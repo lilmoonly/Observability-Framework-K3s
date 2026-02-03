@@ -1,5 +1,12 @@
 ---
 # tasks file for common role to prepare a Linux node for K3s cluster
+- name: Set Linux kernel parameter vm.max_map_count
+  become: true
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: '262144'
+    state: present
+    reload: yes
 - name: Disable swap immediately
   become: true
   ansible.builtin.command: swapoff -a

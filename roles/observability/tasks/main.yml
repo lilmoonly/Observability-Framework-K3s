@@ -29,6 +29,7 @@
     release_namespace: opensearch
     create_namespace: true
     wait: yes
+    timeout: 1200
     values:
       persistence:
         enabled: true
@@ -47,6 +48,13 @@
           value: "{{ opensearch.node_selector_label }}"
           effect: "NoSchedule"
       opensearchJavaOpts: "-Xmx{{ opensearch.heap_size }} -Xms{{ opensearch.heap_size }}"
+      resources:
+        requests:
+          memory: 512Mi
+          cpu: 200m
+        limits:
+          memory: 1Gi
+          cpu: 1000m
 
 - name: Deploy kube-prometheus-stack via Helm
   become: true
@@ -58,6 +66,7 @@
     release_namespace: monitoring
     create_namespace: true
     wait: yes
+    timeout: 1200
     values:
       prometheus:
         prometheusSpec:
@@ -70,6 +79,13 @@
                 resources:
                   requests:
                     storage: "{{ storage.prometheus_size }}"
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 200m
+            limits:
+              memory: 1Gi
+              cpu: 1000m
       grafana:
         adminPassword: "{{ monitoring.grafana_admin_password }}"
       nodeSelector:
