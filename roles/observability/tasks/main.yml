@@ -13,15 +13,17 @@
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
-    helm repo add opensearch https://opensearch-project.github.io/helm-charts/
-    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-    helm repo add cnpg https://cloudnative-pg.github.io/charts
-    helm repo update
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    /usr/local/bin/helm repo add opensearch https://opensearch-project.github.io/helm-charts/
+    /usr/local/bin/helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    /usr/local/bin/helm repo add cnpg https://cloudnative-pg.github.io/charts
+    /usr/local/bin/helm repo update
 
 - name: Deploy OpenSearch via Helm
   become: true
   delegate_to: k8s-ctrl
   community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: opensearch
     chart_ref: opensearch/opensearch
     release_namespace: opensearch
@@ -50,6 +52,7 @@
   become: true
   delegate_to: k8s-ctrl
   community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: prometheus
     chart_ref: prometheus-community/kube-prometheus-stack
     release_namespace: monitoring
@@ -81,6 +84,7 @@
   become: true
   delegate_to: k8s-ctrl
   community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: cnpg-operator
     chart_ref: cnpg/cloudnative-pg
     release_namespace: cnpg-system
@@ -91,6 +95,7 @@
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     kubectl taint nodes app-worker workload=app:NoSchedule --overwrite
     kubectl taint nodes db-worker workload=db:NoSchedule --overwrite
     kubectl taint nodes logging-node workload=logging:NoSchedule --overwrite
@@ -101,6 +106,7 @@
   become: true
   delegate_to: k8s-ctrl
   kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
     definition:
       apiVersion: v1
@@ -112,6 +118,7 @@
   become: true
   delegate_to: k8s-ctrl
   kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
     definition:
       apiVersion: v1
@@ -121,7 +128,6 @@
         namespace: db
       type: Opaque
       data:
-        # FIXED: Quoted the Jinja2 filters
         username: "{{ 'appuser' | b64encode }}"
         password: "{{ 'appuserpassword' | b64encode }}"
 
@@ -129,6 +135,7 @@
   become: true
   delegate_to: k8s-ctrl
   kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
     definition:
       apiVersion: postgresql.cnpg.io/v1
@@ -137,8 +144,7 @@
         name: "{{ database.cluster_name }}"
         namespace: db
       spec:
-        # FIXED: Corrected indentation
-        instances: "{{ replicas.postgres }}"
+        instances: "{{ replicas.postgres }}" 
         storage:
           size: "{{ storage.postgres_size }}"
           storageClass: "{{ storage.storage_class }}"
