@@ -29,12 +29,11 @@
     release_namespace: opensearch
     create_namespace: true
     wait: yes
-    timeout: 1200
+    timeout: 1200s
     values:
       persistence:
         enabled: true
         storageClass: "{{ storage.storage_class }}"
-      # Required for single-node clusters
       singleNode: true
       securityConfig:
         enabled: true
@@ -64,7 +63,7 @@
           port: 9200
         initialDelaySeconds: 90
         periodSeconds: 10
-        failureThreshold: 30
+        failureThreshold: 60
       readinessProbe:
         tcpSocket:
           port: 9200
@@ -82,13 +81,16 @@
     release_namespace: opensearch
     create_namespace: true
     wait: yes
-    timeout: 1200
+    timeout: 1200s
     values:
       opensearchHosts: "https://opensearch-cluster-master:9200"
       config:
-        opensearch_dashboards.yml:
+        录取opensearch_dashboards.yml:
           server.host: "0.0.0.0"
           opensearch.ssl.verificationMode: none
+          opensearch.username: "admin"
+          opensearch.password: "{{ opensearch.admin_password }}"
+          opensearch.requestHeadersWhitelist: [ "authorization", "securitytenant" ]
       service:
         type: LoadBalancer
         port: "{{ opensearch_dashboards_port }}"
@@ -120,7 +122,7 @@
     release_namespace: monitoring
     create_namespace: true
     wait: yes
-    timeout: 1200
+    timeout: 1200s
     values:
       prometheus:
         prometheusSpec:
@@ -173,7 +175,7 @@
     kubectl taint nodes db-worker workload=db:NoSchedule --overwrite
     kubectl taint nodes logging-node workload=logging:NoSchedule --overwrite
     kubectl taint nodes monitor-node workload=monitoring:NoSchedule --overwrite
-    kubectl taint  nodes ai-node workload=ai:NoSchedule --overwrite
+    kubectl taint nodes ai-node workload=ai:NoSchedule --overwrite
 
 - name: Create db namespace
   become: true
