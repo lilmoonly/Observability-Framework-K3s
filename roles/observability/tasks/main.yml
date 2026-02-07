@@ -34,6 +34,7 @@
       persistence:
         enabled: true
         storageClass: "{{ storage.storage_class }}"
+      # Required for single-node clusters
       singleNode: true
       securityConfig:
         enabled: true
@@ -42,6 +43,8 @@
           value: "{{ opensearch.admin_password }}"
         - name: node.store.allow_mmap
           value: "false"
+        - name: OPENSEARCH_JAVA_OPTS
+          value: "-Xmx{{ opensearch.heap_size }} -Xms{{ opensearch.heap_size }}"
       nodeSelector:
         workload: "{{ opensearch.node_selector_label }}"
       tolerations:
@@ -49,7 +52,6 @@
           operator: "Equal"
           value: "{{ opensearch.node_selector_label }}"
           effect: "NoSchedule"
-      opensearchJavaOpts: "-Xmx1g -Xms1g"
       resources:
         requests:
           memory: 512Mi
@@ -57,14 +59,6 @@
         limits:
           memory: 2Gi
           cpu: 1000m
-      startupProbe:
-        initialDelaySeconds: 90
-        periodSeconds: 10
-        failureThreshold: 30
-      readinessProbe:
-        initialDelaySeconds: 60
-        periodSeconds: 10
-        failureThreshold: 10
 
 - name: Deploy OpenSearch Dashboards via Helm
   become: true
@@ -83,6 +77,9 @@
         opensearch_dashboards.yml:
           server.host: "0.0.0.0"
           opensearch.ssl.verificationMode: none
+      service:
+        type: LoadBalancer
+        port: "{{ opensearch_dashboards_port }}"
       nodeSelector:
         workload: "logging"
       tolerations:
@@ -109,7 +106,7 @@
     release_namespace: monitoring
     create_namespace: true
     wait: yes
-    timeout: 1200s
+    timeout: 1200
     values:
       prometheus:
         prometheusSpec:
@@ -131,6 +128,9 @@
               cpu: 1000m
       grafana:
         adminPassword: "{{ monitoring.grafana_admin_password }}"
+        service:
+          type: LoadBalancer
+          port: "{{ grafana_port }}"
       nodeSelector:
         workload: "{{ monitoring.node_selector_label }}"
       tolerations:
@@ -159,7 +159,7 @@
     kubectl taint nodes db-worker workload=db:NoSchedule --overwrite
     kubectl taint nodes logging-node workload=logging:NoSchedule --overwrite
     kubectl taint nodes monitor-node workload=monitoring:NoSchedule --overwrite
-    kubectl taint nodes ai-node workload=ai:NoSchedule --overwrite
+    kubectl taint  nodes ai-node workload=ai:NoSchedule --overwrite
 
 - name: Create db namespace
   become: true
