@@ -40,6 +40,8 @@
       extraEnvs:
         - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
           value: "{{ opensearch.admin_password }}"
+        - name: node.store.allow_mmap
+          value: "false"
       nodeSelector:
         workload: "{{ opensearch.node_selector_label }}"
       tolerations:
@@ -47,14 +49,22 @@
           operator: "Equal"
           value: "{{ opensearch.node_selector_label }}"
           effect: "NoSchedule"
-      opensearchJavaOpts: "-Xmx{{ opensearch.heap_size }} -Xms{{ opensearch.heap_size }}"
+      opensearchJavaOpts: "-Xmx1g -Xms1g"
       resources:
         requests:
           memory: 512Mi
           cpu: 200m
         limits:
-          memory: 1Gi
+          memory: 2Gi
           cpu: 1000m
+      startupProbe:
+        initialDelaySeconds: 90
+        periodSeconds: 10
+        failureThreshold: 30
+      readinessProbe:
+        initialDelaySeconds: 60
+        periodSeconds: 10
+        failureThreshold: 10
 
 - name: Deploy OpenSearch Dashboards via Helm
   become: true
@@ -66,8 +76,13 @@
     release_namespace: opensearch
     create_namespace: true
     wait: yes
+    timeout: 1200
     values:
       opensearchHosts: "https://opensearch-cluster-master:9200"
+      config:
+        opensearch_dashboards.yml:
+          server.host: "0.0.0.0"
+          opensearch.ssl.verificationMode: none
       nodeSelector:
         workload: "logging"
       tolerations:
@@ -79,6 +94,10 @@
         limits:
           memory: 512Mi
           cpu: 500m
+      startupProbe:
+        initialDelaySeconds: 60
+        periodSeconds: 10
+        failureThreshold: 20
 
 - name: Deploy kube-prometheus-stack via Helm
   become: true
@@ -90,7 +109,7 @@
     release_namespace: monitoring
     create_namespace: true
     wait: yes
-    timeout: 1200
+    timeout: 1200s
     values:
       prometheus:
         prometheusSpec:
