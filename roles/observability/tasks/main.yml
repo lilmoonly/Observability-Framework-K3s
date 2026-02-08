@@ -61,7 +61,7 @@
       startupProbe:
         tcpSocket:
           port: 9200
-        initialDelaySeconds: 90
+        initialDelaySeconds: 120
         periodSeconds: 10
         failureThreshold: 60
       readinessProbe:
@@ -85,7 +85,7 @@
     values:
       opensearchHosts: "https://opensearch-cluster-master:9200"
       config:
-        录取opensearch_dashboards.yml:
+        opensearch_dashboards.yml:
           server.host: "0.0.0.0"
           opensearch.ssl.verificationMode: none
           opensearch.username: "admin"
@@ -176,6 +176,8 @@
     kubectl taint nodes logging-node workload=logging:NoSchedule --overwrite
     kubectl taint nodes monitor-node workload=monitoring:NoSchedule --overwrite
     kubectl taint nodes ai-node workload=ai:NoSchedule --overwrite
+  register: taint_result
+  failed_when: "taint_result.rc != 0 and 'already has' not in taint_result.stderr"
 
 - name: Create db namespace
   become: true
@@ -219,7 +221,7 @@
         name: "{{ database.cluster_name }}"
         namespace: db
       spec:
-        instances: "{{ replicas.postgres }}" 
+        instances: "{{ replicas.postgres | int }}"
         storage:
           size: "{{ storage.postgres_size }}"
           storageClass: "{{ storage.storage_class }}"
