@@ -112,6 +112,30 @@
         periodSeconds: 10
         failureThreshold: 20
 
+- name: Deploy Fluent-bit via Helm
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: fluent-bit
+    chart_ref: fluent/fluent-bit
+    release_namespace: logging
+    create_namespace: true
+    wait: yes
+    values:
+      backend:
+        type: es
+        es:
+          host: opensearch-cluster-master.opensearch.svc.cluster.local
+          port: 9200
+          http_user: admin
+          http_passwd: "{{ opensearch.admin_password }}"
+          tls: On
+          tls_verify: Off
+      tolerations:
+        - key: "workload"
+          operator: "Exists"
+          
 - name: Deploy kube-prometheus-stack via Helm
   become: true
   delegate_to: k8s-ctrl
@@ -242,3 +266,4 @@
           name: app-db-secret
         enableSuperuserAccess: true
     wait: yes
+
