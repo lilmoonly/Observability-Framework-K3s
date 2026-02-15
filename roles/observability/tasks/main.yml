@@ -9,7 +9,7 @@
   args:
     creates: /usr/local/bin/helm
 
-- name: Add Helm repos for OpenSearch, Prometheus, and CloudNativePG
+- name: Add Helm repos for OpenSearch, Prometheus, CloudNativePG, and Fluent-bit
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
@@ -17,7 +17,21 @@
     /usr/local/bin/helm repo add opensearch https://opensearch-project.github.io/helm-charts/
     /usr/local/bin/helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
     /usr/local/bin/helm repo add cnpg https://cloudnative-pg.github.io/charts
+    /usr/local/bin/helm repo add fluent https://fluent.github.io/helm-charts
     /usr/local/bin/helm repo update
+
+- name: Taint worker nodes for observability workloads
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    kubectl taint nodes app-worker workload=app:NoSchedule --overwrite
+    kubectl taint nodes db-worker workload=db:NoSchedule --overwrite
+    kubectl taint nodes logging-node workload=logging:NoSchedule --overwrite
+    kubectl taint nodes monitor-node workload=monitoring:NoSchedule --overwrite
+    kubectl taint nodes ai-node workload=ai:NoSchedule --overwrite
+  register: taint_result
+  failed_when: "taint_result.rc != 0 and 'already has' not in taint_result.stderr"
 
 - name: Deploy OpenSearch via Helm
   become: true
@@ -119,23 +133,26 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: fluent-bit
     chart_ref: fluent/fluent-bit
-    release_namespace: logging
-    create_namespace: true
+    release_namespace: opensearch
     wait: yes
     values:
-      backend:
-        type: es
-        es:
-          host: opensearch-cluster-master.opensearch.svc.cluster.local
-          port: 9200
-          http_user: admin
-          http_passwd: "{{ opensearch.admin_password }}"
-          tls: On
-          tls_verify: Off
+      config:
+        outputs: |
+          [OUTPUT]
+              Name  es
+              Match *
+              Host  opensearch-cluster-master.opensearch.svc.cluster.local
+              Port  9200
+              HTTP_User admin
+              HTTP_Passwd {{ opensearch.admin_password }}
+              tls On
+              tls.verify Off
+              Index fluent-bit
+              Suppress_Type_Name On
       tolerations:
-        - key: "workload"
-          operator: "Exists"
-          
+        - operator: "Exists"
+          effect: "NoSchedule"
+
 - name: Deploy kube-prometheus-stack via Helm
   become: true
   delegate_to: k8s-ctrl
@@ -190,19 +207,6 @@
     create_namespace: true
     wait: yes
 
-- name: Taint worker nodes for observability workloads
-  become: true
-  delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-    kubectl taint nodes app-worker workload=app:NoSchedule --overwrite
-    kubectl taint nodes db-worker workload=db:NoSchedule --overwrite
-    kubectl taint nodes logging-node workload=logging:NoSchedule --overwrite
-    kubectl taint nodes monitor-node workload=monitoring:NoSchedule --overwrite
-    kubectl taint nodes ai-node workload=ai:NoSchedule --overwrite
-  register: taint_result
-  failed_when: "taint_result.rc != 0 and 'already has' not in taint_result.stderr"
-
 - name: Create db namespace
   become: true
   delegate_to: k8s-ctrl
@@ -245,7 +249,7 @@
         name: "{{ database.cluster_name }}"
         namespace: db
       spec:
-        instances: "{{ replicas.postgres | int }}"
+        instances: {{ replicas.postgres | int }}
         storage:
           size: "{{ storage.postgres_size }}"
           storageClass: "{{ storage.storage_class }}"
@@ -266,4 +270,3 @@
           name: app-db-secret
         enableSuperuserAccess: true
     wait: yes
-
