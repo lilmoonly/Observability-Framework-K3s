@@ -242,31 +242,5 @@
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
-    definition:
-      apiVersion: postgresql.cnpg.io/v1
-      kind: Cluster
-      metadata:
-        name: "{{ database.cluster_name }}"
-        namespace: db
-      spec:
-        instances: {{ replicas.postgres | int }}
-        storage:
-          size: "{{ storage.postgres_size }}"
-          storageClass: "{{ storage.storage_class }}"
-        nodeSelector:
-          workload: "{{ database.node_selector_label }}"
-        tolerations:
-          - key: "workload"
-            operator: "Equal"
-            value: "{{ database.node_selector_label }}"
-            effect: "NoSchedule"
-        bootstrap:
-          initdb:
-            database: app
-            owner: appuser
-            secret:
-              name: app-db-secret
-        superuserSecret:
-          name: app-db-secret
-        enableSuperuserAccess: true
+    template: "postgres-cluster.yaml.j2"
     wait: yes
