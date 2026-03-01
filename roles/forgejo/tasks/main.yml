@@ -11,6 +11,15 @@
       metadata:
         name: forgejo
 
+- name: Wait for database to be ready
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    kubectl wait --for=condition=Ready cluster/{{ database.cluster_name }} -n db --timeout=300s
+  register: wait_db_result
+  failed_when: wait_db_result.rc != 0
+
 - name: Create Forgejo admin secret
   become: true
   delegate_to: k8s-ctrl
@@ -48,7 +57,11 @@
           name: app
           user: appuser
           password: appuserpassword
+          builtIn:
+            enabled: false
         config:
+          database:
+            DB_TYPE: postgres
           metrics:
             ENABLED: true
       persistence:
@@ -64,4 +77,4 @@
       service:
         http:
           type: LoadBalancer
-          port: {{ forgejo.port }}
+          port: "{{ forgejo.port }}"
