@@ -1,4 +1,6 @@
 ---
+# tasks file for forgejo role to deploy Forgejo via Helm
+
 - name: Add Forgejo Helm repo
   become: true
   delegate_to: k8s-ctrl
@@ -29,7 +31,6 @@
     release_namespace: forgejo
     create_namespace: false
     wait: yes
-    timeout: 600s
     values:
       nodeSelector:
         workload: app
@@ -48,4 +49,4 @@
       service:
         http:
           type: LoadBalancer
-          port: "{{ forgejo.port }}"
+          port: {{ forgejo.port }}
