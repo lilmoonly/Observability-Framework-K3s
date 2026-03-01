@@ -1,11 +1,4 @@
 ---
-- name: Add Forgejo Helm repo
-  kubernetes.core.helm_repository:
-    name: forgejo
-    repo_url: "https://forgejo.github.io/charts"
-  become: true
-  delegate_to: k8s-ctrl
-
 - name: Create forgejo namespace
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
@@ -18,17 +11,17 @@
   become: true
   delegate_to: k8s-ctrl
 
-- name: Deploy Forgejo via Helm
+- name: Deploy Forgejo via OCI Registry
   become: true
   delegate_to: k8s-ctrl
   community.kubernetes.helm:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: forgejo
-    chart_ref: forgejo/forgejo
+    chart_ref: oci://codeberg.org/forgejo-helm/forgejo
     release_namespace: forgejo
     create_namespace: false
     wait: yes
-    timeout: 600s  
+    timeout: 600s
     values:
       nodeSelector:
         workload: app
@@ -40,11 +33,11 @@
       gitea:
         database:
           type: postgres
-          host: "{{ forgejo.db_host }}"
+          host: "app-db-cluster-rw.db.svc.cluster.local"
           user: "{{ forgejo.db_user }}"
           password: "{{ forgejo.db_password }}"
           name: "{{ forgejo.db_name }}"
       service:
         http:
           type: LoadBalancer
-          port: "{{ forgejo.port }}"
+          port: "{{ forgejo.port | int }}"
