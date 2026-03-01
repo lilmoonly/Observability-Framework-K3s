@@ -108,6 +108,7 @@ forgejo:
   db_user: appuser
   db_name: app
   db_password: appuserpassword
+  admin_password: "StrongAdminPassword123!" 
 
 
 
