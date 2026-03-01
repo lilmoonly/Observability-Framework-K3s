@@ -232,9 +232,9 @@
         name: app-db-secret
         namespace: db
       type: Opaque
-      data:
-        username: "{{ 'appuser' | b64encode }}"
-        password: "{{ 'appuserpassword' | b64encode }}"
+      stringData:
+        username: "{{ forgejo.db_user }}"
+        password: "{{ forgejo.db_password }}"
 
 - name: Deploy PostgreSQL Cluster resource (HA)
   become: true
