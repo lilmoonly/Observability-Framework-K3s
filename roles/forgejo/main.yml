@@ -48,4 +48,4 @@
       service:
         http:
           type: LoadBalancer
-          port: {{ forgejo.port }}
+          port: "{{ forgejo.port }}"

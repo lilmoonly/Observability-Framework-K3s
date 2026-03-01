@@ -1,6 +1,4 @@
 ---
-# site.yml - Main playbook to orchestrate K3s cluster deployment
-
 - name: Phase 1 - Prepare All Nodes
   hosts: k8s_cluster
   become: true
@@ -25,7 +23,7 @@
   roles:
     - observability
 
-- name: Phase 6 - Deploy Forgejo
+- name: Phase 5 - Deploy Forgejo
   hosts: master
   become: true
   roles:
