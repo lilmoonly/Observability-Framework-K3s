@@ -104,11 +104,12 @@ opensearch_dashboards_port: 5601
 # ==========================================
 forgejo:
   port: 8080
-  db_host: app-db-cluster-rw.db.svc.cluster.local
-  db_user: appuser
-  db_name: app
-  db_password: appuserpassword
-  admin_password: "StrongAdminPassword123!" 
-
+  admin_username: "forgejo_admin"
+  admin_password: "Strong_AdminPassword123!" # Change this!
+  admin_email: "admin@example.com"
+  db_host: "app-db-cluster-rw.db.svc.cluster.local:5432"
+  db_name: "app"
+  db_user: "appuser"
+  db_password: "appuserpassword"
 
 

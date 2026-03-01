@@ -11,16 +11,7 @@
       metadata:
         name: forgejo
 
-- name: Wait for database to be ready
-  become: true
-  delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-    kubectl wait --for=condition=Ready cluster/{{ database.cluster_name }} -n db --timeout=300s
-  register: wait_db_result
-  failed_when: wait_db_result.rc != 0
-
-- name: Create Forgejo admin secret
+- name: Create Forgejo Admin Secret
   become: true
   delegate_to: k8s-ctrl
   kubernetes.core.k8s:
@@ -34,7 +25,7 @@
         namespace: forgejo
       type: Opaque
       stringData:
-        username: forgejo_admin
+        username: "{{ forgejo.admin_username }}"
         password: "{{ forgejo.admin_password }}"
 
 - name: Deploy Forgejo via OCI Helm chart
@@ -47,22 +38,43 @@
     release_namespace: forgejo
     create_namespace: false
     wait: yes
+    timeout: 600s
     values:
+      # Image Configuration
+      image:
+        rootless: true
+      
+      # Admin User Configuration
       gitea:
         admin:
           existingSecret: forgejo-admin-secret
+          email: "{{ forgejo.admin_email }}"
+          passwordMode: keepUpdated
+        
+        # Database Configuration (External Postgres)
         config:
           database:
             DB_TYPE: postgres
-            HOST: app-db-cluster-rw.db.svc.cluster.local
+            HOST: "{{ forgejo.db_host }}"
             NAME: "{{ forgejo.db_name }}"
             USER: "{{ forgejo.db_user }}"
             PASSWD: "{{ forgejo.db_password }}"
+          # Enable Prometheus Metrics
           metrics:
             ENABLED: true
+          server:
+            HTTP_PORT: 3000
+            PROTOCOL: http
+            DOMAIN: "192.168.56.10"
+            ROOT_URL: "http://192.168.56.10:{{ forgejo.port }}"
+
+      # Persistence (Save data to disk)
       persistence:
         enabled: true
         storageClass: local-path
+        size: 10Gi
+
+      # Node Placement (Pin to app-worker)
       nodeSelector:
         workload: app
       tolerations:
@@ -70,7 +82,22 @@
           operator: "Equal"
           value: "app"
           effect: "NoSchedule"
+
+      # Networking
       service:
         http:
           type: LoadBalancer
-          port: {{ forgejo.port }}
+          port: "{{ forgejo.port | int }}"
+
+      # Health Probes (Adjusted for stability)
+      gitea:
+        startupProbe:
+          enabled: true
+          tcpSocket:
+            port: 3000
+          initialDelaySeconds: 60
+          failureThreshold: 20
+        livenessProbe:
+          initialDelaySeconds: 200
+          tcpSocket:
+            port: 3000
