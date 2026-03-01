@@ -168,7 +168,6 @@
 
 - name: Create ConfigMaps for Grafana dashboards
   become: true
-  delegate_to: k8s-ctrl
   vars:
     dashboards_dir: "{{ role_path }}/files/dashboards"
   loop: "{{ grafana_dashboards }}"
@@ -177,16 +176,7 @@
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
-    definition:
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: "grafana-dashboard-{{ dashboard_id }}"
-        namespace: monitoring
-        labels:
-          grafana_dashboard: "1"
-      data:
-        "dashboard.json": "{{ lookup('file', dashboards_dir + '/dashboard_' + dashboard_id + '.json') | to_json }}"
+    template: grafana-dashboard-cm.j2
 
 - name: Deploy kube-prometheus-stack via Helm
   become: true
