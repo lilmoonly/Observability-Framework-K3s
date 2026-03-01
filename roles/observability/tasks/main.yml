@@ -153,6 +153,41 @@
         - operator: "Exists"
           effect: "NoSchedule"
 
+- name: Download Grafana dashboards
+  delegate_to: localhost
+  run_once: true
+  vars:
+    dashboards_dir: "{{ role_path }}/files/dashboards"
+  loop: "{{ grafana_dashboards }}"
+  loop_control:
+    loop_var: dashboard_id
+  get_url:
+    url: "https://grafana.com/api/dashboards/{{ dashboard_id }}/revisions/1/download"
+    dest: "{{ dashboards_dir }}/dashboard_{{ dashboard_id }}.json"
+    mode: '0644'
+
+- name: Create ConfigMaps for Grafana dashboards
+  become: true
+  delegate_to: k8s-ctrl
+  vars:
+    dashboards_dir: "{{ role_path }}/files/dashboards"
+  loop: "{{ grafana_dashboards }}"
+  loop_control:
+    loop_var: dashboard_id
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "grafana-dashboard-{{ dashboard_id }}"
+        namespace: monitoring
+        labels:
+          grafana_dashboard: "1"
+      data:
+        "dashboard.json": "{{ lookup('file', dashboards_dir + '/dashboard_' + dashboard_id + '.json') | to_json }}"
+
 - name: Deploy kube-prometheus-stack via Helm
   become: true
   delegate_to: k8s-ctrl
@@ -188,6 +223,13 @@
         service:
           type: LoadBalancer
           port: "{{ grafana_port }}"
+        defaultDashboardsEnabled: false
+        sidecar:
+          dashboards:
+            enabled: true
+            label: grafana_dashboard
+            labelValue: "1"
+            searchNamespace: ALL
       nodeSelector:
         workload: "{{ monitoring.node_selector_label }}"
       tolerations:
