@@ -98,3 +98,14 @@ replicas:
 # ==========================================
 grafana_port: 3000
 opensearch_dashboards_port: 5601
+
+# ==========================================
+# 11. FORGEJO CONFIGURATION
+# ==========================================
+forgejo:
+  port: 8080
+  db_host: app-db-cluster-rw.db.svc.cluster.local
+  db_user: appuser
+  db_name: app
+  db_password: appuserpassword
+

@@ -1,0 +1,51 @@
+---
+- name: Add Forgejo Helm repo
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    helm repo add forgejo https://forgejo.github.io/charts
+    helm repo update
+
+- name: Create forgejo namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: forgejo
+
+- name: Deploy Forgejo via Helm
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: forgejo
+    chart_ref: forgejo/forgejo
+    release_namespace: forgejo
+    create_namespace: false
+    wait: yes
+    timeout: 600s
+    values:
+      nodeSelector:
+        workload: app
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "app"
+          effect: "NoSchedule"
+      gitea:
+        database:
+          type: postgres
+          host: "{{ forgejo.db_host }}"
+          user: "{{ forgejo.db_user }}"
+          password: "{{ forgejo.db_password }}"
+          name: "{{ forgejo.db_name }}"
+      service:
+        http:
+          type: LoadBalancer
+          port: {{ forgejo.port }}

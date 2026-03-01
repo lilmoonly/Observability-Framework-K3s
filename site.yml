@@ -24,3 +24,9 @@
   become: true
   roles:
     - observability
+
+- name: Phase 6 - Deploy Forgejo
+  hosts: master
+  become: true
+  roles:
+    - forgejo

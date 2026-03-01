@@ -242,5 +242,5 @@
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
-    template: "postgres-cluster.yaml.j2"
+    template: "postgres-cluster.yaml.j2" 
     wait: yes
