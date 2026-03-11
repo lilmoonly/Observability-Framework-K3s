@@ -7,29 +7,17 @@ spec:
   instances: {{ replicas.postgres | int }}
   
   affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-        - matchExpressions:
-          - key: workload
-            operator: In
-            values:
-            - "{{ database.node_selector_label }}"
+    nodeSelector:
+      workload: "db"
   tolerations:
-    - key: "workload"
-      operator: "Equal"
-      value: "{{ database.node_selector_label }}"
-      effect: "NoSchedule"
+    - operator: "Exists"
 
   template:
     spec:
       nodeSelector:
-        workload: "{{ database.node_selector_label }}"
+        workload: "db"
       tolerations:
-        - key: "workload"
-          operator: "Equal"
-          value: "{{ database.node_selector_label }}"
-          effect: "NoSchedule"
+        - operator: "Exists"
 
   storage:
     size: "{{ storage.postgres_size }}"
