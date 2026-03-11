@@ -225,13 +225,11 @@
     create_namespace: true
     wait: yes
     values:
+      # Allow the operator to run on any node despite taints
+      tolerations:
+        - operator: "Exists"
       nodeSelector:
         workload: "db"
-      tolerations:
-        - key: "workload"
-          operator: "Equal"
-          value: "db"
-          effect: "NoSchedule"
 
 - name: Create db namespace
   kubernetes.core.k8s:
