@@ -17,8 +17,8 @@ spec:
       effect: "NoSchedule"
   bootstrap:
     initdb:
-      database: app
-      owner: appuser
+      database: "{{ forgejo.db_name }}"
+      owner: "{{ forgejo.db_user }}"
       secret:
         name: app-db-secret
   superuserSecret:
