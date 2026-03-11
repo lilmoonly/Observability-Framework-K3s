@@ -6,16 +6,15 @@ metadata:
 spec:
   instances: {{ replicas.postgres | int }}
   
-  # This ensures the database pods go to the right node
-  nodeSelector:
-    workload: "{{ database.node_selector_label }}"
-  
-  # This allows the database pods to ignore the Taint
-  tolerations:
-    - key: "workload"
-      operator: "Equal"
-      value: "{{ database.node_selector_label }}"
-      effect: "NoSchedule"
+  template:
+    spec:
+      nodeSelector:
+        workload: "{{ database.node_selector_label }}"
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "{{ database.node_selector_label }}"
+          effect: "NoSchedule"
 
   storage:
     size: "{{ storage.postgres_size }}"
@@ -27,7 +26,7 @@ spec:
       owner: "{{ forgejo.db_user }}"
       secret:
         name: app-db-secret
-
+  
   superuserSecret:
     name: app-db-secret
   enableSuperuserAccess: true
