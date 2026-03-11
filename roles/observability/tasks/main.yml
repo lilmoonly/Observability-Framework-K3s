@@ -214,7 +214,7 @@
             effect: "NoSchedule"
 
 # 7. Database Setup
-- name: Install CloudNativePG operator via Helm
+- name: Install CloudNativePG operator
   become: true
   delegate_to: k8s-ctrl
   community.kubernetes.helm:
@@ -225,16 +225,13 @@
     create_namespace: true
     wait: yes
     values:
+      nodeSelector:
+        workload: "db"
       tolerations:
-        - key: "node-role.kubernetes.io/master"
-          operator: "Exists"
-          effect: "NoSchedule"
         - key: "workload"
           operator: "Equal"
           value: "db"
           effect: "NoSchedule"
-      nodeSelector:
-        workload: "db"
 
 - name: Create db namespace
   kubernetes.core.k8s:

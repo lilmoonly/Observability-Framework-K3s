@@ -19,7 +19,7 @@ spec:
     - key: "workload"
       operator: "Equal"
       value: "{{ database.node_selector_label }}"
-      推effect: "NoSchedule"
+      effect: "NoSchedule"
 
   template:
     spec:
