@@ -157,13 +157,19 @@
           nodeSelector:
             workload: "{{ monitoring.node_selector_label }}"
           tolerations:
-            - operator: "Exists"
+            - key: "workload"
+              operator: "Equal"
+              value: "{{ monitoring.node_selector_label }}"
+              effect: "NoSchedule"
       alertmanager:
         alertmanagerSpec:
           nodeSelector:
             workload: "{{ monitoring.node_selector_label }}"
           tolerations:
-            - operator: "Exists"
+            - key: "workload"
+              operator: "Equal"
+              value: "{{ monitoring.node_selector_label }}"
+              effect: "NoSchedule"
       grafana:
         adminPassword: "{{ monitoring.grafana_admin_password }}"
         service:
@@ -172,17 +178,40 @@
         nodeSelector:
           workload: "{{ monitoring.node_selector_label }}"
         tolerations:
-          - operator: "Exists"
+          - key: "workload"
+            operator: "Equal"
+            value: "{{ monitoring.node_selector_label }}"
+            effect: "NoSchedule"
       prometheusOperator:
         nodeSelector:
           workload: "{{ monitoring.node_selector_label }}"
         tolerations:
-          - operator: "Exists"
-      kubeStateMetrics:
+          - key: "workload"
+            operator: "Equal"
+            value: "{{ monitoring.node_selector_label }}"
+            effect: "NoSchedule"
+        admissionWebhooks:
+          patch:
+            nodeSelector:
+              workload: "{{ monitoring.node_selector_label }}"
+            tolerations:
+              - key: "workload"
+                operator: "Equal"
+                value: "{{ monitoring.node_selector_label }}"
+                effect: "NoSchedule"
+      kube-state-metrics:
         nodeSelector:
           workload: "{{ monitoring.node_selector_label }}"
         tolerations:
+          - key: "workload"
+            operator: "Equal"
+            value: "{{ monitoring.node_selector_label }}"
+            effect: "NoSchedule"
+      nodeExporter:
+        enabled: true
+        tolerations:
           - operator: "Exists"
+            effect: "NoSchedule"
 
 # 7. Database Setup
 - name: Install CloudNativePG operator
