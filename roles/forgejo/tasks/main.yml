@@ -63,7 +63,7 @@
           metrics:
             ENABLED: true
           server:
-            HTTP_PORT: 3000
+            HTTP_PORT: "{{ forgejo.port | int }}"
             PROTOCOL: http
             DOMAIN: "192.168.56.10"
             ROOT_URL: "http://192.168.56.10:{{ forgejo.port }}"
@@ -94,10 +94,10 @@
         startupProbe:
           enabled: true
           tcpSocket:
-            port: 3000
+            port: http
           initialDelaySeconds: 60
           failureThreshold: 20
         livenessProbe:
           initialDelaySeconds: 200
           tcpSocket:
-            port: 3000
+            port: http
