@@ -6,18 +6,24 @@ metadata:
 spec:
   instances: {{ replicas.postgres | int }}
   
-  affinity:
-    nodeSelector:
-      workload: "db"
-  tolerations:
-    - operator: "Exists"
+  nodeSelector:
+    workload: "db"
 
-  template:
-    spec:
-      nodeSelector:
-        workload: "db"
-      tolerations:
-        - operator: "Exists"
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "db"
+      effect: "NoSchedule"
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: workload
+            operator: In
+            values:
+            - db
 
   storage:
     size: "{{ storage.postgres_size }}"

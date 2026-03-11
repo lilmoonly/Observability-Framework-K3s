@@ -225,60 +225,23 @@
     create_namespace: true
     wait: yes
     values:
-      # Allow the operator to run on any node despite taints
-      tolerations:
-        - operator: "Exists"
       nodeSelector:
         workload: "db"
-
-# - name: Create db namespace
-#   kubernetes.core.k8s:
-#     kubeconfig: /etc/rancher/k3s/k3s.yaml
-#     name: db
-#     kind: Namespace
-#     state: present
-#   delegate_to: k8s-ctrl
-
-# - name: Create app-db-secret
-#   kubernetes.core.k8s:
-#     kubeconfig: /etc/rancher/k3s/k3s.yaml
-#     state: present
-#     definition:
-#       apiVersion: v1
-#       kind: Secret
-#       metadata:
-#         name: app-db-secret
-#         namespace: db
-#       type: Opaque
-#       stringData:
-#         username: "{{ forgejo.db_user }}"
-#         password: "{{ forgejo.db_password }}"
-#   delegate_to: k8s-ctrl
-
-# - name: Deploy PostgreSQL Cluster
-#   become: true
-#   delegate_to: k8s-ctrl
-#   kubernetes.core.k8s:
-#     kubeconfig: /etc/rancher/k3s/k3s.yaml
-#     state: present
-#     template: "postgres-cluster.yaml.j2"
-#     wait: yes
-
-# ──────────────────────────────────────────────
-# PostgreSQL (CloudNativePG) Deployment
-# ──────────────────────────────────────────────
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "db"
+          effect: "NoSchedule"
 
 - name: Create db namespace
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: db
+    kind: Namespace
     state: present
-    definition:
-      apiVersion: v1
-      kind: Namespace
-      metadata:
-        name: db
+  delegate_to: k8s-ctrl
 
-- name: Create PostgreSQL secret
+- name: Create app-db-secret
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
@@ -288,101 +251,151 @@
       metadata:
         name: app-db-secret
         namespace: db
-      type: kubernetes.io/basic-auth
+      type: Opaque
       stringData:
         username: "{{ forgejo.db_user }}"
         password: "{{ forgejo.db_password }}"
+  delegate_to: k8s-ctrl
 
-# --- Step 1: Temporarily remove taint from db-worker ---
-- name: Temporarily remove workload taint from db-worker for initdb Job
-  command: >
-    kubectl taint nodes db-worker workload=db:NoSchedule-
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: taint_remove_result
-  changed_when: "'untainted' in taint_remove_result.stdout"
-  failed_when: false
-
-- name: Show taint removal result
-  debug:
-    msg: "{{ taint_remove_result.stdout | default('No output') }}"
-
-# --- Step 2: Deploy PostgreSQL Cluster CR ---
 - name: Deploy PostgreSQL Cluster
+  become: true
+  delegate_to: k8s-ctrl
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
     definition: "{{ lookup('template', 'postgres-cluster.yaml.j2') | from_yaml }}"
+  register: pg_deploy
 
-# --- Step 3: Wait for initdb Job to complete ---
-- name: Wait for CNPG initdb Job to be created
-  command: >
-    kubectl get jobs -n db -l cnpg.io/cluster={{ database.cluster_name }} -o name
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: initdb_job
+- name: Wait for PostgreSQL Cluster to be Healthy
+  become: true
+  delegate_to: k8s-ctrl
+  shell: |
+    kubectl get cluster {{ database.cluster_name }} -n db -o jsonpath='{.status.phase}'
+  register: cluster_phase
+  until: cluster_phase.stdout == "Cluster in healthy state"
   retries: 30
   delay: 10
-  until: initdb_job.stdout | length > 0
   changed_when: false
 
-- name: Show detected initdb Job
-  debug:
-    msg: "Found initdb job: {{ initdb_job.stdout }}"
+# ──────────────────────────────────────────────
+# PostgreSQL (CloudNativePG) Deployment
+# ──────────────────────────────────────────────
 
-- name: Wait for initdb Job pod to be scheduled and running
-  command: >
-    kubectl get pods -n db -l job-name -o jsonpath='{.items[0].status.phase}'
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: initdb_pod_phase
-  retries: 30
-  delay: 10
-  until: initdb_pod_phase.stdout in ['Running', 'Succeeded']
-  changed_when: false
-  failed_when: false
+# - name: Create db namespace
+#   kubernetes.core.k8s:
+#     kubeconfig: /etc/rancher/k3s/k3s.yaml
+#     state: present
+#     definition:
+#       apiVersion: v1
+#       kind: Namespace
+#       metadata:
+#         name: db
 
-# --- Step 4: Wait for PostgreSQL Cluster to become healthy ---
-- name: Wait for PostgreSQL Cluster to reach Ready state
-  command: >
-    kubectl get cluster {{ database.cluster_name }} -n db
-    -o jsonpath='{.status.phase}'
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: pg_cluster_status
-  retries: 60
-  delay: 15
-  until: pg_cluster_status.stdout == "Cluster in healthy state"
-  changed_when: false
+# - name: Create PostgreSQL secret
+#   kubernetes.core.k8s:
+#     kubeconfig: /etc/rancher/k3s/k3s.yaml
+#     state: present
+#     definition:
+#       apiVersion: v1
+#       kind: Secret
+#       metadata:
+#         name: app-db-secret
+#         namespace: db
+#       type: kubernetes.io/basic-auth
+#       stringData:
+#         username: "{{ forgejo.db_user }}"
+#         password: "{{ forgejo.db_password }}"
 
-- name: Show PostgreSQL Cluster status
-  debug:
-    msg: "PostgreSQL Cluster status: {{ pg_cluster_status.stdout }}"
+# # --- Step 1: Temporarily remove taint from db-worker ---
+# - name: Temporarily remove workload taint from db-worker for initdb Job
+#   command: >
+#     kubectl taint nodes db-worker workload=db:NoSchedule-
+#   environment:
+#     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+#   register: taint_remove_result
+#   changed_when: "'untainted' in taint_remove_result.stdout"
+#   failed_when: false
 
-# --- Step 5: Re-apply the taint to db-worker ---
-- name: Re-apply workload taint to db-worker
-  command: >
-    kubectl taint nodes db-worker workload=db:NoSchedule
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: taint_reapply_result
-  changed_when: "'tainted' in taint_reapply_result.stdout"
-  failed_when: false
+# - name: Show taint removal result
+#   debug:
+#     msg: "{{ taint_remove_result.stdout | default('No output') }}"
 
-- name: Show taint re-application result
-  debug:
-    msg: "{{ taint_reapply_result.stdout | default('No output') }}"
+# # --- Step 2: Deploy PostgreSQL Cluster CR ---
+# - name: Deploy PostgreSQL Cluster
+#   kubernetes.core.k8s:
+#     kubeconfig: /etc/rancher/k3s/k3s.yaml
+#     state: present
+#     definition: "{{ lookup('template', 'postgres-cluster.yaml.j2') | from_yaml }}"
 
-# --- Step 6: Verify PostgreSQL pods are running ---
-- name: Verify PostgreSQL instance pods are running
-  command: >
-    kubectl get pods -n db -l cnpg.io/cluster={{ database.cluster_name }}
-    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\n"}{end}'
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  register: pg_pods
-  changed_when: false
+# # --- Step 3: Wait for initdb Job to complete ---
+# - name: Wait for CNPG initdb Job to be created
+#   command: >
+#     kubectl get jobs -n db -l cnpg.io/cluster={{ database.cluster_name }} -o name
+#   environment:
+#     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+#   register: initdb_job
+#   retries: 30
+#   delay: 10
+#   until: initdb_job.stdout | length > 0
+#   changed_when: false
 
-- name: Show PostgreSQL pods
-  debug:
-    msg: "{{ pg_pods.stdout_lines }}"
+# - name: Show detected initdb Job
+#   debug:
+#     msg: "Found initdb job: {{ initdb_job.stdout }}"
+
+# - name: Wait for initdb Job pod to be scheduled and running
+#   command: >
+#     kubectl get pods -n db -l job-name -o jsonpath='{.items[0].status.phase}'
+#   environment:
+#     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+#   register: initdb_pod_phase
+#   retries: 30
+#   delay: 10
+#   until: initdb_pod_phase.stdout in ['Running', 'Succeeded']
+#   changed_when: false
+#   failed_when: false
+
+# # --- Step 4: Wait for PostgreSQL Cluster to become healthy ---
+# - name: Wait for PostgreSQL Cluster to reach Ready state
+#   command: >
+#     kubectl get cluster {{ database.cluster_name }} -n db
+#     -o jsonpath='{.status.phase}'
+#   environment:
+#     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+#   register: pg_cluster_status
+#   retries: 60
+#   delay: 15
+#   until: pg_cluster_status.stdout == "Cluster in healthy state"
+#   changed_when: false
+
+# - name: Show PostgreSQL Cluster status
+#   debug:
+#     msg: "PostgreSQL Cluster status: {{ pg_cluster_status.stdout }}"
+
+# # --- Step 5: Re-apply the taint to db-worker ---
+# - name: Re-apply workload taint to db-worker
+#   command: >
+#     kubectl taint nodes db-worker workload=db:NoSchedule
+#   environment:
+#     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+#   register: taint_reapply_result
+#   changed_when: "'tainted' in taint_reapply_result.stdout"
+#   failed_when: false
+
+# - name: Show taint re-application result
+#   debug:
+#     msg: "{{ taint_reapply_result.stdout | default('No output') }}"
+
+# # --- Step 6: Verify PostgreSQL pods are running ---
+# - name: Verify PostgreSQL instance pods are running
+#   command: >
+#     kubectl get pods -n db -l cnpg.io/cluster={{ database.cluster_name }}
+#     -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\n"}{end}'
+#   environment:
+#     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+#   register: pg_pods
+#   changed_when: false
+
+# - name: Show PostgreSQL pods
+#   debug:
+#     msg: "{{ pg_pods.stdout_lines }}"
