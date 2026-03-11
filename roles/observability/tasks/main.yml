@@ -20,11 +20,12 @@
     /usr/local/bin/helm repo update
 
 # 2. Prepare Nodes (Taints)
-- name: Taint worker nodes for observability workloads
+- name: Taint nodes for workload isolation
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
     export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    kubectl taint nodes k8s-ctrl node-role.kubernetes.io/master=true:NoSchedule --overwrite || true
     kubectl taint nodes app-worker workload=app:NoSchedule --overwrite || true
     kubectl taint nodes db-worker workload=db:NoSchedule --overwrite || true
     kubectl taint nodes logging-node workload=logging:NoSchedule --overwrite || true
@@ -62,9 +63,7 @@
       nodeSelector:
         workload: "{{ opensearch.node_selector_label }}"
       tolerations:
-        - key: "workload"
-          operator: "Equal"
-          value: "{{ opensearch.node_selector_label }}"
+        - operator: "Exists"
           effect: "NoSchedule"
       resources:
         limits:
@@ -72,7 +71,7 @@
       startupProbe:
         tcpSocket:
           port: 9200
-        initialDelaySeconds: 120
+        initialDelaySeconds: 180
         periodSeconds: 10
         failureThreshold: 60
 
@@ -100,18 +99,10 @@
       nodeSelector:
         workload: "logging"
       tolerations:
-        - key: "workload"
-          operator: "Equal"
-          value: "logging"
+        - operator: "Exists"
           effect: "NoSchedule"
-      startupProbe:
-        tcpSocket:
-          port: 5601
-        initialDelaySeconds: 60
-        periodSeconds: 10
-        failureThreshold: 30
 
-# 5. Deploy Fluent-bit (The "Automatic" Log Collector)
+# 5. Deploy Fluent-bit (Log Collector)
 - name: Deploy Fluent-bit via Helm
   become: true
   delegate_to: k8s-ctrl
@@ -178,6 +169,16 @@
         service:
           type: LoadBalancer
           port: "{{ grafana_port }}"
+        nodeSelector:
+          workload: "{{ monitoring.node_selector_label }}"
+        tolerations:
+          - operator: "Exists"
+      prometheusOperator:
+        nodeSelector:
+          workload: "{{ monitoring.node_selector_label }}"
+        tolerations:
+          - operator: "Exists"
+      kubeStateMetrics:
         nodeSelector:
           workload: "{{ monitoring.node_selector_label }}"
         tolerations:
