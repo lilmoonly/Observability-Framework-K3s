@@ -8,22 +8,24 @@ spec:
   
   nodeSelector:
     workload: "db"
-
   tolerations:
     - key: "workload"
       operator: "Equal"
       value: "db"
       effect: "NoSchedule"
 
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-        - matchExpressions:
-          - key: workload
-            operator: In
-            values:
-            - db
+  template:
+    metadata:
+      labels:
+        workload: "db"
+    spec:
+      nodeSelector:
+        workload: "db"
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "db"
+          effect: "NoSchedule"
 
   storage:
     size: "{{ storage.postgres_size }}"
