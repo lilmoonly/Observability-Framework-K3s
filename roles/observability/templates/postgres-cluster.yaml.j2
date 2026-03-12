@@ -5,19 +5,11 @@ metadata:
   namespace: db
 spec:
   instances: {{ replicas.postgres | int }}
-  
+
   nodeSelector:
     workload: "db"
-  tolerations:
-    - key: "workload"
-      operator: "Equal"
-      value: "db"
-      effect: "NoSchedule"
 
   template:
-    metadata:
-      labels:
-        workload: "db"
     spec:
       nodeSelector:
         workload: "db"
@@ -25,7 +17,7 @@ spec:
         - key: "workload"
           operator: "Equal"
           value: "db"
-          effect: "NoSchedule"
+          effect: "PreferNoSchedule"
 
   storage:
     size: "{{ storage.postgres_size }}"
@@ -37,7 +29,3 @@ spec:
       owner: "{{ forgejo.db_user }}"
       secret:
         name: app-db-secret
-  
-  superuserSecret:
-    name: app-db-secret
-  enableSuperuserAccess: true

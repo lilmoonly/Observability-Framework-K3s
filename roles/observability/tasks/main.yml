@@ -27,7 +27,7 @@
     export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     kubectl taint nodes k8s-ctrl node-role.kubernetes.io/master=true:NoSchedule --overwrite || true
     kubectl taint nodes app-worker workload=app:NoSchedule --overwrite || true
-    kubectl taint nodes db-worker workload=db:NoSchedule --overwrite || true
+    kubectl taint nodes db-worker workload=db:PreferNoSchedule --overwrite || true
     kubectl taint nodes logging-node workload=logging:NoSchedule --overwrite || true
     kubectl taint nodes monitor-node workload=monitoring:NoSchedule --overwrite || true
     kubectl taint nodes ai-node workload=ai:NoSchedule --overwrite || true
