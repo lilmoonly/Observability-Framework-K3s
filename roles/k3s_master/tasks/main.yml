@@ -1,12 +1,31 @@
 ---
-# tasks file for k3s_master role to install the K3s control plane
+# ============================================================
+# ROLE: k3s_master
+# Installs K3s control plane, configures kubeconfig access
+# and verifies the API server is healthy before workers join.
+# ============================================================
+
+# ============================================================
+# 1. Install K3s Control Plane
+# ============================================================
 - name: Install K3s control plane
   become: true
   ansible.builtin.shell: |
-    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='{{ k3s_version }}' K3S_TOKEN='{{ k3s_token }}' sh -s - server --node-ip={{ master_ip }} --flannel-backend=host-gw --flannel-iface={{ flannel_interface }}
+    curl -sfL https://get.k3s.io | \
+      INSTALL_K3S_VERSION='{{ k3s_version }}' \
+      K3S_TOKEN='{{ k3s_token }}' \
+      sh -s - server \
+      --node-ip={{ master_ip }} \
+      --flannel-backend=host-gw \
+      --flannel-iface={{ flannel_interface }}
   args:
     creates: /usr/local/bin/k3s
 
+# ============================================================
+# 2. Wait for kubeconfig to exist
+# K3s writes this file once the API server is ready.
+# Nothing else can proceed without it.
+# ============================================================
 - name: Wait for K3s kubeconfig to exist
   become: true
   ansible.builtin.wait_for:
@@ -14,13 +33,16 @@
     state: present
     timeout: 120
 
+# ============================================================
+# 3. Configure kubeconfig Access
+# ============================================================
 - name: Set permissions on kubeconfig for non-root access
   become: true
   ansible.builtin.file:
     path: /etc/rancher/k3s/k3s.yaml
     mode: '0644'
 
-- name: Ensure .kube directory exists in user's home
+- name: Ensure .kube directory exists in user home
   become: true
   ansible.builtin.file:
     path: "/home/{{ ansible_user }}/.kube"
@@ -29,7 +51,7 @@
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
 
-- name: Copy kubeconfig to user's .kube/config
+- name: Copy kubeconfig to user .kube/config
   become: true
   ansible.builtin.copy:
     src: /etc/rancher/k3s/k3s.yaml
@@ -38,3 +60,61 @@
     group: "{{ ansible_user }}"
     mode: '0644'
     remote_src: yes
+
+# ============================================================
+# 4. Verify API Server is Healthy
+# Polls the /healthz endpoint until K3s API responds OK.
+# This guarantees workers can safely join in Phase 3.
+# Without this check workers may try to join before the
+# API server is fully ready and fail to register.
+# ============================================================
+- name: Wait for K3s API server to be healthy
+  become: true
+  ansible.builtin.shell: |
+    kubectl get nodes \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -o jsonpath='{.items[0].status.conditions[-1].status}'
+  register: master_ready
+  until: master_ready.stdout == "True"
+  retries: 30
+  delay: 10
+  changed_when: false
+
+# ============================================================
+# 5. Verify Traefik Ingress Controller is Running
+# K3s deploys Traefik automatically as a DaemonSet.
+# We confirm it is running before Phase 7 ingress rules
+# are created — if Traefik is not ready the Ingress
+# resources will exist but no traffic will be routed.
+# ============================================================
+- name: Wait for Traefik ingress controller to be ready
+  become: true
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n kube-system \
+      -l app.kubernetes.io/name=traefik \
+      -o jsonpath='{.items[0].status.phase}'
+  register: traefik_status
+  until: traefik_status.stdout == "Running"
+  retries: 30
+  delay: 10
+  changed_when: false
+
+# ============================================================
+# 6. Show Master Node Status
+# Final confirmation before handing off to Phase 3.
+# Shows node name, status, K3s version and internal IP.
+# ============================================================
+- name: Show master node status
+  become: true
+  ansible.builtin.shell: |
+    kubectl get nodes \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -o wide
+  register: master_status
+  changed_when: false
+
+- name: Print master node status
+  ansible.builtin.debug:
+    var: master_status.stdout_lines

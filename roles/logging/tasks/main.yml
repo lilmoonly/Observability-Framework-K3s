@@ -1,0 +1,189 @@
+---
+# ============================================================
+# ROLE: logging
+# Deploys the full logging stack:
+#   - OpenSearch        (log storage + search)
+#   - OpenSearch Dashboards (log visualization UI)
+#   - Fluent-bit        (log collector DaemonSet)
+#
+# All components pinned to logging-node via nodeSelector.
+# Service type is ClusterIP — Ingress handles routing.
+#
+# Depends on:
+#   - common role (Helm installed + repos added)
+#   - k3s_master + k3s_worker (cluster must be healthy)
+# ============================================================
+
+# ============================================================
+# 1. Deploy OpenSearch
+# ============================================================
+- name: Deploy OpenSearch via Helm
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: opensearch
+    chart_ref: opensearch/opensearch
+    release_namespace: opensearch
+    create_namespace: true
+    wait: yes
+    timeout: 1500s
+    values:
+      persistence:
+        enabled: true
+        storageClass: "{{ storage.storage_class }}"
+      singleNode: true
+      securityConfig:
+        enabled: true
+      extraEnvs:
+        - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+          value: "{{ opensearch.admin_password }}"
+        - name: node.store.allow_mmap
+          value: "false"
+        - name: OPENSEARCH_JAVA_OPTS
+          value: "-Xmx{{ opensearch.heap_size }} -Xms{{ opensearch.heap_size }}"
+      nodeSelector:
+        workload: "{{ opensearch.node_selector_label }}"
+      tolerations:
+        - operator: "Exists"
+          effect:   "NoSchedule"
+      resources:
+        limits:
+          memory: 2Gi
+      startupProbe:
+        tcpSocket:
+          port: 9200
+        initialDelaySeconds: 180
+        periodSeconds:       10
+        failureThreshold:    60
+
+# ============================================================
+# 2. Wait for OpenSearch to Be Ready
+# Dashboards and Fluent-bit both depend on OpenSearch
+# being fully up before they start — without this check
+# they will fail their initial connection attempts.
+# ============================================================
+- name: Wait for OpenSearch pod to be ready
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n opensearch \
+      -l app.kubernetes.io/name=opensearch \
+      -o jsonpath='{.items[0].status.phase}'
+  register: opensearch_status
+  until: opensearch_status.stdout == "Running"
+  retries: 40
+  delay: 15
+  changed_when: false
+
+# ============================================================
+# 3. Deploy OpenSearch Dashboards
+# ============================================================
+- name: Deploy OpenSearch Dashboards via Helm
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: opensearch-dashboards
+    chart_ref: opensearch/opensearch-dashboards
+    release_namespace: opensearch
+    wait: yes
+    values:
+      opensearchHosts: "https://opensearch-cluster-master:9200"
+      config:
+        opensearch_dashboards.yml:
+          server.host: "0.0.0.0"
+          opensearch.ssl.verificationMode: none
+          opensearch.username: "admin"
+          opensearch.password: "{{ opensearch.admin_password }}"
+      # ClusterIP — Ingress role handles external routing
+      service:
+        type: ClusterIP
+        port: "{{ opensearch_dashboards_port }}"
+      nodeSelector:
+        workload: "logging"
+      tolerations:
+        - operator: "Exists"
+          effect:   "NoSchedule"
+
+# ============================================================
+# 4. Deploy Fluent-bit
+# Runs as a DaemonSet on all nodes — collects logs from
+# every pod and ships them to OpenSearch.
+# tolerations with operator Exists ensures it runs on
+# all nodes regardless of their workload taints.
+# ============================================================
+- name: Deploy Fluent-bit via Helm
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: fluent-bit
+    chart_ref: fluent/fluent-bit
+    release_namespace: opensearch
+    wait: yes
+    values:
+      config:
+        outputs: |
+          [OUTPUT]
+              Name  es
+              Match *
+              Host  opensearch-cluster-master.opensearch.svc.cluster.local
+              Port  9200
+              HTTP_User admin
+              HTTP_Passwd {{ opensearch.admin_password }}
+              tls On
+              tls.verify Off
+              Index fluent-bit
+              Suppress_Type_Name On
+      tolerations:
+        - operator: "Exists"
+          effect:   "NoSchedule"
+
+# ============================================================
+# 5. Verify Logging Stack is Healthy
+# Confirms all three components are running before
+# handing off to the monitoring role in Phase 6.
+# ============================================================
+- name: Verify OpenSearch is accepting connections
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n opensearch \
+      $(kubectl get pod \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml \
+        -n opensearch \
+        -l app.kubernetes.io/name=opensearch \
+        -o jsonpath='{.items[0].metadata.name}') \
+      -- curl -sk \
+      -u admin:{{ opensearch.admin_password }} \
+      https://localhost:9200/_cluster/health \
+      | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['status'])"
+  register: opensearch_health
+  until: opensearch_health.stdout in ['green', 'yellow']
+  retries: 20
+  delay: 15
+  changed_when: false
+
+- name: Show OpenSearch cluster health
+  ansible.builtin.debug:
+    msg: "OpenSearch cluster health: {{ opensearch_health.stdout }}"
+
+- name: Show logging stack pod summary
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n opensearch \
+      -o wide
+  register: logging_pods
+  changed_when: false
+
+- name: Print logging stack pod summary
+  ansible.builtin.debug:
+    var: logging_pods.stdout_lines

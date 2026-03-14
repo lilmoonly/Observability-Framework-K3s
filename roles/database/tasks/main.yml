@@ -1,0 +1,218 @@
+---
+# ============================================================
+# ROLE: database
+# Deploys CloudNativePG operator and PostgreSQL cluster.
+# Creates all required secrets for DB access and replication.
+#
+# Depends on:
+#   - common role (Helm installed + repos added)
+#   - k3s_master + k3s_worker (cluster must be healthy)
+# ============================================================
+
+# ============================================================
+# 1. Install CloudNativePG Operator
+# ============================================================
+- name: Install CloudNativePG operator
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: cnpg-operator
+    chart_ref: cnpg/cloudnative-pg
+    release_namespace: cnpg-system
+    create_namespace: true
+    wait: yes
+    values:
+      nodeSelector:
+        workload: "db"
+      tolerations:
+        - key:      "workload"
+          operator: "Equal"
+          value:    "db"
+          effect:   "PreferNoSchedule"
+
+# ============================================================
+# 2. Wait for CNPG Operator to Be Ready
+# The operator must be fully running before we create
+# any Cluster resource — otherwise the custom resource
+# will be created but never reconciled.
+# ============================================================
+- name: Wait for CNPG operator pod to be ready
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n cnpg-system \
+      -l app.kubernetes.io/name=cloudnative-pg \
+      -o jsonpath='{.items[0].status.phase}'
+  register: cnpg_operator_status
+  until: cnpg_operator_status.stdout == "Running"
+  retries: 30
+  delay: 10
+  changed_when: false
+
+# ============================================================
+# 3. Create db Namespace
+# ============================================================
+- name: Create db namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: db
+    kind: Namespace
+    state: present
+
+# ============================================================
+# 4. Create Secrets
+# Application database credentials — owned by the framework,
+# not tied to any specific application name.
+# ============================================================
+
+# Used by CNPG bootstrap to create the database and owner user
+- name: Create app-db-secret in db namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: app-db-secret
+        namespace: db
+      type: Opaque
+      stringData:
+        username: "{{ database.app_user }}"
+        password: "{{ database.app_password }}"
+
+# Used by CNPG operator for internal management tasks
+# including replication slot coordination
+- name: Create app-db-superuser-secret in db namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: app-db-superuser-secret
+        namespace: db
+      type: Opaque
+      stringData:
+        username: "postgres"
+        password: "{{ database.superuser_password }}"
+
+# ============================================================
+# 5. Clean Recreate Logic
+# CNPG cluster specs are mostly immutable — a clean
+# recreate is safer than trying to patch a broken cluster.
+# Skip entirely if cluster does not exist yet.
+# ============================================================
+- name: Check if PostgreSQL cluster already exists
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get cluster {{ database.cluster_name }} \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n db \
+      -o jsonpath='{.metadata.name}' 2>/dev/null || echo "notfound"
+  register: cluster_exists
+  changed_when: false
+
+- name: Delete existing PostgreSQL cluster for clean recreate
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: absent
+    definition:
+      apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      metadata:
+        name: "{{ database.cluster_name }}"
+        namespace: db
+  when: cluster_exists.stdout != "notfound"
+
+- name: Wait for old cluster pods to fully terminate
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n db \
+      -l cnpg.io/cluster={{ database.cluster_name }} \
+      -o jsonpath='{.items[*].metadata.name}'
+  register: old_pods
+  until: old_pods.stdout == ""
+  retries: 20
+  delay: 10
+  changed_when: false
+  when: cluster_exists.stdout != "notfound"
+
+# ============================================================
+# 6. Deploy PostgreSQL Cluster
+# Uses the Jinja2 template in roles/database/templates/
+# Ansible resolves the template path relative to the role
+# automatically — no full path needed.
+# ============================================================
+- name: Deploy PostgreSQL Cluster
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'postgres-cluster.yaml.j2') | from_yaml }}"
+  register: pg_deploy
+
+# ============================================================
+# 7. Wait for Cluster to Be Healthy
+# CNPG reports phase as "Cluster in healthy state" when
+# primary is running and all replicas are streaming.
+# ============================================================
+- name: Wait for PostgreSQL Cluster to be Healthy
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get cluster {{ database.cluster_name }} \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n db \
+      -o jsonpath='{.status.phase}'
+  register: cluster_phase
+  until: cluster_phase.stdout == "Cluster in healthy state"
+  retries: 40
+  delay: 15
+  changed_when: false
+
+# ============================================================
+# 8. Verify Replication is Working
+# Queries pg_stat_replication on the primary to confirm
+# the replica is connected and streaming WAL.
+# A healthy result shows state=streaming and lag=0.
+# ============================================================
+- name: Verify replication status on primary
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n db \
+      $(kubectl get pod \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml \
+        -n db \
+        -l cnpg.io/cluster={{ database.cluster_name }},role=primary \
+        -o jsonpath='{.items[0].metadata.name}') \
+      -- psql -U postgres -c \
+      "SELECT client_addr, state, sent_lsn, replay_lsn,
+       (sent_lsn - replay_lsn) AS replication_lag_bytes
+       FROM pg_stat_replication;"
+  register: replication_status
+  changed_when: false
+
+- name: Show replication status
+  ansible.builtin.debug:
+    var: replication_status.stdout_lines

@@ -1,0 +1,88 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ database.cluster_name }}
+  namespace: db
+spec:
+
+  instances: {{ replicas.postgres }}
+
+  # --------------------------------------------------------
+  # PostgreSQL tuning for replication stability on slow VMs
+  # --------------------------------------------------------
+  postgresql:
+    parameters:
+      # Required for streaming replication
+      max_wal_senders:        "10"
+      wal_level:              "replica"
+      # Keep 512MB of WAL so replica can catch up after lag
+      wal_keep_size:          "512"
+      # Give slow VMs more time before timing out
+      wal_sender_timeout:     "60s"
+      wal_receiver_timeout:   "60s"
+      # Enough slots for HA + replication management
+      max_replication_slots:  "10"
+
+  # --------------------------------------------------------
+  # Bootstrap: create application database and owner user
+  # Credentials come from app-db-secret in db namespace.
+  # CNPG creates the database, owner and grants on first
+  # init — subsequent runs skip this block entirely.
+  # --------------------------------------------------------
+  bootstrap:
+    initdb:
+      database: {{ database.app_db_name }}
+      owner:    {{ database.app_user }}
+      secret:
+        name: app-db-secret
+
+  # --------------------------------------------------------
+  # Superuser secret used by CNPG operator for:
+  #   - Replication slot coordination
+  #   - Switchover and failover operations
+  #   - Health check queries
+  # --------------------------------------------------------
+  superuserSecret:
+    name: app-db-superuser-secret
+
+  # --------------------------------------------------------
+  # Storage — uses K3s default local-path provisioner
+  # --------------------------------------------------------
+  storage:
+    size:         {{ database.storage_size }}
+    storageClass: {{ storage.storage_class }}
+
+  # --------------------------------------------------------
+  # Node placement — pin all instances to db-worker.
+  # PreferNoSchedule means the DB can still run on other
+  # nodes if db-worker is unavailable (lab safety net).
+  # --------------------------------------------------------
+  affinity:
+    nodeSelector:
+      workload: db
+    tolerations:
+      - key:      "workload"
+        operator: "Equal"
+        value:    "db"
+        effect:   "PreferNoSchedule"
+
+  # --------------------------------------------------------
+  # Lifecycle timeouts — critical for slow Vagrant VMs.
+  # Without these CNPG declares pods failed too early
+  # during startup, shutdown and switchover operations.
+  # --------------------------------------------------------
+  startDelay:      120
+  stopDelay:       120
+  switchoverDelay: 120
+
+  # --------------------------------------------------------
+  # Replication slot management.
+  # highAvailability.enabled tells CNPG to automatically
+  # create and manage replication slots for each replica.
+  # This directly fixes the slot sync errors seen in logs.
+  # updateInterval controls how often slots are checked.
+  # --------------------------------------------------------
+  replicationSlots:
+    highAvailability:
+      enabled: true
+    updateInterval: 30

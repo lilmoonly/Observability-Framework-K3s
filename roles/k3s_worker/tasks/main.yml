@@ -1,17 +1,140 @@
 ---
+# ============================================================
+# ROLE: k3s_worker
+# Joins worker nodes to the K3s cluster, labels them,
+# taints them for workload isolation and verifies
+# cluster networking is healthy after all nodes join.
+# ============================================================
 
-# tasks file for k3s_worker role to join a worker node to the K3s cluster and label it
+# ============================================================
+# 1. Join Worker Node to Cluster
+# ============================================================
 - name: Join worker node to K3s cluster with correct networking
   become: true
   ansible.builtin.shell: |
-    curl -sfL https://get.k3s.io | K3S_URL='https://{{ master_ip }}:6443' K3S_TOKEN='{{ k3s_token }}' sh -s - agent --node-ip={{ ansible_host }} --flannel-iface={{ flannel_interface }}
+    curl -sfL https://get.k3s.io | \
+      K3S_URL='https://{{ master_ip }}:6443' \
+      K3S_TOKEN='{{ k3s_token }}' \
+      sh -s - agent \
+      --node-ip={{ ansible_host }} \
+      --flannel-iface={{ flannel_interface }}
   args:
     creates: /etc/rancher/k3s/config.yaml.d
 
+# ============================================================
+# 2. Label Node With Workload Role
+# ============================================================
 - name: Label node with workload and role
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
-    kubectl label node {{ inventory_hostname }} workload={{ role }} kubernetes.io/role=worker --overwrite
+    kubectl label node {{ inventory_hostname }} \
+      workload={{ role }} \
+      kubernetes.io/role=worker \
+      --overwrite
   register: label_result
   changed_when: "'labeled' in label_result.stdout"
+
+# ============================================================
+# 3. Wait for All Workers to Be Ready
+# Before tainting we must confirm every worker node has
+# joined and is in Ready state — otherwise kubectl taint
+# will fail on nodes that have not appeared yet.
+# run_once means this check runs one time total, not
+# once per worker, since it checks all nodes together.
+# ============================================================
+- name: Wait for all worker nodes to be Ready
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get nodes --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.conditions[-1].type}{" "}{.status.conditions[-1].status}{"\n"}{end}' \
+    | grep -v "Ready True" | grep -v "k8s-ctrl" | wc -l
+  register: not_ready_count
+  until: not_ready_count.stdout | int == 0
+  retries: 30
+  delay: 10
+  changed_when: false
+  run_once: true
+
+# ============================================================
+# 4. Taint Nodes for Workload Isolation
+# Each node gets a taint matching its workload label.
+# Pods must have a matching toleration + nodeSelector
+# to be scheduled on a tainted node.
+# This ensures:
+#   app-worker    → only app workloads (Forgejo)
+#   db-worker     → only database workloads (CNPG)
+#   logging-node  → only logging workloads (OpenSearch)
+#   monitor-node  → only monitoring workloads (Prometheus)
+#   ai-node       → only AI workloads
+# run_once so taints are applied once after all workers join.
+# ============================================================
+- name: Taint nodes for workload isolation
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    kubectl taint nodes k8s-ctrl \
+      node-role.kubernetes.io/master=true:NoSchedule \
+      --overwrite || true
+    kubectl taint nodes app-worker \
+      workload=app:NoSchedule \
+      --overwrite || true
+    kubectl taint nodes db-worker \
+      workload=db:PreferNoSchedule \
+      --overwrite || true
+    kubectl taint nodes logging-node \
+      workload=logging:NoSchedule \
+      --overwrite || true
+    kubectl taint nodes monitor-node \
+      workload=monitoring:NoSchedule \
+      --overwrite || true
+    kubectl taint nodes ai-node \
+      workload=ai:NoSchedule \
+      --overwrite || true
+  run_once: true
+  changed_when: false
+
+# ============================================================
+# 5. Verify db-worker Can Reach K3s API Server
+# Confirms flannel routing is healthy after iptables fix
+# was applied in the common role during Phase 1.
+# If this fails it means pod-to-pod traffic will be broken
+# which would cause CNPG replication to fail later.
+# ============================================================
+- name: Verify db-worker can reach K3s API server
+  become: true
+  delegate_to: db-worker
+  ansible.builtin.shell: |
+    curl -sk https://{{ master_ip }}:6443/healthz
+  register: api_reach
+  changed_when: false
+  run_once: true
+
+- name: Show API reachability from db-worker
+  ansible.builtin.debug:
+    msg: "db-worker -> API server: {{ api_reach.stdout }}"
+  run_once: true
+
+# ============================================================
+# 6. Show Final Cluster Node State
+# Prints a summary of all nodes, their roles, taints
+# and ready status so you can confirm the cluster is
+# healthy before Phase 4 workloads are deployed.
+# ============================================================
+- name: Show cluster node summary
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get nodes \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -o wide
+  register: node_summary
+  changed_when: false
+  run_once: true
+
+- name: Print cluster node summary
+  ansible.builtin.debug:
+    var: node_summary.stdout_lines
+  run_once: true

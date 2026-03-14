@@ -1,12 +1,25 @@
 ---
-# tasks file for common role to prepare a Linux node for K3s cluster
+# ============================================================
+# ROLE: common
+# Runs on ALL nodes in Phase 1 — before K3s is installed.
+# Only OS-level tasks here. No kubectl or helm cluster
+# commands — the cluster does not exist yet at this phase.
+# ============================================================
+
+# ============================================================
+# 1. Kernel Parameters
+# ============================================================
 - name: Set Linux kernel parameter vm.max_map_count
   become: true
   ansible.posix.sysctl:
     name: vm.max_map_count
-    value: '262144'
+    value: "262144"
     state: present
     reload: yes
+
+# ============================================================
+# 2. Disable Swap (Kubernetes requirement)
+# ============================================================
 - name: Disable swap immediately
   become: true
   ansible.builtin.command: swapoff -a
@@ -19,6 +32,9 @@
     regexp: '^([^#].*\sswap\s)'
     replace: '# \1'
 
+# ============================================================
+# 3. Package Management
+# ============================================================
 - name: Update apt cache
   become: true
   ansible.builtin.apt:
@@ -33,9 +49,16 @@
       - nfs-common
       - tar
       - python3-pip
+      # iptables required for flannel networking and
+      # CNPG replication connectivity between nodes
+      - iptables
+      - iptables-persistent
     state: present
   when: ansible_os_family == 'Debian'
 
+# ============================================================
+# 4. System Configuration
+# ============================================================
 - name: Set system timezone
   become: true
   ansible.builtin.timezone:
@@ -46,3 +69,44 @@
   ansible.builtin.pip:
     name: kubernetes
     executable: pip3
+
+# ============================================================
+# 5. Network — Fix iptables FORWARD chain
+# Must run on ALL nodes before K3s starts.
+# Without this, flannel pod-to-pod traffic is dropped which
+# breaks CNPG replication and API server connectivity.
+# ============================================================
+- name: Fix iptables FORWARD chain on all nodes
+  become: true
+  ansible.builtin.iptables:
+    chain: FORWARD
+    policy: ACCEPT
+
+# ============================================================
+# 6. Install Helm (master node only)
+# Safe to install before cluster exists — it is just
+# a client binary that talks to the cluster later.
+# ============================================================
+- name: Install Helm on master node
+  become: true
+  ansible.builtin.shell: |
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  args:
+    creates: /usr/local/bin/helm
+  when: inventory_hostname in groups['master']
+
+# ============================================================
+# 7. Add Helm repos (master node only)
+# Repos are just client-side config — no cluster needed.
+# They will be available immediately when cluster is ready.
+# ============================================================
+- name: Add Helm repos
+  become: true
+  ansible.builtin.shell: |
+    /usr/local/bin/helm repo add opensearch https://opensearch-project.github.io/helm-charts/
+    /usr/local/bin/helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    /usr/local/bin/helm repo add cnpg https://cloudnative-pg.github.io/charts
+    /usr/local/bin/helm repo add fluent https://fluent.github.io/helm-charts
+    /usr/local/bin/helm repo update
+  changed_when: false
+  when: inventory_hostname in groups['master']

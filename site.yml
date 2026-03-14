@@ -1,31 +1,116 @@
 ---
+# ==============================================================
+# site.yml — Master Playbook
+# Observability Framework for Kubernetes (K3s)
+#
+# Phases:
+#   1. common      — Prepare all nodes (tools, packages, config)
+#   2. k3s_master  — Bootstrap the K3s control plane
+#   3. k3s_worker  — Join workers + label nodes
+#   4. database    — CNPG operator + PostgreSQL cluster
+#   5. logging     — OpenSearch + Fluent-bit
+#   6. monitoring  — Prometheus + Grafana
+#   7. ingress     — Traefik ingress rules for all services
+#   8. forgejo     — Forgejo Git server
+# ==============================================================
+
+# --------------------------------------------------------------
+# Phase 1 — Prepare all nodes
+# Runs on every node in the cluster.
+# Installs base packages, Helm, configures networking,
+# taints nodes and verifies cluster connectivity.
+# --------------------------------------------------------------
 - name: Phase 1 - Prepare All Nodes
   hosts: k8s_cluster
   become: true
   roles:
     - common
 
+# --------------------------------------------------------------
+# Phase 2 — Bootstrap the K3s control plane
+# Runs only on the master node.
+# Installs K3s server and configures the API server.
+# --------------------------------------------------------------
 - name: Phase 2 - Setup Control Plane
   hosts: master
   become: true
   roles:
     - k3s_master
 
-- name: Phase 3 - Setup Workers & Labeling
+# --------------------------------------------------------------
+# Phase 3 — Join workers and label nodes
+# Runs on all worker nodes.
+# Installs K3s agent, joins cluster, applies role labels.
+# --------------------------------------------------------------
+- name: Phase 3 - Setup Workers and Labeling
   hosts: workers
   become: true
   roles:
     - k3s_worker
 
-- name: Phase 4 - Deploy Observability Workloads
+# --------------------------------------------------------------
+# Phase 4 — Deploy database layer
+# Runs on master (delegates to k8s API).
+# Installs CNPG operator, creates PostgreSQL cluster,
+# verifies replication between primary and replica.
+# Must complete before any application role runs.
+# --------------------------------------------------------------
+- name: Phase 4 - Deploy Database Layer
   hosts: master
   become: true
   roles:
-    - observability
+    - database
 
-- name: Phase 6 - Deploy Forgejo
+# --------------------------------------------------------------
+# Phase 5 — Deploy logging stack
+# Runs on master (delegates to k8s API).
+# Deploys OpenSearch, OpenSearch Dashboards, Fluent-bit.
+# Fluent-bit runs as DaemonSet on all nodes.
+# --------------------------------------------------------------
+- name: Phase 5 - Deploy Logging Stack
+  hosts: master
+  become: true
+  roles:
+    - logging
+
+# --------------------------------------------------------------
+# Phase 6 — Deploy monitoring stack
+# Runs on master (delegates to k8s API).
+# Deploys Prometheus, Grafana, Alertmanager,
+# kube-state-metrics and node-exporter.
+# --------------------------------------------------------------
+- name: Phase 6 - Deploy Monitoring Stack
+  hosts: master
+  become: true
+  roles:
+    - monitoring
+
+# --------------------------------------------------------------
+# Phase 7 — Configure ingress routing
+# Runs on master (delegates to k8s API).
+# Creates Traefik Ingress resources for all services.
+# Replaces LoadBalancer port-based routing with
+# hostname-based routing through a single entry point.
+#
+# Required /etc/hosts on host machine:
+#   192.168.56.10  forgejo.local
+#   192.168.56.10  grafana.local
+#   192.168.56.10  opensearch.local
+# --------------------------------------------------------------
+- name: Phase 7 - Configure Ingress Routing
+  hosts: master
+  become: true
+  roles:
+    - ingress
+
+# --------------------------------------------------------------
+# Phase 8 — Deploy Forgejo Git server
+# Runs on master (delegates to k8s API).
+# Deploys Forgejo connected to the PostgreSQL cluster
+# from Phase 4. Ingress was already created in Phase 7.
+# --------------------------------------------------------------
+- name: Phase 8 - Deploy Forgejo
   hosts: master
   become: true
   roles:
     - forgejo
-

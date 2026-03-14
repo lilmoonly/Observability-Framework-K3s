@@ -1,0 +1,244 @@
+---
+# ============================================================
+# ROLE: ingress
+# Creates Traefik Ingress resources for all framework services.
+# Replaces port-based LoadBalancer routing with clean
+# hostname-based routing through a single entry point.
+#
+# Traefik is built into K3s — no installation needed.
+# All services must be ClusterIP before this role runs.
+#
+# Required /etc/hosts entries on host machine:
+#   192.168.56.10  forgejo.local
+#   192.168.56.10  grafana.local
+#   192.168.56.10  opensearch.local
+#
+# Depends on:
+#   - k3s_master (Traefik is deployed by K3s automatically)
+#   - logging    (opensearch-dashboards service must exist)
+#   - monitoring (prometheus-grafana service must exist)
+#   - forgejo    (forgejo-http service must exist)
+# ============================================================
+
+# ============================================================
+# 1. Verify Traefik is Running
+# Traefik is deployed automatically by K3s but we confirm
+# it is healthy before creating Ingress resources.
+# If Traefik is not ready the resources will be created
+# but traffic will not be routed until it comes up.
+# ============================================================
+- name: Verify Traefik ingress controller is running
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n kube-system \
+      -l app.kubernetes.io/name=traefik \
+      -o jsonpath='{.items[0].status.phase}'
+  register: traefik_status
+  until: traefik_status.stdout == "Running"
+  retries: 20
+  delay: 10
+  changed_when: false
+
+- name: Show Traefik status
+  ansible.builtin.debug:
+    msg: "Traefik ingress controller: {{ traefik_status.stdout }}"
+
+# ============================================================
+# 2. Create OpenSearch Dashboards Ingress
+# Exposes: http://opensearch.local → opensearch namespace
+# ============================================================
+- name: Create OpenSearch Dashboards Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: opensearch-dashboards-ingress
+        namespace: opensearch
+        annotations:
+          kubernetes.io/ingress.class: "{{ ingress.class }}"
+      spec:
+        rules:
+          - host: "{{ ingress.opensearch_host }}"
+            http:
+              paths:
+                - path:     /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: opensearch-dashboards
+                      port:
+                        number: "{{ opensearch_dashboards_port }}"
+
+# ============================================================
+# 3. Create Grafana Ingress
+# Exposes: http://grafana.local → monitoring namespace
+# ============================================================
+- name: Create Grafana Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: grafana-ingress
+        namespace: monitoring
+        annotations:
+          kubernetes.io/ingress.class: "{{ ingress.class }}"
+      spec:
+        rules:
+          - host: "{{ ingress.grafana_host }}"
+            http:
+              paths:
+                - path:     /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: prometheus-grafana
+                      port:
+                        number: "{{ grafana_port }}"
+
+# ============================================================
+# 4. Create Forgejo Ingress
+# Exposes: http://forgejo.local → forgejo namespace
+# ============================================================
+- name: Create Forgejo Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: forgejo-ingress
+        namespace: forgejo
+        annotations:
+          kubernetes.io/ingress.class: "{{ ingress.class }}"
+      spec:
+        rules:
+          - host: "{{ ingress.forgejo_host }}"
+            http:
+              paths:
+                - path:     /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: forgejo-http
+                      port:
+                        number: "{{ forgejo.port | int }}"
+
+# ============================================================
+# 5. Verify All Ingress Resources Were Created
+# ============================================================
+- name: Verify all Ingress resources exist
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get ingress \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      --all-namespaces \
+      -o wide
+  register: ingress_summary
+  changed_when: false
+
+- name: Print Ingress summary
+  ansible.builtin.debug:
+    var: ingress_summary.stdout_lines
+
+# ============================================================
+# 6. Verify Each Service is Reachable Through Ingress
+# Uses curl with Host header to simulate DNS resolution
+# so we do not depend on /etc/hosts being set up yet.
+# A 200 or 302 response confirms routing is working.
+# ============================================================
+- name: Verify Forgejo is reachable through Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    curl -sk \
+      -o /dev/null \
+      -w "%{http_code}" \
+      -H "Host: {{ ingress.forgejo_host }}" \
+      http://{{ master_ip }}/
+  register: forgejo_http_check
+  until: forgejo_http_check.stdout in ['200', '302']
+  retries: 20
+  delay: 10
+  changed_when: false
+
+- name: Show Forgejo HTTP response code
+  ansible.builtin.debug:
+    msg: "Forgejo via Ingress → HTTP {{ forgejo_http_check.stdout }}"
+
+- name: Verify Grafana is reachable through Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    curl -sk \
+      -o /dev/null \
+      -w "%{http_code}" \
+      -H "Host: {{ ingress.grafana_host }}" \
+      http://{{ master_ip }}/
+  register: grafana_http_check
+  until: grafana_http_check.stdout in ['200', '302']
+  retries: 20
+  delay: 10
+  changed_when: false
+
+- name: Show Grafana HTTP response code
+  ansible.builtin.debug:
+    msg: "Grafana via Ingress → HTTP {{ grafana_http_check.stdout }}"
+
+- name: Verify OpenSearch Dashboards is reachable through Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    curl -sk \
+      -o /dev/null \
+      -w "%{http_code}" \
+      -H "Host: {{ ingress.opensearch_host }}" \
+      http://{{ master_ip }}/
+  register: opensearch_http_check
+  until: opensearch_http_check.stdout in ['200', '302']
+  retries: 20
+  delay: 10
+  changed_when: false
+
+- name: Show OpenSearch Dashboards HTTP response code
+  ansible.builtin.debug:
+    msg: "OpenSearch Dashboards via Ingress → HTTP {{ opensearch_http_check.stdout }}"
+
+# ============================================================
+# 7. Print Final Access Summary
+# Shows all URLs the user needs to access the framework.
+# Copy these into /etc/hosts on your host machine.
+# ============================================================
+- name: Print framework access summary
+  ansible.builtin.debug:
+    msg:
+      - "=============================================="
+      - " Observability Framework — Access Summary"
+      - "=============================================="
+      - ""
+      - " Add to /etc/hosts on your host machine:"
+      - " {{ master_ip }}  {{ ingress.forgejo_host }}"
+      - " {{ master_ip }}  {{ ingress.grafana_host }}"
+      - " {{ master_ip }}  {{ ingress.opensearch_host }}"
+      - ""
+      - " Service URLs:"
+      - " Forgejo    → http://{{ ingress.forgejo_host }}"
+      - " Grafana    → http://{{ ingress.grafana_host }}"
+      - " OpenSearch → http://{{ ingress.opensearch_host }}"
+      - "=============================================="

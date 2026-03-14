@@ -1,5 +1,19 @@
 ---
 # ============================================================
+# ROLE: forgejo
+# Deploys Forgejo Git server connected to the PostgreSQL
+# cluster managed by the database role.
+#
+# Ingress is handled separately by the ingress role in
+# Phase 7 — this role only deploys the application itself.
+#
+# Depends on:
+#   - common     (Helm installed + repos added)
+#   - database   (PostgreSQL cluster must be healthy)
+#   - k3s_worker (app-worker node must be ready + tainted)
+# ============================================================
+
+# ============================================================
 # STEP 1: Create Forgejo Namespace
 # ============================================================
 - name: Create forgejo namespace
@@ -16,6 +30,8 @@
 
 # ============================================================
 # STEP 2: Create Forgejo Admin Secret
+# Credentials come from forgejo block in group_vars/all.yml.
+# Stored as a K8s Secret so they are never in Helm values.
 # ============================================================
 - name: Create Forgejo Admin Secret
   become: true
@@ -40,6 +56,7 @@
 # This secret holds all DB connection details and is
 # injected securely via environment variables — never
 # stored as plaintext in the Helm values.
+# All values reference the database block — app agnostic.
 # ============================================================
 - name: Create Forgejo DB Secret in forgejo namespace
   become: true
@@ -54,7 +71,7 @@
         name: forgejo-db-secret
         namespace: forgejo
       type: Opaque
-      stringData:                                              # FIX: correct indentation
+      stringData:
         FORGEJO__database__DB_TYPE: "postgres"
         FORGEJO__database__HOST:    "{{ database.host }}:{{ database.port }}"
         FORGEJO__database__NAME:    "{{ database.app_db_name }}"
@@ -62,18 +79,21 @@
         FORGEJO__database__PASSWD:  "{{ database.app_password }}"
 
 # ============================================================
-# STEP 4: Wait for PostgreSQL RW service to be available
-# Prevents Forgejo crash-looping while DB is still starting
+# STEP 4: Wait for PostgreSQL RW Service to Be Available
+# Prevents Forgejo crash-looping while DB is still starting.
+# Uses dynamic cluster name from database block — not
+# hardcoded — so this works for any CNPG cluster name.
 # ============================================================
 - name: Wait for PostgreSQL RW service to exist
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
-    kubectl get svc {{ database.cluster_name }}-rw -n db \
+    kubectl get svc {{ database.cluster_name }}-rw \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n db \
       -o jsonpath='{.metadata.name}' 2>/dev/null || echo "notfound"
   register: pg_svc_check
-  until: pg_svc_check.stdout == "{{ database.cluster_name }}-rw"   # FIX: dynamic
+  until: pg_svc_check.stdout == "{{ database.cluster_name }}-rw"
   retries: 20
   delay: 15
   changed_when: false
@@ -86,8 +106,9 @@
 #   - DB password injected from Secret via secretKeyRef
 #   - Probes correctly nested inside gitea: block
 #   - INSTALL_LOCK prevents web installer override
-#   - master_ip var used instead of hardcoded IP
-#   - All DB vars reference database block (app-agnostic)
+#   - DOMAIN and ROOT_URL use ingress hostname not raw IP
+#   - All DB vars reference database block (app agnostic)
+#   - Service type ClusterIP — ingress role handles routing
 # ============================================================
 - name: Deploy Forgejo via OCI Helm chart
   become: true
@@ -135,8 +156,9 @@
           server:
             HTTP_PORT: "{{ forgejo.port | int }}"
             PROTOCOL:  http
-            DOMAIN:    "{{ master_ip }}"
-            ROOT_URL:  "http://{{ master_ip }}:{{ forgejo.port }}"
+            # Use ingress hostname so clone URLs are correct
+            DOMAIN:    "{{ ingress.forgejo_host }}"
+            ROOT_URL:  "http://{{ ingress.forgejo_host }}"
 
           # Prevents web installer from overriding configuration
           security:
@@ -209,9 +231,80 @@
           effect:   "NoSchedule"
 
       # --------------------------------------------------------
-      # Networking
+      # Networking — ClusterIP only
+      # Ingress role in Phase 7 handles external routing.
       # --------------------------------------------------------
       service:
         http:
-          type: LoadBalancer
+          type: ClusterIP
           port: "{{ forgejo.port | int }}"
+
+# ============================================================
+# STEP 6: Wait for Forgejo Pod to Be Running
+# ============================================================
+- name: Wait for Forgejo pod to be ready
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n forgejo \
+      -l app.kubernetes.io/name=forgejo \
+      -o jsonpath='{.items[0].status.phase}'
+  register: forgejo_status
+  until: forgejo_status.stdout == "Running"
+  retries: 40
+  delay: 15
+  changed_when: false
+
+# ============================================================
+# STEP 7: Verify Forgejo is Connected to PostgreSQL
+# Queries the Forgejo admin API to confirm the application
+# started correctly and is connected to the database.
+# A 200 response means Forgejo is fully initialised.
+# ============================================================
+- name: Verify Forgejo API is responding
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n forgejo \
+      $(kubectl get pod \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml \
+        -n forgejo \
+        -l app.kubernetes.io/name=forgejo \
+        -o jsonpath='{.items[0].metadata.name}') \
+      -- curl -sk \
+      -o /dev/null \
+      -w "%{http_code}" \
+      http://localhost:{{ forgejo.port }}/api/healthz
+  register: forgejo_health
+  until: forgejo_health.stdout == "200"
+  retries: 20
+  delay: 15
+  changed_when: false
+
+- name: Show Forgejo health check result
+  ansible.builtin.debug:
+    msg: "Forgejo API health check → HTTP {{ forgejo_health.stdout }}"
+
+# ============================================================
+# STEP 8: Show Forgejo Pod Summary
+# Final confirmation — shows pod status, node placement
+# and confirms it landed on app-worker as expected.
+# ============================================================
+- name: Show Forgejo pod summary
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n forgejo \
+      -o wide
+  register: forgejo_pods
+  changed_when: false
+
+- name: Print Forgejo pod summary
+  ansible.builtin.debug:
+    var: forgejo_pods.stdout_lines

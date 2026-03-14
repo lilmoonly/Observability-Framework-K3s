@@ -104,3 +104,16 @@ forgejo:
   admin_username: "forgejo_admin"
   admin_password: "Strong_AdminPassword123!"
   admin_email: "admin@example.com"
+
+# ==========================================
+# 12. INGRESS CONFIGURATION
+# ==========================================
+ingress:
+  # Traefik is the built-in K3s ingress controller
+  # These hostnames resolve via /etc/hosts on the host machine
+  # pointing to 192.168.56.10
+  class:           "traefik"
+  base_domain:     "local"
+  forgejo_host:    "forgejo.local"
+  grafana_host:    "grafana.local"
+  opensearch_host: "opensearch.local"
