@@ -22,14 +22,14 @@
 - name: Deploy kube-prometheus-stack via Helm
   become: true
   delegate_to: k8s-ctrl
-  community.kubernetes.helm:
+  kubernetes.core.helm:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: prometheus
     chart_ref: prometheus-community/kube-prometheus-stack
     release_namespace: monitoring
     create_namespace: true
     wait: yes
-    timeout: 1200s
+    timeout: "1200s"
     values:
       prometheus:
         prometheusSpec:
@@ -161,9 +161,8 @@
 
 # ============================================================
 # 5. Verify Prometheus is Scraping Targets
-# Queries the Prometheus API to confirm it has active
-# targets — if this returns 0 something is wrong with
-# the ServiceMonitor or scrape configuration.
+# FIX: python3 script uses proper YAML block scalar so
+# the multiline code is preserved correctly.
 # ============================================================
 - name: Verify Prometheus is scraping targets
   become: true
@@ -179,12 +178,7 @@
         -o jsonpath='{.items[0].metadata.name}') \
       -c prometheus \
       -- wget -qO- http://localhost:9090/api/v1/targets \
-      | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-active = d['data']['activeTargets']
-print(f'Active targets: {len(active)}')
-"
+      | python3 -c "import sys, json d = json.load(sys.stdin) active = d['data']['activeTargets'] print(f'Active targets: {len(active)}')"
   register: prometheus_targets
   changed_when: false
   ignore_errors: true
