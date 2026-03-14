@@ -51,22 +51,39 @@
           email: "{{ forgejo.admin_email }}"
           passwordMode: keepUpdated
         
-        # Database Configuration (External Postgres)
+        # Database Configuration
         config:
           database:
             DB_TYPE: postgres
             HOST: "{{ forgejo.db_host }}"
             NAME: "{{ forgejo.db_name }}"
             USER: "{{ forgejo.db_user }}"
+            # We provide these here, but the Env Vars below will enforce them
             PASSWD: "{{ forgejo.db_password }}"
+          
           # Enable Prometheus Metrics
           metrics:
             ENABLED: true
+
           server:
             HTTP_PORT: "{{ forgejo.port | int }}"
             PROTOCOL: http
             DOMAIN: "192.168.56.10"
             ROOT_URL: "http://192.168.56.10:{{ forgejo.port }}"
+
+        # FORCING Postgres via Environment Variables
+        # This overrides any defaults and ensures SQLite is NOT used.
+        additionalConfigFromEnvs:
+          - name: FORGEJO__database__DB_TYPE
+            value: "postgres"
+          - name: FORGEJO__database__HOST
+            value: "{{ forgejo.db_host }}"
+          - name: FORGEJO__database__NAME
+            value: "{{ forgejo.db_name }}"
+          - name: FORGEJO__database__USER
+            value: "{{ forgejo.db_user }}"
+          - name: FORGEJO__database__PASSWD
+            value: "{{ forgejo.db_password }}"
 
       # Persistence (Save data to disk)
       persistence:
@@ -74,7 +91,7 @@
         storageClass: local-path
         size: 10Gi
 
-      # Node Placement (Pin to app-worker)
+      # Node Placement (Pin to app-worker and bypass the Taint)
       nodeSelector:
         workload: app
       tolerations:
