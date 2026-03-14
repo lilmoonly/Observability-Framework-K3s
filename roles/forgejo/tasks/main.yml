@@ -54,12 +54,12 @@
         name: forgejo-db-secret
         namespace: forgejo
       type: Opaque
-      stringData:
+      stringData:                                              # FIX: correct indentation
         FORGEJO__database__DB_TYPE: "postgres"
-        FORGEJO__database__HOST:    "{{ forgejo.db_host }}"
-        FORGEJO__database__NAME:    "{{ forgejo.db_name }}"
-        FORGEJO__database__USER:    "{{ forgejo.db_user }}"
-        FORGEJO__database__PASSWD:  "{{ forgejo.db_password }}"
+        FORGEJO__database__HOST:    "{{ database.host }}:{{ database.port }}"
+        FORGEJO__database__NAME:    "{{ database.app_db_name }}"
+        FORGEJO__database__USER:    "{{ database.app_user }}"
+        FORGEJO__database__PASSWD:  "{{ database.app_password }}"
 
 # ============================================================
 # STEP 4: Wait for PostgreSQL RW service to be available
@@ -69,11 +69,11 @@
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
-    kubectl get svc app-db-cluster-rw -n db \
+    kubectl get svc {{ database.cluster_name }}-rw -n db \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
       -o jsonpath='{.metadata.name}' 2>/dev/null || echo "notfound"
   register: pg_svc_check
-  until: pg_svc_check.stdout == "app-db-cluster-rw"
+  until: pg_svc_check.stdout == "{{ database.cluster_name }}-rw"   # FIX: dynamic
   retries: 20
   delay: 15
   changed_when: false
@@ -87,6 +87,7 @@
 #   - Probes correctly nested inside gitea: block
 #   - INSTALL_LOCK prevents web installer override
 #   - master_ip var used instead of hardcoded IP
+#   - All DB vars reference database block (app-agnostic)
 # ============================================================
 - name: Deploy Forgejo via OCI Helm chart
   become: true
@@ -122,9 +123,9 @@
         config:
           database:
             DB_TYPE: postgres
-            HOST:    "{{ forgejo.db_host }}"
-            NAME:    "{{ forgejo.db_name }}"
-            USER:    "{{ forgejo.db_user }}"
+            HOST:    "{{ database.host }}:{{ database.port }}"
+            NAME:    "{{ database.app_db_name }}"
+            USER:    "{{ database.app_user }}"
             # PASSWD is intentionally omitted here —
             # it is injected securely via secretKeyRef below
 

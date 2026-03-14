@@ -49,6 +49,11 @@ database:
   node_selector_label: "db"
   # Superuser password for CNPG operator internal management
   superuser_password: "SuperuserPassword123!"
+  app_db_name: "app"
+  app_user: "appuser"
+  app_password: "appuserpassword"
+  port: 5432
+  host: "app-db-cluster-rw.db.svc.cluster.local"
 
 # ==========================================
 # 6. AI ANOMALY ENGINE - VM 6
@@ -99,7 +104,3 @@ forgejo:
   admin_username: "forgejo_admin"
   admin_password: "Strong_AdminPassword123!"
   admin_email: "admin@example.com"
-  db_host: "app-db-cluster-rw.db.svc.cluster.local:5432"
-  db_name: "app"
-  db_user: "appuser"
-  db_password: "appuserpassword"

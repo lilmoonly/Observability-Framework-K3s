@@ -50,17 +50,6 @@
     iptables -P FORWARD ACCEPT
   changed_when: false
 
-- name: Persist iptables rules on db-worker
-  become: true
-  delegate_to: db-worker
-  ansible.builtin.shell: |
-    if command -v netfilter-persistent &>/dev/null; then
-      netfilter-persistent save
-    elif command -v iptables-save &>/dev/null; then
-      iptables-save > /etc/iptables/rules.v4
-    fi
-  changed_when: false
-  ignore_errors: true
 
 # ============================================================
 # DIAGNOSTIC: Verify db-worker can reach API server
@@ -312,8 +301,8 @@
         namespace: db
       type: Opaque
       stringData:
-        username: "{{ forgejo.db_user }}"
-        password: "{{ forgejo.db_password }}"
+        username: "{{ database.app_user }}"
+        password: "{{ database.app_password }}"
 
 # ============================================================
 # FIX: Superuser secret required by CNPG operator for

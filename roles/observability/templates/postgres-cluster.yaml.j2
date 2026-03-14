@@ -4,60 +4,33 @@ metadata:
   name: {{ database.cluster_name }}
   namespace: db
 spec:
-  # --------------------------------------------------------
-  # Number of instances: 1 primary + 1 replica
-  # --------------------------------------------------------
+
   instances: {{ replicas.postgres }}
 
-  # --------------------------------------------------------
-  # PostgreSQL tuning for replication stability
-  # These settings are critical for replica connectivity
-  # on slow/resource-constrained VMs
-  # --------------------------------------------------------
   postgresql:
     parameters:
-      # Replication requirements
       max_wal_senders:        "10"
       wal_level:              "replica"
-      hot_standby:            "on"
-      # Keep 512MB of WAL so replica can catch up after a lag
       wal_keep_size:          "512"
-      # Give slow VMs more time before timing out
       wal_sender_timeout:     "60s"
       wal_receiver_timeout:   "60s"
-      # Allow replica connections
       max_replication_slots:  "10"
 
-  # --------------------------------------------------------
-  # Bootstrap: initialise the app database and owner user
-  # Credentials come from the 'app-db-secret' K8s Secret
-  # --------------------------------------------------------
   bootstrap:
     initdb:
-      database: {{ forgejo.db_name }}
-      owner:    {{ forgejo.db_user }}
+      database: {{ database.app_db_name }}
+      owner:    {{ database.app_db_user }}
       secret:
         name: app-db-secret
 
-  # --------------------------------------------------------
-  # Superuser secret
-  # CNPG operator uses this for internal management tasks
-  # including replication slot coordination
-  # --------------------------------------------------------
   superuserSecret:
     name: app-db-superuser-secret
 
-  # --------------------------------------------------------
-  # Storage
-  # --------------------------------------------------------
   storage:
     size:         {{ database.storage_size }}
     storageClass: {{ storage.storage_class }}
 
-  # --------------------------------------------------------
-  # Node placement — pin all instances to db-worker
-  # Must tolerate the PreferNoSchedule taint we set
-  # --------------------------------------------------------
+
   affinity:
     nodeSelector:
       workload: db
@@ -67,19 +40,10 @@ spec:
         value:    "db"
         effect:   "PreferNoSchedule"
 
-  # --------------------------------------------------------
-  # Lifecycle timeouts — important for slow VMs
-  # Without these CNPG may declare a pod failed too early
-  # --------------------------------------------------------
   startDelay:      120
   stopDelay:       120
   switchoverDelay: 120
 
-  # --------------------------------------------------------
-  # Replication slot management
-  # This is what fixes the "synchronizing replication slots"
-  # error you saw in app-db-cluster-2 logs
-  # --------------------------------------------------------
   replicationSlots:
     highAvailability:
       enabled: true
