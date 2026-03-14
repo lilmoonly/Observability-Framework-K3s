@@ -35,9 +35,11 @@
         password: "{{ forgejo.admin_password }}"
 
 # ============================================================
-# STEP 3: Create Database Secret IN THE FORGEJO NAMESPACE
-# This is the key fix — Forgejo's pod must be able to read
-# the secret, so it must live in the 'forgejo' namespace.
+# STEP 3: Create DB Secret in the forgejo namespace
+# Pods can only read secrets from their own namespace.
+# This secret holds all DB connection details and is
+# injected securely via environment variables — never
+# stored as plaintext in the Helm values.
 # ============================================================
 - name: Create Forgejo DB Secret in forgejo namespace
   become: true
@@ -53,17 +55,15 @@
         namespace: forgejo
       type: Opaque
       stringData:
-        # These keys map directly to Forgejo env var format.
-        # The init container will inject them into app.ini.
         FORGEJO__database__DB_TYPE: "postgres"
-        FORGEJO__database__HOST:   "{{ forgejo.db_host }}"
-        FORGEJO__database__NAME:   "{{ forgejo.db_name }}"
-        FORGEJO__database__USER:   "{{ forgejo.db_user }}"
-        FORGEJO__database__PASSWD: "{{ forgejo.db_password }}"
+        FORGEJO__database__HOST:    "{{ forgejo.db_host }}"
+        FORGEJO__database__NAME:    "{{ forgejo.db_name }}"
+        FORGEJO__database__USER:    "{{ forgejo.db_user }}"
+        FORGEJO__database__PASSWD:  "{{ forgejo.db_password }}"
 
 # ============================================================
-# STEP 4: Wait for PostgreSQL to be reachable
-# (Ensures CNPG cluster is healthy before Forgejo starts)
+# STEP 4: Wait for PostgreSQL RW service to be available
+# Prevents Forgejo crash-looping while DB is still starting
 # ============================================================
 - name: Wait for PostgreSQL RW service to exist
   become: true
@@ -71,7 +71,7 @@
   ansible.builtin.shell: |
     kubectl get svc app-db-cluster-rw -n db \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -o jsonpath='{.metadata.name}'
+      -o jsonpath='{.metadata.name}' 2>/dev/null || echo "notfound"
   register: pg_svc_check
   until: pg_svc_check.stdout == "app-db-cluster-rw"
   retries: 20
@@ -79,32 +79,14 @@
   changed_when: false
 
 # ============================================================
-# STEP 5: Create the Forgejo database and user in PostgreSQL
-# The CNPG cluster creates a default 'app' db with 'appuser',
-# but we explicitly ensure it exists.
-# ============================================================
-- name: Ensure Forgejo database exists in PostgreSQL
-  become: true
-  delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl exec -n db \
-      $(kubectl get pod -n db -l cnpg.io/cluster={{ database.cluster_name }},role=primary \
-        --kubeconfig /etc/rancher/k3s/k3s.yaml \
-        -o jsonpath='{.items[0].metadata.name}') \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -- psql -U postgres -tc \
-      "SELECT 1 FROM pg_database WHERE datname='{{ forgejo.db_name }}'" \
-      | grep -q 1 || psql -U postgres \
-      -c "CREATE DATABASE {{ forgejo.db_name }} OWNER {{ forgejo.db_user }};"
-  changed_when: false
-  ignore_errors: true
-
-# ============================================================
-# STEP 6: Deploy Forgejo via OCI Helm Chart
-# KEY FIXES:
-#   - Single merged 'gitea:' block (no duplicate)
-#   - DB credentials loaded from Secret (not plaintext envs)
-#   - Probes correctly nested inside gitea block
+# STEP 5: Deploy Forgejo via OCI Helm Chart
+#
+# KEY POINTS:
+#   - Single merged gitea: block (no duplicate keys)
+#   - DB password injected from Secret via secretKeyRef
+#   - Probes correctly nested inside gitea: block
+#   - INSTALL_LOCK prevents web installer override
+#   - master_ip var used instead of hardcoded IP
 # ============================================================
 - name: Deploy Forgejo via OCI Helm chart
   become: true
@@ -119,32 +101,32 @@
     timeout: "600s"
     values:
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # Image
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       image:
         rootless: true
 
-      # ----------------------------------------------------------
-      # All Forgejo / Gitea config lives under ONE gitea: block
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
+      # Single gitea: block — all config merged here
+      # --------------------------------------------------------
       gitea:
 
-        # Admin credentials from pre-created secret
+        # Admin credentials loaded from pre-created secret
         admin:
           existingSecret: forgejo-admin-secret
-          email: "{{ forgejo.admin_email }}"
-          passwordMode: keepUpdated
+          email:          "{{ forgejo.admin_email }}"
+          passwordMode:   keepUpdated
 
-        # app.ini configuration
+        # app.ini settings
         config:
           database:
             DB_TYPE: postgres
             HOST:    "{{ forgejo.db_host }}"
             NAME:    "{{ forgejo.db_name }}"
             USER:    "{{ forgejo.db_user }}"
-            # PASSWD is intentionally omitted here.
-            # It is injected securely via the Secret below.
+            # PASSWD is intentionally omitted here —
+            # it is injected securely via secretKeyRef below
 
           metrics:
             ENABLED: true
@@ -155,41 +137,40 @@
             DOMAIN:    "{{ master_ip }}"
             ROOT_URL:  "http://{{ master_ip }}:{{ forgejo.port }}"
 
-          # Locks the installer UI — always set this
+          # Prevents web installer from overriding configuration
           security:
             INSTALL_LOCK: true
 
-        # Load DB password (and all other DB vars) securely
-        # from the Kubernetes Secret we created in Step 3.
-        # This follows the recommended pattern from Forgejo docs.
+        # All DB env vars loaded securely from the K8s Secret
+        # created in Step 3. Nothing sensitive is in plaintext.
         additionalConfigFromEnvs:
           - name: FORGEJO__database__DB_TYPE
             valueFrom:
               secretKeyRef:
                 name: forgejo-db-secret
-                key: FORGEJO__database__DB_TYPE
+                key:  FORGEJO__database__DB_TYPE
           - name: FORGEJO__database__HOST
             valueFrom:
               secretKeyRef:
                 name: forgejo-db-secret
-                key: FORGEJO__database__HOST
+                key:  FORGEJO__database__HOST
           - name: FORGEJO__database__NAME
             valueFrom:
               secretKeyRef:
                 name: forgejo-db-secret
-                key: FORGEJO__database__NAME
+                key:  FORGEJO__database__NAME
           - name: FORGEJO__database__USER
             valueFrom:
               secretKeyRef:
                 name: forgejo-db-secret
-                key: FORGEJO__database__USER
+                key:  FORGEJO__database__USER
           - name: FORGEJO__database__PASSWD
             valueFrom:
               secretKeyRef:
                 name: forgejo-db-secret
-                key: FORGEJO__database__PASSWD
+                key:  FORGEJO__database__PASSWD
 
-        # Health Probes — correctly placed inside gitea: block
+        # Health probes — correctly placed inside gitea: block
         startupProbe:
           enabled: true
           tcpSocket:
@@ -206,17 +187,17 @@
           periodSeconds:       10
           failureThreshold:    5
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # Persistence
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       persistence:
         enabled:      true
         storageClass: "{{ storage.storage_class }}"
         size:         10Gi
 
-      # ----------------------------------------------------------
-      # Node Placement — pin to app-worker, bypass taint
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
+      # Node placement — pin to app-worker, bypass taint
+      # --------------------------------------------------------
       nodeSelector:
         workload: app
 
@@ -226,9 +207,9 @@
           value:    "app"
           effect:   "NoSchedule"
 
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       # Networking
-      # ----------------------------------------------------------
+      # --------------------------------------------------------
       service:
         http:
           type: LoadBalancer

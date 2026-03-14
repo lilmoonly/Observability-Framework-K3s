@@ -1,5 +1,7 @@
 ---
+# ============================================================
 # 1. Install Tools & Repos
+# ============================================================
 - name: Ensure Helm is installed on master
   become: true
   delegate_to: k8s-ctrl
@@ -19,7 +21,9 @@
     /usr/local/bin/helm repo add fluent https://fluent.github.io/helm-charts
     /usr/local/bin/helm repo update
 
-# 2. Prepare Nodes (Taints)
+# ============================================================
+# 2. Prepare Nodes (Taints & Network)
+# ============================================================
 - name: Taint nodes for workload isolation
   become: true
   delegate_to: k8s-ctrl
@@ -34,7 +38,48 @@
   register: taint_result
   changed_when: false
 
-# 3. Deploy OpenSearch (Database)
+# ============================================================
+# FIX: Ensure iptables FORWARD chain is open on db-worker
+# Without this, flannel pod-to-pod traffic is dropped which
+# breaks CNPG replication and API server connectivity
+# ============================================================
+- name: Fix iptables FORWARD chain on db-worker
+  become: true
+  delegate_to: db-worker
+  ansible.builtin.shell: |
+    iptables -P FORWARD ACCEPT
+  changed_when: false
+
+- name: Persist iptables rules on db-worker
+  become: true
+  delegate_to: db-worker
+  ansible.builtin.shell: |
+    if command -v netfilter-persistent &>/dev/null; then
+      netfilter-persistent save
+    elif command -v iptables-save &>/dev/null; then
+      iptables-save > /etc/iptables/rules.v4
+    fi
+  changed_when: false
+  ignore_errors: true
+
+# ============================================================
+# DIAGNOSTIC: Verify db-worker can reach API server
+# ============================================================
+- name: Verify db-worker can reach K3s API server
+  become: true
+  delegate_to: db-worker
+  ansible.builtin.shell: |
+    curl -sk https://{{ master_ip }}:6443/healthz
+  register: api_reach
+  changed_when: false
+
+- name: Show API reachability from db-worker
+  ansible.builtin.debug:
+    msg: "db-worker -> API server: {{ api_reach.stdout }}"
+
+# ============================================================
+# 3. Deploy OpenSearch
+# ============================================================
 - name: Deploy OpenSearch via Helm
   become: true
   delegate_to: k8s-ctrl
@@ -75,7 +120,9 @@
         periodSeconds: 10
         failureThreshold: 60
 
-# 4. Deploy OpenSearch Dashboards (UI)
+# ============================================================
+# 4. Deploy OpenSearch Dashboards
+# ============================================================
 - name: Deploy OpenSearch Dashboards via Helm
   become: true
   delegate_to: k8s-ctrl
@@ -102,7 +149,9 @@
         - operator: "Exists"
           effect: "NoSchedule"
 
-# 5. Deploy Fluent-bit (Log Collector)
+# ============================================================
+# 5. Deploy Fluent-bit
+# ============================================================
 - name: Deploy Fluent-bit via Helm
   become: true
   delegate_to: k8s-ctrl
@@ -130,7 +179,9 @@
         - operator: "Exists"
           effect: "NoSchedule"
 
+# ============================================================
 # 6. Deploy Prometheus Stack
+# ============================================================
 - name: Deploy kube-prometheus-stack via Helm
   become: true
   delegate_to: k8s-ctrl
@@ -150,26 +201,26 @@
             volumeClaimTemplate:
               spec:
                 storageClassName: "{{ storage.storage_class }}"
-                accessModes: [ "ReadWriteOnce" ]
+                accessModes: ["ReadWriteOnce"]
                 resources:
                   requests:
                     storage: "{{ storage.prometheus_size }}"
           nodeSelector:
             workload: "{{ monitoring.node_selector_label }}"
           tolerations:
-            - key: "workload"
+            - key:      "workload"
               operator: "Equal"
-              value: "{{ monitoring.node_selector_label }}"
-              effect: "NoSchedule"
+              value:    "{{ monitoring.node_selector_label }}"
+              effect:   "NoSchedule"
       alertmanager:
         alertmanagerSpec:
           nodeSelector:
             workload: "{{ monitoring.node_selector_label }}"
           tolerations:
-            - key: "workload"
+            - key:      "workload"
               operator: "Equal"
-              value: "{{ monitoring.node_selector_label }}"
-              effect: "NoSchedule"
+              value:    "{{ monitoring.node_selector_label }}"
+              effect:   "NoSchedule"
       grafana:
         adminPassword: "{{ monitoring.grafana_admin_password }}"
         service:
@@ -178,42 +229,44 @@
         nodeSelector:
           workload: "{{ monitoring.node_selector_label }}"
         tolerations:
-          - key: "workload"
+          - key:      "workload"
             operator: "Equal"
-            value: "{{ monitoring.node_selector_label }}"
-            effect: "NoSchedule"
+            value:    "{{ monitoring.node_selector_label }}"
+            effect:   "NoSchedule"
       prometheusOperator:
         nodeSelector:
           workload: "{{ monitoring.node_selector_label }}"
         tolerations:
-          - key: "workload"
+          - key:      "workload"
             operator: "Equal"
-            value: "{{ monitoring.node_selector_label }}"
-            effect: "NoSchedule"
+            value:    "{{ monitoring.node_selector_label }}"
+            effect:   "NoSchedule"
         admissionWebhooks:
           patch:
             nodeSelector:
               workload: "{{ monitoring.node_selector_label }}"
             tolerations:
-              - key: "workload"
+              - key:      "workload"
                 operator: "Equal"
-                value: "{{ monitoring.node_selector_label }}"
-                effect: "NoSchedule"
+                value:    "{{ monitoring.node_selector_label }}"
+                effect:   "NoSchedule"
       kube-state-metrics:
         nodeSelector:
           workload: "{{ monitoring.node_selector_label }}"
         tolerations:
-          - key: "workload"
+          - key:      "workload"
             operator: "Equal"
-            value: "{{ monitoring.node_selector_label }}"
-            effect: "NoSchedule"
+            value:    "{{ monitoring.node_selector_label }}"
+            effect:   "NoSchedule"
       nodeExporter:
         enabled: true
         tolerations:
           - operator: "Exists"
-            effect: "NoSchedule"
+            effect:   "NoSchedule"
 
+# ============================================================
 # 7. Database Setup
+# ============================================================
 - name: Install CloudNativePG operator
   become: true
   delegate_to: k8s-ctrl
@@ -228,20 +281,26 @@
       nodeSelector:
         workload: "db"
       tolerations:
-        - key: "workload"
+        - key:      "workload"
           operator: "Equal"
-          value: "db"
-          effect: "NoSchedule"
+          value:    "db"
+          effect:   "PreferNoSchedule"
 
 - name: Create db namespace
+  become: true
+  delegate_to: k8s-ctrl
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: db
     kind: Namespace
     state: present
-  delegate_to: k8s-ctrl
 
-- name: Create app-db-secret
+# ============================================================
+# App user secret (used by CNPG bootstrap to create the DB)
+# ============================================================
+- name: Create app-db-secret in db namespace
+  become: true
+  delegate_to: k8s-ctrl
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
@@ -255,8 +314,75 @@
       stringData:
         username: "{{ forgejo.db_user }}"
         password: "{{ forgejo.db_password }}"
-  delegate_to: k8s-ctrl
 
+# ============================================================
+# FIX: Superuser secret required by CNPG operator for
+# internal management including replication coordination
+# ============================================================
+- name: Create app-db-superuser-secret in db namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: app-db-superuser-secret
+        namespace: db
+      type: Opaque
+      stringData:
+        username: "postgres"
+        password: "{{ database.superuser_password }}"
+
+# ============================================================
+# FIX: Clean recreate of cluster if it already exists
+# CNPG cluster specs are mostly immutable — a clean
+# recreate is safer than trying to patch a broken cluster
+# ============================================================
+- name: Check if PostgreSQL cluster already exists
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get cluster {{ database.cluster_name }} -n db \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -o jsonpath='{.metadata.name}' 2>/dev/null || echo "notfound"
+  register: cluster_exists
+  changed_when: false
+
+- name: Delete existing PostgreSQL cluster for clean recreate
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: absent
+    definition:
+      apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      metadata:
+        name: "{{ database.cluster_name }}"
+        namespace: db
+  when: cluster_exists.stdout != "notfound"
+
+- name: Wait for old cluster pods to fully terminate
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods -n db \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -l cnpg.io/cluster={{ database.cluster_name }} \
+      -o jsonpath='{.items[*].metadata.name}'
+  register: old_pods
+  until: old_pods.stdout == ""
+  retries: 20
+  delay: 10
+  changed_when: false
+  when: cluster_exists.stdout != "notfound"
+
+# ============================================================
+# Deploy the corrected PostgreSQL Cluster
+# ============================================================
 - name: Deploy PostgreSQL Cluster
   become: true
   delegate_to: k8s-ctrl
@@ -269,10 +395,34 @@
 - name: Wait for PostgreSQL Cluster to be Healthy
   become: true
   delegate_to: k8s-ctrl
-  shell: |
-    kubectl get cluster {{ database.cluster_name }} -n db -o jsonpath='{.status.phase}'
+  ansible.builtin.shell: |
+    kubectl get cluster {{ database.cluster_name }} -n db \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -o jsonpath='{.status.phase}'
   register: cluster_phase
   until: cluster_phase.stdout == "Cluster in healthy state"
-  retries: 30
-  delay: 10
+  retries: 40
+  delay: 15
   changed_when: false
+
+# ============================================================
+# VERIFY: Check replication is working after deployment
+# ============================================================
+- name: Verify replication status on primary
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl exec -n db \
+      $(kubectl get pod -n db \
+        -l cnpg.io/cluster={{ database.cluster_name }},role=primary \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml \
+        -o jsonpath='{.items[0].metadata.name}') \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -- psql -U postgres -c \
+      "SELECT client_addr, state, sent_lsn, replay_lsn FROM pg_stat_replication;"
+  register: replication_status
+  changed_when: false
+
+- name: Show replication status
+  ansible.builtin.debug:
+    var: replication_status.stdout_lines
