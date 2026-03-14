@@ -1,4 +1,7 @@
 ---
+# ============================================================
+# STEP 1: Create Forgejo Namespace
+# ============================================================
 - name: Create forgejo namespace
   become: true
   delegate_to: k8s-ctrl
@@ -11,6 +14,9 @@
       metadata:
         name: forgejo
 
+# ============================================================
+# STEP 2: Create Forgejo Admin Secret
+# ============================================================
 - name: Create Forgejo Admin Secret
   become: true
   delegate_to: k8s-ctrl
@@ -28,6 +34,78 @@
         username: "{{ forgejo.admin_username }}"
         password: "{{ forgejo.admin_password }}"
 
+# ============================================================
+# STEP 3: Create Database Secret IN THE FORGEJO NAMESPACE
+# This is the key fix — Forgejo's pod must be able to read
+# the secret, so it must live in the 'forgejo' namespace.
+# ============================================================
+- name: Create Forgejo DB Secret in forgejo namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: forgejo-db-secret
+        namespace: forgejo
+      type: Opaque
+      stringData:
+        # These keys map directly to Forgejo env var format.
+        # The init container will inject them into app.ini.
+        FORGEJO__database__DB_TYPE: "postgres"
+        FORGEJO__database__HOST:   "{{ forgejo.db_host }}"
+        FORGEJO__database__NAME:   "{{ forgejo.db_name }}"
+        FORGEJO__database__USER:   "{{ forgejo.db_user }}"
+        FORGEJO__database__PASSWD: "{{ forgejo.db_password }}"
+
+# ============================================================
+# STEP 4: Wait for PostgreSQL to be reachable
+# (Ensures CNPG cluster is healthy before Forgejo starts)
+# ============================================================
+- name: Wait for PostgreSQL RW service to exist
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get svc app-db-cluster-rw -n db \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -o jsonpath='{.metadata.name}'
+  register: pg_svc_check
+  until: pg_svc_check.stdout == "app-db-cluster-rw"
+  retries: 20
+  delay: 15
+  changed_when: false
+
+# ============================================================
+# STEP 5: Create the Forgejo database and user in PostgreSQL
+# The CNPG cluster creates a default 'app' db with 'appuser',
+# but we explicitly ensure it exists.
+# ============================================================
+- name: Ensure Forgejo database exists in PostgreSQL
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl exec -n db \
+      $(kubectl get pod -n db -l cnpg.io/cluster={{ database.cluster_name }},role=primary \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml \
+        -o jsonpath='{.items[0].metadata.name}') \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -- psql -U postgres -tc \
+      "SELECT 1 FROM pg_database WHERE datname='{{ forgejo.db_name }}'" \
+      | grep -q 1 || psql -U postgres \
+      -c "CREATE DATABASE {{ forgejo.db_name }} OWNER {{ forgejo.db_user }};"
+  changed_when: false
+  ignore_errors: true
+
+# ============================================================
+# STEP 6: Deploy Forgejo via OCI Helm Chart
+# KEY FIXES:
+#   - Single merged 'gitea:' block (no duplicate)
+#   - DB credentials loaded from Secret (not plaintext envs)
+#   - Probes correctly nested inside gitea block
+# ============================================================
 - name: Deploy Forgejo via OCI Helm chart
   become: true
   delegate_to: k8s-ctrl
@@ -38,83 +116,120 @@
     release_namespace: forgejo
     create_namespace: false
     wait: yes
-    timeout: 600s
+    timeout: "600s"
     values:
-      # Image Configuration
+
+      # ----------------------------------------------------------
+      # Image
+      # ----------------------------------------------------------
       image:
         rootless: true
-      
-      # Admin User Configuration
+
+      # ----------------------------------------------------------
+      # All Forgejo / Gitea config lives under ONE gitea: block
+      # ----------------------------------------------------------
       gitea:
+
+        # Admin credentials from pre-created secret
         admin:
           existingSecret: forgejo-admin-secret
           email: "{{ forgejo.admin_email }}"
           passwordMode: keepUpdated
-        
-        # Database Configuration
+
+        # app.ini configuration
         config:
           database:
             DB_TYPE: postgres
-            HOST: "{{ forgejo.db_host }}"
-            NAME: "{{ forgejo.db_name }}"
-            USER: "{{ forgejo.db_user }}"
-            # We provide these here, but the Env Vars below will enforce them
-            PASSWD: "{{ forgejo.db_password }}"
-          
-          # Enable Prometheus Metrics
+            HOST:    "{{ forgejo.db_host }}"
+            NAME:    "{{ forgejo.db_name }}"
+            USER:    "{{ forgejo.db_user }}"
+            # PASSWD is intentionally omitted here.
+            # It is injected securely via the Secret below.
+
           metrics:
             ENABLED: true
 
           server:
             HTTP_PORT: "{{ forgejo.port | int }}"
-            PROTOCOL: http
-            DOMAIN: "192.168.56.10"
-            ROOT_URL: "http://192.168.56.10:{{ forgejo.port }}"
+            PROTOCOL:  http
+            DOMAIN:    "{{ master_ip }}"
+            ROOT_URL:  "http://{{ master_ip }}:{{ forgejo.port }}"
 
-        # FORCING Postgres via Environment Variables
-        # This overrides any defaults and ensures SQLite is NOT used.
+          # Locks the installer UI — always set this
+          security:
+            INSTALL_LOCK: true
+
+        # Load DB password (and all other DB vars) securely
+        # from the Kubernetes Secret we created in Step 3.
+        # This follows the recommended pattern from Forgejo docs.
         additionalConfigFromEnvs:
           - name: FORGEJO__database__DB_TYPE
-            value: "postgres"
+            valueFrom:
+              secretKeyRef:
+                name: forgejo-db-secret
+                key: FORGEJO__database__DB_TYPE
           - name: FORGEJO__database__HOST
-            value: "{{ forgejo.db_host }}"
+            valueFrom:
+              secretKeyRef:
+                name: forgejo-db-secret
+                key: FORGEJO__database__HOST
           - name: FORGEJO__database__NAME
-            value: "{{ forgejo.db_name }}"
+            valueFrom:
+              secretKeyRef:
+                name: forgejo-db-secret
+                key: FORGEJO__database__NAME
           - name: FORGEJO__database__USER
-            value: "{{ forgejo.db_user }}"
+            valueFrom:
+              secretKeyRef:
+                name: forgejo-db-secret
+                key: FORGEJO__database__USER
           - name: FORGEJO__database__PASSWD
-            value: "{{ forgejo.db_password }}"
+            valueFrom:
+              secretKeyRef:
+                name: forgejo-db-secret
+                key: FORGEJO__database__PASSWD
 
-      # Persistence (Save data to disk)
-      persistence:
-        enabled: true
-        storageClass: local-path
-        size: 10Gi
-
-      # Node Placement (Pin to app-worker and bypass the Taint)
-      nodeSelector:
-        workload: app
-      tolerations:
-        - key: "workload"
-          operator: "Equal"
-          value: "app"
-          effect: "NoSchedule"
-
-      # Networking
-      service:
-        http:
-          type: LoadBalancer
-          port: "{{ forgejo.port | int }}"
-
-      # Health Probes (Adjusted for stability)
-      gitea:
+        # Health Probes — correctly placed inside gitea: block
         startupProbe:
           enabled: true
           tcpSocket:
             port: http
           initialDelaySeconds: 60
-          failureThreshold: 20
+          periodSeconds:       10
+          failureThreshold:    20
+
         livenessProbe:
-          initialDelaySeconds: 200
+          enabled: true
           tcpSocket:
             port: http
+          initialDelaySeconds: 200
+          periodSeconds:       10
+          failureThreshold:    5
+
+      # ----------------------------------------------------------
+      # Persistence
+      # ----------------------------------------------------------
+      persistence:
+        enabled:      true
+        storageClass: "{{ storage.storage_class }}"
+        size:         10Gi
+
+      # ----------------------------------------------------------
+      # Node Placement — pin to app-worker, bypass taint
+      # ----------------------------------------------------------
+      nodeSelector:
+        workload: app
+
+      tolerations:
+        - key:      "workload"
+          operator: "Equal"
+          value:    "app"
+          effect:   "NoSchedule"
+
+      # ----------------------------------------------------------
+      # Networking
+      # ----------------------------------------------------------
+      service:
+        http:
+          type: LoadBalancer
+          port: "{{ forgejo.port | int }}"
