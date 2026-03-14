@@ -49,6 +49,7 @@
 # ============================================================
 # 2. Create OpenSearch Dashboards Ingress
 # Exposes: http://opensearch.local → opensearch namespace
+# FIX: port.number must be raw int — no quotes, no filter
 # ============================================================
 - name: Create OpenSearch Dashboards Ingress
   become: true
@@ -75,11 +76,12 @@
                     service:
                       name: opensearch-dashboards
                       port:
-                        number: "{{ opensearch_dashboards_port }}"
+                        number: "{{ ingress.opensearch_port }}"
 
 # ============================================================
 # 3. Create Grafana Ingress
 # Exposes: http://grafana.local → monitoring namespace
+# FIX: port.number must be raw int — no quotes, no filter
 # ============================================================
 - name: Create Grafana Ingress
   become: true
@@ -106,11 +108,12 @@
                     service:
                       name: prometheus-grafana
                       port:
-                        number: "{{ grafana_port }}"
+                        number: "{{ ingress.grafana_port }}"
 
 # ============================================================
 # 4. Create Forgejo Ingress
 # Exposes: http://forgejo.local → forgejo namespace
+# FIX: port.number must be raw int — no quotes, no filter
 # ============================================================
 - name: Create Forgejo Ingress
   become: true
@@ -137,7 +140,7 @@
                     service:
                       name: forgejo-http
                       port:
-                        number: "{{ forgejo.port | int }}"
+                        number: "{{ ingress.forgejo_port }}"
 
 # ============================================================
 # 5. Verify All Ingress Resources Were Created
