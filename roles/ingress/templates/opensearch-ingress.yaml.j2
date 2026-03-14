@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: opensearch-dashboards-ingress
+  namespace: opensearch
+  annotations:
+    kubernetes.io/ingress.class: "{{ ingress.class }}"
+spec:
+  rules:
+    - host: "{{ ingress.opensearch_host }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: opensearch-dashboards
+                port:
+                  number: {{ ingress.opensearch_port }}

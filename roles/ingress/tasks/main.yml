@@ -22,10 +22,6 @@
 
 # ============================================================
 # 1. Verify Traefik is Running
-# Traefik is deployed automatically by K3s but we confirm
-# it is healthy before creating Ingress resources.
-# If Traefik is not ready the resources will be created
-# but traffic will not be routed until it comes up.
 # ============================================================
 - name: Verify Traefik ingress controller is running
   become: true
@@ -47,103 +43,94 @@
     msg: "Traefik ingress controller: {{ traefik_status.stdout }}"
 
 # ============================================================
-# 2. Create OpenSearch Dashboards Ingress
-# Exposes: http://opensearch.local → opensearch namespace
-# FIX: port.number must be raw int — no quotes, no filter
+# 2. Render Ingress Templates to Control Plane
+# Templates are rendered on the Ansible controller and
+# copied to k8s-ctrl so kubectl apply can use them.
+# This guarantees port numbers are native YAML integers
+# and not strings — kubernetes requires int32.
 # ============================================================
-- name: Create OpenSearch Dashboards Ingress
+- name: Render OpenSearch Dashboards Ingress template
   become: true
   delegate_to: k8s-ctrl
-  kubernetes.core.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
-    state: present
-    definition:
-      apiVersion: networking.k8s.io/v1
-      kind: Ingress
-      metadata:
-        name: opensearch-dashboards-ingress
-        namespace: opensearch
-        annotations:
-          kubernetes.io/ingress.class: "{{ ingress.class }}"
-      spec:
-        rules:
-          - host: "{{ ingress.opensearch_host }}"
-            http:
-              paths:
-                - path:     /
-                  pathType: Prefix
-                  backend:
-                    service:
-                      name: opensearch-dashboards
-                      port:
-                        number: "{{ ingress.opensearch_port }}"
+  ansible.builtin.copy:
+    content: "{{ lookup('template', 'opensearch-ingress.yaml.j2') }}"
+    dest: /tmp/opensearch-ingress.yaml
+    mode: '0644'
 
-# ============================================================
-# 3. Create Grafana Ingress
-# Exposes: http://grafana.local → monitoring namespace
-# FIX: port.number must be raw int — no quotes, no filter
-# ============================================================
-- name: Create Grafana Ingress
+- name: Render Grafana Ingress template
   become: true
   delegate_to: k8s-ctrl
-  kubernetes.core.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
-    state: present
-    definition:
-      apiVersion: networking.k8s.io/v1
-      kind: Ingress
-      metadata:
-        name: grafana-ingress
-        namespace: monitoring
-        annotations:
-          kubernetes.io/ingress.class: "{{ ingress.class }}"
-      spec:
-        rules:
-          - host: "{{ ingress.grafana_host }}"
-            http:
-              paths:
-                - path:     /
-                  pathType: Prefix
-                  backend:
-                    service:
-                      name: prometheus-grafana
-                      port:
-                        number: "{{ ingress.grafana_port }}"
+  ansible.builtin.copy:
+    content: "{{ lookup('template', 'grafana-ingress.yaml.j2') }}"
+    dest: /tmp/grafana-ingress.yaml
+    mode: '0644'
 
-# ============================================================
-# 4. Create Forgejo Ingress
-# Exposes: http://forgejo.local → forgejo namespace
-# FIX: port.number must be raw int — no quotes, no filter
-# ============================================================
-- name: Create Forgejo Ingress
+- name: Render Forgejo Ingress template
   become: true
   delegate_to: k8s-ctrl
-  kubernetes.core.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
-    state: present
-    definition:
-      apiVersion: networking.k8s.io/v1
-      kind: Ingress
-      metadata:
-        name: forgejo-ingress
-        namespace: forgejo
-        annotations:
-          kubernetes.io/ingress.class: "{{ ingress.class }}"
-      spec:
-        rules:
-          - host: "{{ ingress.forgejo_host }}"
-            http:
-              paths:
-                - path:     /
-                  pathType: Prefix
-                  backend:
-                    service:
-                      name: forgejo-http
-                      port:
-                        number: "{{ ingress.forgejo_port }}"
+  ansible.builtin.copy:
+    content: "{{ lookup('template', 'forgejo-ingress.yaml.j2') }}"
+    dest: /tmp/forgejo-ingress.yaml
+    mode: '0644'
 
 # ============================================================
-# 5. Verify All Ingress Resources Were Created
+# 3. Apply Ingress Resources via kubectl
+# Using kubectl apply guarantees the YAML is parsed
+# as-is — no Ansible type coercion, no string wrapping.
+# Port numbers stay as integers exactly as written
+# in the template files above.
+# ============================================================
+
+# Exposes: http://opensearch.local
+- name: Apply OpenSearch Dashboards Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl apply \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -f /tmp/opensearch-ingress.yaml
+  register: opensearch_ingress_result
+  changed_when: "'created' in opensearch_ingress_result.stdout or
+                 'configured' in opensearch_ingress_result.stdout"
+
+- name: Show OpenSearch Ingress apply result
+  ansible.builtin.debug:
+    msg: "{{ opensearch_ingress_result.stdout }}"
+
+# Exposes: http://grafana.local
+- name: Apply Grafana Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl apply \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -f /tmp/grafana-ingress.yaml
+  register: grafana_ingress_result
+  changed_when: "'created' in grafana_ingress_result.stdout or
+                 'configured' in grafana_ingress_result.stdout"
+
+- name: Show Grafana Ingress apply result
+  ansible.builtin.debug:
+    msg: "{{ grafana_ingress_result.stdout }}"
+
+# Exposes: http://forgejo.local
+- name: Apply Forgejo Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl apply \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -f /tmp/forgejo-ingress.yaml
+  register: forgejo_ingress_result
+  changed_when: "'created' in forgejo_ingress_result.stdout or
+                 'configured' in forgejo_ingress_result.stdout"
+
+- name: Show Forgejo Ingress apply result
+  ansible.builtin.debug:
+    msg: "{{ forgejo_ingress_result.stdout }}"
+
+# ============================================================
+# 4. Verify All Ingress Resources Were Created
 # ============================================================
 - name: Verify all Ingress resources exist
   become: true
@@ -161,7 +148,7 @@
     var: ingress_summary.stdout_lines
 
 # ============================================================
-# 6. Verify Each Service is Reachable Through Ingress
+# 5. Verify Each Service is Reachable Through Ingress
 # Uses curl with Host header to simulate DNS resolution
 # so we do not depend on /etc/hosts being set up yet.
 # A 200 or 302 response confirms routing is working.
@@ -224,9 +211,21 @@
     msg: "OpenSearch Dashboards via Ingress → HTTP {{ opensearch_http_check.stdout }}"
 
 # ============================================================
+# 6. Cleanup Temp Files
+# ============================================================
+- name: Remove rendered Ingress temp files
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/opensearch-ingress.yaml
+    - /tmp/grafana-ingress.yaml
+    - /tmp/forgejo-ingress.yaml
+
+# ============================================================
 # 7. Print Final Access Summary
-# Shows all URLs the user needs to access the framework.
-# Copy these into /etc/hosts on your host machine.
 # ============================================================
 - name: Print framework access summary
   ansible.builtin.debug:

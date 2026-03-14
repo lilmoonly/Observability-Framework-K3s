@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: forgejo-ingress
+  namespace: forgejo
+  annotations:
+    kubernetes.io/ingress.class: "{{ ingress.class }}"
+spec:
+  rules:
+    - host: "{{ ingress.forgejo_host }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forgejo-http
+                port:
+                  number: {{ ingress.forgejo_port }}
