@@ -85,13 +85,13 @@
   roles:
     - monitoring
 
+
 # --------------------------------------------------------------
-# Phase 7 — Configure ingress routing
-# Runs on master (delegates to k8s API).
-# Creates Traefik Ingress resources for all services.
-# Replaces LoadBalancer port-based routing with
-# hostname-based routing through a single entry point.
-#
+# Phase 7 — Ingress for framework services only
+# Creates ingress for OpenSearch and Grafana.
+# Forgejo ingress is created in Phase 8 after the
+# forgejo namespace exists.
+
 # Required /etc/hosts on host machine:
 #   192.168.56.10  forgejo.local
 #   192.168.56.10  grafana.local
@@ -104,10 +104,9 @@
     - ingress
 
 # --------------------------------------------------------------
-# Phase 8 — Deploy Forgejo Git server
-# Runs on master (delegates to k8s API).
-# Deploys Forgejo connected to the PostgreSQL cluster
-# from Phase 4. Ingress was already created in Phase 7.
+# Phase 8 — Deploy Forgejo + create its Ingress
+# Forgejo role creates the namespace, deploys the app
+# and creates its own Ingress at the end.
 # --------------------------------------------------------------
 - name: Phase 8 - Deploy Forgejo
   hosts: master

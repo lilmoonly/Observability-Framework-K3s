@@ -308,3 +308,80 @@
 - name: Print Forgejo pod summary
   ansible.builtin.debug:
     var: forgejo_pods.stdout_lines
+
+# ============================================================
+# STEP 9: Render and Apply Forgejo Ingress
+# Done here — not in the ingress role — because the
+# forgejo namespace must exist before the Ingress can
+# be created and the namespace is created in STEP 1.
+# Exposes: http://forgejo.local
+# ============================================================
+- name: Render Forgejo Ingress template
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.copy:
+    content: "{{ lookup('template', 'forgejo-ingress.yaml.j2') }}"
+    dest: /tmp/forgejo-ingress.yaml
+    mode: '0644'
+
+- name: Apply Forgejo Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl apply \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -f /tmp/forgejo-ingress.yaml
+  register: forgejo_ingress_result
+  changed_when: "'created' in forgejo_ingress_result.stdout or
+                 'configured' in forgejo_ingress_result.stdout"
+
+- name: Show Forgejo Ingress apply result
+  ansible.builtin.debug:
+    msg: "{{ forgejo_ingress_result.stdout }}"
+
+- name: Remove Forgejo Ingress temp file
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.file:
+    path: /tmp/forgejo-ingress.yaml
+    state: absent
+
+- name: Verify Forgejo is reachable through Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    curl -sk \
+      -o /dev/null \
+      -w "%{http_code}" \
+      -H "Host: {{ ingress.forgejo_host }}" \
+      http://{{ master_ip }}/
+  register: forgejo_http_check
+  until: forgejo_http_check.stdout in ['200', '302']
+  retries: 20
+  delay: 10
+  changed_when: false
+
+- name: Show Forgejo HTTP response code
+  ansible.builtin.debug:
+    msg: "Forgejo via Ingress → HTTP {{ forgejo_http_check.stdout }}"
+
+# ============================================================
+# STEP 10: Print Final Access Summary
+# ============================================================
+- name: Print framework access summary
+  ansible.builtin.debug:
+    msg:
+      - "=============================================="
+      - " Observability Framework — Access Summary"
+      - "=============================================="
+      - ""
+      - " Add to /etc/hosts on your host machine:"
+      - " {{ master_ip }}  {{ ingress.forgejo_host }}"
+      - " {{ master_ip }}  {{ ingress.grafana_host }}"
+      - " {{ master_ip }}  {{ ingress.opensearch_host }}"
+      - ""
+      - " Service URLs:"
+      - " Forgejo    → http://{{ ingress.forgejo_host }}"
+      - " Grafana    → http://{{ ingress.grafana_host }}"
+      - " OpenSearch → http://{{ ingress.opensearch_host }}"
+      - "=============================================="
