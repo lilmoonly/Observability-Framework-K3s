@@ -108,6 +108,25 @@
         - operator: "Exists"
           effect:   "NoSchedule"
 
+- name: Deploy OpenSearch Prometheus exporter
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: opensearch-exporter
+    chart_ref: prometheus-community/prometheus-elasticsearch-exporter
+    release_namespace: opensearch
+    wait: yes
+    values:
+      es:
+        uri: "https://admin:{{ opensearch.admin_password }}@opensearch-cluster-master.opensearch.svc.cluster.local:9200"
+        sslSkipVerify: true
+      serviceMonitor:
+        enabled: true
+        namespace: monitoring
+        labels:
+          release: prometheus
+
 # ============================================================
 # 4. Deploy Fluent-bit
 # Runs as a DaemonSet on all nodes — collects logs from
@@ -138,6 +157,20 @@
               tls.verify Off
               Index fluent-bit
               Suppress_Type_Name On
+
+      service:
+        type: ClusterIP
+        port: 2020
+
+      serviceMonitor:
+        enabled: true
+        namespace: monitoring
+        additionalLabels:
+          release: prometheus
+
+      prometheusRule:
+        enabled: false
+
       tolerations:
         - operator: "Exists"
           effect:   "NoSchedule"
