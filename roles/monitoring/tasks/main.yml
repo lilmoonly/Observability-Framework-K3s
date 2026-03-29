@@ -252,9 +252,7 @@
               editable: true
 
 # ============================================================
-# 8. Wait for Grafana API + Plugin Ready
-# Extra wait ensures OpenSearch plugin finishes installing
-# before we try to use the datasource in dashboards.
+# 8. Wait for Grafana API and OpenSearch Datasource Ready
 # ============================================================
 - name: Wait for Grafana API to be reachable
   become: true
@@ -277,7 +275,13 @@
   delay: 15
   changed_when: false
 
-- name: Wait for OpenSearch plugin to finish installing
+# ============================================================
+# Confirm OpenSearch datasource was picked up by sidecar.
+# The sidecar reads the ConfigMap we created in task 7
+# and registers it as a datasource. This takes a few
+# seconds after Grafana starts — we poll until it appears.
+# ============================================================
+- name: Wait for OpenSearch datasource to be registered
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
@@ -290,13 +294,17 @@
         -l app.kubernetes.io/name=grafana \
         -o jsonpath='{.items[0].metadata.name}') \
       -- wget -qO- \
-      "http://admin:{{ monitoring.grafana_admin_password }}@localhost:3000/api/plugins/grafana-opensearch-datasource/settings" \
-      | grep -q '"enabled":true'
-  register: plugin_ready
-  until: plugin_ready.rc == 0
+      "http://admin:{{ monitoring.grafana_admin_password }}@localhost:3000/api/datasources/name/OpenSearch" \
+      | grep -q '"uid":"opensearch"'
+  register: datasource_ready
+  until: datasource_ready.rc == 0
   retries: 20
   delay: 10
   changed_when: false
+
+- name: Show OpenSearch datasource registration status
+  ansible.builtin.debug:
+    msg: "OpenSearch datasource registered successfully in Grafana"
 
 # ============================================================
 # 9. Import Community Dashboards
