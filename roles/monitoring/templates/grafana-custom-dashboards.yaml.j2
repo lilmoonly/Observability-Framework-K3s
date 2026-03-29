@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-custom-dashboards
+  namespace: monitoring
+  labels:
+    # Grafana sidecar watches for this label and auto-loads
+    # any JSON dashboard files found in this ConfigMap.
+    grafana_dashboard: "1"
+data:
+  error-frequency.json: |
+{{ lookup('template', 'dashboard-error-frequency.json.j2') | indent(4, true) }}
+  error-distribution.json: |
+{{ lookup('template', 'dashboard-error-distribution.json.j2') | indent(4, true) }}

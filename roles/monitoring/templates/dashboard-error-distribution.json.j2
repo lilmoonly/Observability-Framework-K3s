@@ -1,0 +1,362 @@
+{
+  "title": "Error Distribution by Category",
+  "uid": "error-distribution",
+  "tags": ["logs", "errors", "distribution", "opensearch"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Distribution by Log Level",
+      "description": "Breakdown of ERROR vs WARN vs CRITICAL log entries",
+      "type": "piechart",
+      "gridPos": { "h": 10, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "log_level:ERROR OR log_level:WARN OR log_level:CRITICAL OR level:error OR level:warn",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "terms",
+              "field": "log_level.keyword",
+              "settings": {
+                "size": "10",
+                "order": "desc",
+                "orderBy": "_count"
+              }
+            }
+          ]
+        }
+      ],
+      "options": {
+        "pieType": "pie",
+        "displayLabels": ["name", "percent"],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": ["value", "percent"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Distribution by Service",
+      "description": "Which Kubernetes containers are producing the most errors",
+      "type": "piechart",
+      "gridPos": { "h": 10, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "log_level:ERROR OR level:error OR severity:ERROR",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "terms",
+              "field": "kubernetes.container_name.keyword",
+              "settings": {
+                "size": "10",
+                "order": "desc",
+                "orderBy": "_count"
+              }
+            }
+          ]
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "displayLabels": ["name", "percent"],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": ["value", "percent"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Distribution by Node",
+      "description": "Which cluster nodes are generating the most errors",
+      "type": "piechart",
+      "gridPos": { "h": 10, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "log_level:ERROR OR level:error OR severity:ERROR",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "terms",
+              "field": "kubernetes.host.keyword",
+              "settings": {
+                "size": "10",
+                "order": "desc",
+                "orderBy": "_count"
+              }
+            }
+          ]
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "displayLabels": ["name", "percent"],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": ["value", "percent"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Error Heatmap — Hour by Day",
+      "description": "When do errors peak — identify patterns across hours and days",
+      "type": "heatmap",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "log_level:ERROR OR level:error",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "date_histogram",
+              "field": "@timestamp",
+              "settings": {
+                "interval": "1h",
+                "min_doc_count": "0"
+              }
+            }
+          ]
+        }
+      ],
+      "options": {
+        "calculate": false,
+        "color": {
+          "scheme": "Oranges",
+          "steps": 64,
+          "reverse": false
+        },
+        "cellGap": 1,
+        "yAxis": { "unit": "short" },
+        "tooltip": { "show": true, "yHistogram": false }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Error vs Warning Trend — 24h",
+      "description": "Errors (red) vs Warnings (orange) over the last 24 hours",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 20 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "alias": "Errors",
+          "query": "log_level:ERROR OR level:error",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "date_histogram",
+              "field": "@timestamp",
+              "settings": { "interval": "30m", "min_doc_count": "0" }
+            }
+          ]
+        },
+        {
+          "refId": "B",
+          "alias": "Warnings",
+          "query": "log_level:WARN OR level:warn",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "date_histogram",
+              "field": "@timestamp",
+              "settings": { "interval": "30m", "min_doc_count": "0" }
+            }
+          ]
+        },
+        {
+          "refId": "C",
+          "alias": "Critical",
+          "query": "log_level:CRITICAL OR level:critical OR severity:CRITICAL",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "date_histogram",
+              "field": "@timestamp",
+              "settings": { "interval": "30m", "min_doc_count": "0" }
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "spanNulls": true
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Errors" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Warnings" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Critical" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "dark-red", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Errors by Node — Bar Gauge",
+      "description": "Total errors per cluster node — quickly spot problem nodes",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 29 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "log_level:ERROR OR level:error OR severity:ERROR",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "terms",
+              "field": "kubernetes.host.keyword",
+              "settings": {
+                "size": "10",
+                "order": "desc",
+                "orderBy": "_count"
+              }
+            }
+          ]
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 20 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Errors by Namespace — Bar Gauge",
+      "description": "Total errors per Kubernetes namespace",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 29 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "log_level:ERROR OR level:error OR severity:ERROR",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "terms",
+              "field": "kubernetes.namespace_name.keyword",
+              "settings": {
+                "size": "10",
+                "order": "desc",
+                "orderBy": "_count"
+              }
+            }
+          ]
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 20 }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

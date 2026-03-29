@@ -1,0 +1,274 @@
+{
+  "title": "Error Frequency from Logs",
+  "uid": "error-frequency",
+  "tags": ["logs", "errors", "opensearch"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Error Rate Over Time",
+      "description": "Number of error-level log entries per time interval",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "alias": "Errors",
+          "query": "log_level:ERROR OR level:error OR severity:ERROR",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "date_histogram",
+              "field": "@timestamp",
+              "settings": {
+                "interval": "auto",
+                "min_doc_count": "0",
+                "trimEdges": "0"
+              }
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "red" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "spanNulls": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Total Errors",
+      "description": "Total error count in selected time range",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 9 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "log_level:ERROR OR level:error OR severity:ERROR",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["sum"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Total Warnings",
+      "description": "Total warning count in selected time range",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 9 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "log_level:WARN OR level:warn OR severity:WARN",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["sum"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 20 },
+              { "color": "orange", "value": 100 }
+            ]
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Error to Warning Ratio",
+      "description": "Ratio of errors vs warnings — higher means more severe",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 9 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "log_level:ERROR OR level:error",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Errors by Kubernetes Namespace",
+      "description": "Which namespaces are generating the most errors",
+      "type": "barchart",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "log_level:ERROR OR level:error OR severity:ERROR",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "terms",
+              "field": "kubernetes.namespace_name.keyword",
+              "settings": {
+                "size": "10",
+                "order": "desc",
+                "orderBy": "_count"
+              }
+            }
+          ]
+        }
+      ],
+      "options": {
+        "xTickLabelRotation": -45,
+        "barWidth": 0.7,
+        "groupWidth": 0.7,
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "red" },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Top 20 Error Messages",
+      "description": "Most frequent error messages — useful for identifying recurring issues",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 13 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "log_level:ERROR OR level:error OR severity:ERROR",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "terms",
+              "field": "log.keyword",
+              "settings": {
+                "size": "20",
+                "order": "desc",
+                "orderBy": "_count",
+                "missing": "N/A"
+              }
+            }
+          ]
+        }
+      ],
+      "options": {
+        "sortBy": [{ "displayName": "Count", "desc": true }],
+        "footer": { "show": true, "reducer": ["sum"], "fields": ["Value"] }
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Count" },
+            "properties": [
+              { "id": "custom.width", "value": 100 },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 5 },
+                    { "color": "red", "value": 20 }
+                  ]
+                }
+              },
+              { "id": "custom.displayMode", "value": "color-background" }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
