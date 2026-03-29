@@ -1,19 +1,6 @@
 ---
 # ============================================================
 # ROLE: monitoring
-# Deploys the full monitoring stack via kube-prometheus-stack:
-#   - Prometheus        (metrics collection + storage)
-#   - Grafana           (metrics visualization UI)
-#   - Alertmanager      (alert routing)
-#   - kube-state-metrics(Kubernetes object metrics)
-#   - node-exporter     (host-level metrics DaemonSet)
-#
-# All components pinned to monitor-node via nodeSelector.
-# Grafana service type is ClusterIP — Ingress handles routing.
-#
-# Depends on:
-#   - common role (Helm installed + repos added)
-#   - k3s_master + k3s_worker (cluster must be healthy)
 # ============================================================
 
 # ============================================================
@@ -60,7 +47,6 @@
               effect:   "NoSchedule"
       grafana:
         adminPassword: "{{ monitoring.grafana_admin_password }}"
-        # ClusterIP — Ingress role handles external routing
         service:
           type: ClusterIP
           port: "{{ grafana_port }}"
@@ -71,10 +57,6 @@
             operator: "Equal"
             value:    "{{ monitoring.node_selector_label }}"
             effect:   "NoSchedule"
-        # --------------------------------------------------------
-        # Sidecar watches ConfigMaps with grafana_dashboard: "1"
-        # and auto-loads them — no manual import needed
-        # --------------------------------------------------------
         sidecar:
           dashboards:
             enabled: true
@@ -86,15 +68,8 @@
             label: grafana_datasource
             labelValue: "1"
             searchNamespace: ALL
-        # --------------------------------------------------------
-        # OpenSearch datasource plugin
-        # Required for custom log dashboards
-        # --------------------------------------------------------
         plugins:
           - grafana-opensearch-datasource
-        # --------------------------------------------------------
-        # Disable default dashboards — we provide better ones
-        # --------------------------------------------------------
         defaultDashboardsEnabled: false
       prometheusOperator:
         nodeSelector:
@@ -237,9 +212,7 @@
     var: monitoring_pods.stdout_lines
 
 # ============================================================
-# 7. Add OpenSearch as Grafana Data Source via ConfigMap
-# UID explicitly set to "opensearch" so dashboard JSON
-# references always resolve correctly without mismatch.
+# 7. Add OpenSearch Datasource via ConfigMap
 # ============================================================
 - name: Create OpenSearch datasource ConfigMap
   become: true
@@ -279,7 +252,9 @@
               editable: true
 
 # ============================================================
-# 8. Wait for Grafana API to Be Reachable
+# 8. Wait for Grafana API + Plugin Ready
+# Extra wait ensures OpenSearch plugin finishes installing
+# before we try to use the datasource in dashboards.
 # ============================================================
 - name: Wait for Grafana API to be reachable
   become: true
@@ -302,105 +277,7 @@
   delay: 15
   changed_when: false
 
-# ============================================================
-# 9. Community Dashboard Import
-# ============================================================
-- name: Write dashboard import script
-  become: true
-  ansible.builtin.copy:
-    dest: /tmp/import_dashboard.sh
-    mode: '0755'
-    content: |
-      #!/bin/sh
-      ID=$1
-      PASS=$2
-
-      echo "=== Dashboard ${ID} ==="
-
-      # Fetch from grafana.com
-      wget -qO "/tmp/raw_${ID}.json" \
-        "https://grafana.com/api/dashboards/${ID}/revisions/latest/download"
-
-      if [ ! -s "/tmp/raw_${ID}.json" ]; then
-        echo "FAILED: empty response for ${ID}"
-        exit 1
-      fi
-
-      # Build inputs mapping using python
-      # Maps every known datasource type to local Grafana name
-      python3 << 'PYEOF'
-      import json, sys
-
-      with open(f'/tmp/raw_{sys.argv[1]}.json') as f:
-          dash = json.load(f)
-
-      inputs = dash.get('__inputs', [])
-      mapped = []
-
-      # Map by pluginId to correct local datasource name
-      plugin_map = {
-          'prometheus':    'Prometheus',
-          'alertmanager':  'Alertmanager',
-          'loki':          'Loki',
-          'elasticsearch': 'OpenSearch',
-          'opensearch':    'OpenSearch',
-          'grafana':       'grafana',
-      }
-
-      for inp in inputs:
-          if inp.get('type') == 'datasource':
-              plugin = inp.get('pluginId', '')
-              name   = inp.get('name', '')
-              value  = plugin_map.get(plugin, plugin)
-              mapped.append({
-                  'name':     name,
-                  'type':     'datasource',
-                  'pluginId': plugin,
-                  'value':    value
-              })
-
-      payload = {
-          'dashboard': dash,
-          'folderId':  0,
-          'overwrite': True,
-          'inputs':    mapped
-      }
-
-      with open(f'/tmp/payload_{sys.argv[1]}.json', 'w') as f:
-          json.dump(payload, f)
-
-      print(f'Mapped {len(mapped)} inputs: {[m["name"]+"->"+m["value"] for m in mapped]}')
-      PYEOF
-
-      # Post to Grafana
-      RESULT=$(wget -qO- \
-        --header="Content-Type: application/json" \
-        --post-file="/tmp/payload_${ID}.json" \
-        "http://admin:${PASS}@localhost:3000/api/dashboards/import")
-
-      echo "Result: $RESULT"
-
-      # Cleanup
-      rm -f "/tmp/raw_${ID}.json" "/tmp/payload_${ID}.json"
-
-      echo "$RESULT" | grep -q '"status":"success"' && \
-        echo "SUCCESS" || echo "CHECK RESULT ABOVE"
-
-- name: Copy import script into Grafana pod
-  become: true
-  delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl cp \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      /tmp/import_dashboard.sh \
-      monitoring/$(kubectl get pod \
-        --kubeconfig /etc/rancher/k3s/k3s.yaml \
-        -n monitoring \
-        -l app.kubernetes.io/name=grafana \
-        -o jsonpath='{.items[0].metadata.name}'):/tmp/import_dashboard.sh
-  changed_when: false
-
-- name: Import all community dashboards
+- name: Wait for OpenSearch plugin to finish installing
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
@@ -412,9 +289,99 @@
         -n monitoring \
         -l app.kubernetes.io/name=grafana \
         -o jsonpath='{.items[0].metadata.name}') \
-      -- sh /tmp/import_dashboard.sh \
-         {{ item.id }} \
-         "{{ monitoring.grafana_admin_password }}"
+      -- wget -qO- \
+      "http://admin:{{ monitoring.grafana_admin_password }}@localhost:3000/api/plugins/grafana-opensearch-datasource/settings" \
+      | grep -q '"enabled":true'
+  register: plugin_ready
+  until: plugin_ready.rc == 0
+  retries: 20
+  delay: 10
+  changed_when: false
+
+# ============================================================
+# 9. Import Community Dashboards
+# FIX: All JSON processing runs on k8s-ctrl (has python3).
+# Only the final HTTP POST goes into the Grafana pod via
+# kubectl exec + wget. No python3 needed inside the pod.
+# ============================================================
+- name: Write dashboard fetch and prepare script (runs on k8s-ctrl)
+  become: true
+  ansible.builtin.copy:
+    dest: /tmp/prepare_dashboard.py
+    mode: '0755'
+    content: |
+      #!/usr/bin/env python3
+      """
+      Fetches a dashboard from grafana.com and prepares
+      the import payload JSON file on k8s-ctrl.
+      Usage: python3 prepare_dashboard.py <dashboard_id>
+      Output: /tmp/payload_<id>.json ready to POST
+      """
+      import sys
+      import json
+      import urllib.request
+      import urllib.error
+
+      DASHBOARD_ID = sys.argv[1]
+
+      # Map plugin types to local Grafana datasource names
+      PLUGIN_MAP = {
+          'prometheus':    'Prometheus',
+          'alertmanager':  'Alertmanager',
+          'loki':          'Loki',
+          'elasticsearch': 'OpenSearch',
+          'opensearch':    'OpenSearch',
+          'grafana':       'grafana',
+      }
+
+      url = f'https://grafana.com/api/dashboards/{DASHBOARD_ID}/revisions/latest/download'
+      print(f'Fetching dashboard {DASHBOARD_ID} from grafana.com...')
+
+      try:
+          with urllib.request.urlopen(url, timeout=30) as resp:
+              dash = json.loads(resp.read())
+      except urllib.error.URLError as e:
+          print(f'FAILED to fetch: {e}')
+          sys.exit(1)
+
+      # Map all __inputs to local datasource names
+      inputs = dash.get('__inputs', [])
+      mapped = []
+      for inp in inputs:
+          if inp.get('type') == 'datasource':
+              plugin = inp.get('pluginId', '')
+              name   = inp.get('name', '')
+              value  = PLUGIN_MAP.get(plugin, plugin)
+              mapped.append({
+                  'name':     name,
+                  'type':     'datasource',
+                  'pluginId': plugin,
+                  'value':    value
+              })
+              print(f'  Mapped input: {name} ({plugin}) -> {value}')
+
+      if not inputs:
+          print('  No __inputs found (dashboard uses default datasource)')
+
+      payload = {
+          'dashboard': dash,
+          'folderId':  0,
+          'overwrite': True,
+          'inputs':    mapped
+      }
+
+      out_path = f'/tmp/payload_{DASHBOARD_ID}.json'
+      with open(out_path, 'w') as f:
+          json.dump(payload, f)
+
+      print(f'Payload written to {out_path}')
+      print(f'SUCCESS_PREPARED')
+
+- name: Fetch and prepare all community dashboard payloads
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    python3 /tmp/prepare_dashboard.py {{ item.id }}
   loop:
     - { id: 16450, name: "K3s Cluster"        }
     - { id: 1860,  name: "Node Exporter Full"  }
@@ -423,26 +390,97 @@
     - { id: 7752,  name: "Fluent-bit"          }
     - { id: 14191, name: "OpenSearch"          }
   loop_control:
-    label: "{{ item.name }}"
-  register: dashboard_import
+    label: "Preparing: {{ item.name }}"
+  register: prepare_results
+  changed_when: false
+  ignore_errors: true
+
+- name: Show preparation results
+  ansible.builtin.debug:
+    msg: "{{ item.item.name }}: {{ item.stdout_lines | last | default('no output') }}"
+  loop: "{{ prepare_results.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Copy payload files into Grafana pod and import
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    GRAFANA_POD=$(kubectl get pod \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n monitoring \
+      -l app.kubernetes.io/name=grafana \
+      -o jsonpath='{.items[0].metadata.name}')
+
+    # Copy payload into pod
+    kubectl cp \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      /tmp/payload_{{ item.id }}.json \
+      monitoring/${GRAFANA_POD}:/tmp/payload_{{ item.id }}.json
+
+    # POST to Grafana import API from inside pod
+    # Uses wget which is available in Alpine Grafana image
+    RESULT=$(kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n monitoring ${GRAFANA_POD} \
+      -- wget -qO- \
+      --header="Content-Type: application/json" \
+      --post-file="/tmp/payload_{{ item.id }}.json" \
+      "http://admin:{{ monitoring.grafana_admin_password }}@localhost:3000/api/dashboards/import")
+
+    echo "$RESULT"
+
+    # Cleanup inside pod
+    kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n monitoring ${GRAFANA_POD} \
+      -- rm -f /tmp/payload_{{ item.id }}.json
+
+    echo "$RESULT" | grep -q '"status":"success"' && \
+      echo "IMPORTED_OK" || echo "IMPORT_FAILED_CHECK_ABOVE"
+  loop:
+    - { id: 16450, name: "K3s Cluster"        }
+    - { id: 1860,  name: "Node Exporter Full"  }
+    - { id: 20417, name: "CNPG PostgreSQL"     }
+    - { id: 6417,  name: "Kubernetes Pods"     }
+    - { id: 7752,  name: "Fluent-bit"          }
+    - { id: 14191, name: "OpenSearch"          }
+  loop_control:
+    label: "Importing: {{ item.name }}"
+  register: import_results
   changed_when: false
   ignore_errors: true
 
 - name: Show import results
   ansible.builtin.debug:
-    msg: "{{ item.item.name }}: {{ item.stdout_lines | select('match', '.*(SUCCESS|FAILED|CHECK).*') | list | last | default('see full output') }}"
-  loop: "{{ dashboard_import.results }}"
+    msg: "{{ item.item.name }}: {{ item.stdout_lines | select('match', '.*(IMPORTED|FAILED).*') | list | last | default('no status line') }}"
+  loop: "{{ import_results.results }}"
   loop_control:
     label: "{{ item.item.name }}"
 
-- name: Cleanup import script
+- name: Cleanup payload files from k8s-ctrl
   become: true
   ansible.builtin.file:
-    path: /tmp/import_dashboard.sh
+    path: "/tmp/payload_{{ item.id }}.json"
+    state: absent
+  loop:
+    - { id: 16450 }
+    - { id: 1860  }
+    - { id: 20417 }
+    - { id: 6417  }
+    - { id: 7752  }
+    - { id: 14191 }
+  loop_control:
+    label: "Cleanup {{ item.id }}"
+
+- name: Cleanup prepare script
+  become: true
+  ansible.builtin.file:
+    path: /tmp/prepare_dashboard.py
     state: absent
 
 # ============================================================
-# 10. Deploy Custom Dashboards (Updated Queries)
+# 10. Deploy Custom Dashboards via ConfigMap
 # ============================================================
 - name: Render custom dashboards ConfigMap
   become: true
@@ -460,12 +498,15 @@
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
       -f /tmp/grafana-custom-dashboards.yaml
   register: custom_dashboards_result
+  changed_when: "'created' in custom_dashboards_result.stdout or
+                 'configured' in custom_dashboards_result.stdout"
 
-- name: Cleanup temp files
+- name: Show custom dashboards result
+  ansible.builtin.debug:
+    msg: "{{ custom_dashboards_result.stdout }}"
+
+- name: Cleanup custom dashboards temp file
   become: true
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: /tmp/grafana-custom-dashboards.yaml
     state: absent
-  loop:
-    - /tmp/import_dashboard.sh
-    - /tmp/grafana-custom-dashboards.yaml
