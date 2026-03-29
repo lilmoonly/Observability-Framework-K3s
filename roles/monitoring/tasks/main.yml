@@ -71,6 +71,31 @@
             operator: "Equal"
             value:    "{{ monitoring.node_selector_label }}"
             effect:   "NoSchedule"
+        # --------------------------------------------------------
+        # Sidecar watches ConfigMaps with grafana_dashboard: "1"
+        # and auto-loads them — no manual import needed
+        # --------------------------------------------------------
+        sidecar:
+          dashboards:
+            enabled: true
+            label: grafana_dashboard
+            labelValue: "1"
+            searchNamespace: ALL
+          datasources:
+            enabled: true
+            label: grafana_datasource
+            labelValue: "1"
+            searchNamespace: ALL
+        # --------------------------------------------------------
+        # OpenSearch datasource plugin
+        # Required for custom log dashboards
+        # --------------------------------------------------------
+        plugins:
+          - grafana-opensearch-datasource
+        # --------------------------------------------------------
+        # Disable default dashboards — we provide better ones
+        # --------------------------------------------------------
+        defaultDashboardsEnabled: false
       prometheusOperator:
         nodeSelector:
           workload: "{{ monitoring.node_selector_label }}"
@@ -161,7 +186,7 @@
 
 # ============================================================
 # 5. Verify Prometheus is Scraping Targets
-# FIX: Write python script to temp file to avoid shell
+# Write python script to temp file to avoid shell
 # collapsing multiline code into a single broken line.
 # ============================================================
 - name: Write Prometheus target check script
@@ -200,9 +225,6 @@
 
 # ============================================================
 # 6. Show Monitoring Stack Pod Summary
-# Final confirmation before handing off to Phase 7.
-# Shows all pods in monitoring namespace with their
-# node placement so you can verify pinning worked.
 # ============================================================
 - name: Show monitoring stack pod summary
   become: true
@@ -218,3 +240,142 @@
 - name: Print monitoring stack pod summary
   ansible.builtin.debug:
     var: monitoring_pods.stdout_lines
+
+# ============================================================
+# 7. Add OpenSearch as Grafana Data Source via ConfigMap
+# The sidecar picks this up automatically — no API call
+# needed. Label grafana_datasource: "1" triggers loading.
+# ============================================================
+- name: Create OpenSearch datasource ConfigMap
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: grafana-opensearch-datasource
+        namespace: monitoring
+        labels:
+          grafana_datasource: "1"
+      data:
+        opensearch-datasource.yaml: |
+          apiVersion: 1
+          datasources:
+            - name: OpenSearch
+              type: grafana-opensearch-datasource
+              uid: opensearch
+              access: proxy
+              url: https://opensearch-cluster-master.opensearch.svc.cluster.local:9200
+              basicAuth: true
+              basicAuthUser: admin
+              secureJsonData:
+                basicAuthPassword: "{{ opensearch.admin_password }}"
+              jsonData:
+                database: fluent-bit
+                interval: Daily
+                timeField: "@timestamp"
+                tlsSkipVerify: true
+                version: "2.x"
+                flavor: opensearch
+              isDefault: false
+              editable: true
+
+# ============================================================
+# 8. Import Community Dashboards via Grafana API
+# Waits for Grafana API to be reachable first.
+# Each dashboard is imported by its Grafana.com ID.
+# ============================================================
+- name: Wait for Grafana API to be reachable
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n monitoring \
+      $(kubectl get pod \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml \
+        -n monitoring \
+        -l app.kubernetes.io/name=grafana \
+        -o jsonpath='{.items[0].metadata.name}') \
+      -- wget -qO- \
+      "http://admin:{{ monitoring.grafana_admin_password }}@localhost:3000/api/health" \
+      | grep -q '"database": "ok"'
+  register: grafana_api_check
+  until: grafana_api_check.rc == 0
+  retries: 20
+  delay: 15
+  changed_when: false
+
+- name: Import community dashboards into Grafana
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n monitoring \
+      $(kubectl get pod \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml \
+        -n monitoring \
+        -l app.kubernetes.io/name=grafana \
+        -o jsonpath='{.items[0].metadata.name}') \
+      -- wget -qO- \
+      --header="Content-Type: application/json" \
+      --post-data='{"dashboard":{"id":{{ item.id }},"uid":null},"folderId":0,"overwrite":true}' \
+      "http://admin:{{ monitoring.grafana_admin_password }}@localhost:3000/api/dashboards/import"
+  loop:
+    - { id: 16450, name: "K3s Cluster"         }
+    - { id: 1860,  name: "Node Exporter Full"   }
+    - { id: 20417, name: "CNPG PostgreSQL"      }
+    - { id: 6417,  name: "Kubernetes Pods"      }
+    - { id: 7752,  name: "Fluent-bit"           }
+    - { id: 14191, name: "OpenSearch"           }
+  loop_control:
+    label: "Importing: {{ item.name }}"
+  register: dashboard_import
+  changed_when: false
+  ignore_errors: true
+
+- name: Show dashboard import results
+  ansible.builtin.debug:
+    msg: "Imported dashboard: {{ item.item.name }}"
+  loop: "{{ dashboard_import.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+# ============================================================
+# 9. Deploy Custom Dashboards via ConfigMap
+# Rendered from templates and applied via kubectl.
+# Sidecar auto-loads them — no Grafana restart needed.
+# ============================================================
+- name: Render custom dashboards ConfigMap
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.copy:
+    content: "{{ lookup('template', 'grafana-custom-dashboards.yaml.j2') }}"
+    dest: /tmp/grafana-custom-dashboards.yaml
+    mode: '0644'
+
+- name: Apply custom dashboards ConfigMap
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl apply \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -f /tmp/grafana-custom-dashboards.yaml
+  register: custom_dashboards_result
+  changed_when: "'created' in custom_dashboards_result.stdout or
+                 'configured' in custom_dashboards_result.stdout"
+
+- name: Show custom dashboards apply result
+  ansible.builtin.debug:
+    msg: "{{ custom_dashboards_result.stdout }}"
+
+- name: Remove custom dashboards temp file
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.file:
+    path: /tmp/grafana-custom-dashboards.yaml
+    state: absent
