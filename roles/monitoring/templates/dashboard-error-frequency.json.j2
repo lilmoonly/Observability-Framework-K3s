@@ -4,23 +4,41 @@
   "tags": ["logs", "errors", "opensearch"],
   "timezone": "browser",
   "schemaVersion": 38,
-  "version": 2,
+  "version": 4,
   "refresh": "30s",
   "time": { "from": "now-6h", "to": "now" },
   "panels": [
     {
       "id": 1,
-      "title": "Error Rate Over Time",
+      "title": "Log Volume — stderr vs stdout Over Time",
       "type": "timeseries",
       "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
       "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
       "targets": [
         {
           "refId": "A",
-          "alias": "Errors",
-          "query": "log:(*error* OR *ERROR* OR *Error* OR *fail* OR *FATAL*) OR stream:\"stderr\"",
+          "alias": "stderr",
+          "query": "stream.keyword:stderr",
           "queryType": "lucene",
           "timeField": "@timestamp",
+          "isLogsQuery": false,
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "date_histogram",
+              "field": "@timestamp",
+              "settings": { "interval": "auto", "min_doc_count": "0" }
+            }
+          ]
+        },
+        {
+          "refId": "B",
+          "alias": "stdout",
+          "query": "stream.keyword:stdout",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "isLogsQuery": false,
           "metrics": [{ "id": "1", "type": "count" }],
           "bucketAggs": [
             {
@@ -34,23 +52,109 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "red" },
-          "custom": { "lineWidth": 2, "fillOpacity": 15 }
-        }
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "stderr" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "stdout" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
       }
     },
     {
-      "id": 5,
-      "title": "Errors by Kubernetes Namespace",
-      "type": "barchart",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "id": 2,
+      "title": "Total stderr Events",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 9 },
       "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
       "targets": [
         {
           "refId": "A",
-          "query": "log:(*error* OR *ERROR* OR *Error*) OR stream:\"stderr\"",
+          "query": "stream.keyword:stderr",
           "queryType": "lucene",
           "timeField": "@timestamp",
+          "isLogsQuery": false,
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["sum"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 500 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Total stdout Events",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 9 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "stream.keyword:stdout",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "isLogsQuery": false,
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["sum"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "stderr by Namespace",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "stream.keyword:stderr",
+          "queryType": "lucene",
+          "timeField": "@timestamp",
+          "isLogsQuery": false,
           "metrics": [{ "id": "1", "type": "count" }],
           "bucketAggs": [
             {
@@ -61,20 +165,26 @@
             }
           ]
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "red" }
+        }
+      }
     },
     {
-      "id": 6,
-      "title": "Top Error Messages",
+      "id": 5,
+      "title": "Top stderr Messages",
       "type": "table",
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 17 },
       "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
       "targets": [
         {
           "refId": "A",
-          "query": "log:(*error* OR *ERROR* OR *Error*) OR stream:\"stderr\"",
+          "query": "stream.keyword:stderr",
           "queryType": "lucene",
           "timeField": "@timestamp",
+          "isLogsQuery": false,
           "metrics": [{ "id": "1", "type": "count" }],
           "bucketAggs": [
             {
