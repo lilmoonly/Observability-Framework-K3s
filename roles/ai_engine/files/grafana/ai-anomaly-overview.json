@@ -1,14 +1,5 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
+  "__inputs": [],
   "__requires": [
     {
       "type": "grafana",
@@ -52,10 +43,7 @@
   "links": [],
   "panels": [
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -65,14 +53,14 @@
             {
               "options": {
                 "0": {
-                  "color": "green",
+                  "color": "yellow",
                   "index": 0,
-                  "text": "Normal"
+                  "text": "Warming Up"
                 },
                 "1": {
-                  "color": "red",
+                  "color": "green",
                   "index": 1,
-                  "text": "Anomaly"
+                  "text": "Ready"
                 }
               },
               "type": "value"
@@ -82,11 +70,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "yellow",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "green",
                 "value": 1
               }
             ]
@@ -118,20 +106,17 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "ai_anomaly_detected",
-          "legendFormat": "Latest decision",
+          "expr": "ai_anomaly_ready",
+          "legendFormat": "Detector readiness",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Latest Anomaly State",
+      "title": "Detector Status",
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -194,10 +179,7 @@
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -230,20 +212,17 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "ai_anomaly_training_samples",
+          "expr": "ai_anomaly_training_samples or ai_anomaly_available_samples",
           "legendFormat": "Samples",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Training Samples",
+      "title": "Samples Available",
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -286,10 +265,7 @@
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -337,10 +313,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -389,10 +362,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -447,10 +417,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "color": {

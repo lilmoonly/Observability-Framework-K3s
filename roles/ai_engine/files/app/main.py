@@ -82,6 +82,18 @@ TRAINING_SAMPLE_COUNT = Gauge(
     "ai_anomaly_training_samples",
     "Number of historical samples used in the latest model fit.",
 )
+AVAILABLE_SAMPLE_COUNT = Gauge(
+    "ai_anomaly_available_samples",
+    "Number of aligned samples currently available from Prometheus.",
+)
+REQUIRED_SAMPLE_COUNT = Gauge(
+    "ai_anomaly_required_samples",
+    "Minimum historical samples required before anomaly evaluation can run.",
+)
+DETECTOR_READY = Gauge(
+    "ai_anomaly_ready",
+    "Whether the detector has enough aligned samples to evaluate anomalies (1/0).",
+)
 FEATURE_VALUE = Gauge(
     "ai_feature_value",
     "Latest feature value used by the anomaly detector.",
@@ -195,9 +207,14 @@ def evaluate_once():
     started_at = time.monotonic()
 
     rows, matrix = collect_feature_matrix()
+    AVAILABLE_SAMPLE_COUNT.set(len(rows))
+    REQUIRED_SAMPLE_COUNT.set(MIN_TRAINING_SAMPLES + 1)
     if len(rows) < MIN_TRAINING_SAMPLES + 1:
+        DETECTOR_READY.set(0)
+        LAST_RUN_DURATION.set(time.monotonic() - started_at)
         raise RuntimeError(
-            f"Need at least {MIN_TRAINING_SAMPLES + 1} samples, found {len(rows)}."
+            "Detector is still warming up: "
+            f"need at least {MIN_TRAINING_SAMPLES + 1} aligned samples, found {len(rows)}."
         )
 
     train_raw = matrix[:-1]
@@ -234,6 +251,7 @@ def evaluate_once():
     ANOMALY_SCORE.set(latest_score)
     ANOMALY_SCORE_NORMALIZED.set(normalized_score)
     TRAINING_SAMPLE_COUNT.set(len(train_raw))
+    DETECTOR_READY.set(1)
     LAST_SUCCESS_TIMESTAMP.set(time.time())
 
     if is_anomaly:
@@ -278,6 +296,13 @@ def run_forever():
 
 def main():
     requests.packages.urllib3.disable_warnings()  # type: ignore[attr-defined]
+    ANOMALY_FLAG.set(0)
+    ANOMALY_SCORE.set(0)
+    ANOMALY_SCORE_NORMALIZED.set(0)
+    TRAINING_SAMPLE_COUNT.set(0)
+    AVAILABLE_SAMPLE_COUNT.set(0)
+    REQUIRED_SAMPLE_COUNT.set(MIN_TRAINING_SAMPLES + 1)
+    DETECTOR_READY.set(0)
     start_http_server(APP_PORT)
     LOG.info("Starting Prometheus metrics server on port %s", APP_PORT)
     thread = threading.Thread(target=run_forever, daemon=True)
