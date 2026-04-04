@@ -24,7 +24,9 @@ flannel_interface: "enp0s8"
 opensearch:
   version: "2.12.0"
   admin_password: "S#r2-L%m4!"
-  heap_size: "1g"
+  # Laptop-friendly JVM heap. Keeps OpenSearch usable without
+  # forcing the logging VM to reserve multiple extra gigabytes.
+  heap_size: "512m"
   storage_size: "10Gi"
   retention_days: 7
   node_selector_label: "logging"
@@ -33,7 +35,9 @@ opensearch:
 # 4. MONITORING (Prometheus & Grafana) - VM 5
 # ==========================================
 monitoring:
-  prometheus_retention: "7d"
+  # Shorter retention reduces Prometheus RAM and disk pressure
+  # on smaller single-user lab environments.
+  prometheus_retention: "3d"
   grafana_admin_password: "admin"
   prometheus_storage: "5Gi"
   node_selector_label: "monitoring"

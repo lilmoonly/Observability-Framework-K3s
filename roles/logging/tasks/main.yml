@@ -49,7 +49,9 @@
           effect:   "NoSchedule"
       resources:
         limits:
-          memory: 2Gi
+          memory: 1Gi
+        requests:
+          memory: 768Mi
       startupProbe:
         tcpSocket:
           port: 9200
