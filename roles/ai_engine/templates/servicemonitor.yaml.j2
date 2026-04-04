@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ ai_engine.app_name }}
+  namespace: {{ ai_engine.namespace }}
+  labels:
+    release: prometheus
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ ai_engine.namespace }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ ai_engine.app_name }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

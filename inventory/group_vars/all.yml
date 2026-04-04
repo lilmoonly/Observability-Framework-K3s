@@ -63,10 +63,27 @@ database:
 # 6. AI ANOMALY ENGINE - VM 6
 # ==========================================
 ai_engine:
+  namespace: "ai-engine"
+  app_name: "pyod-anomaly-detector"
+  image: "python:3.11-slim"
+  port: 8000
   anomaly_threshold: 0.90
+  contamination: 0.05
   training_window: "24h"
+  lookback_hours: 24
   check_interval_seconds: 300
+  step_seconds: 300
+  min_training_samples: 36
   node_selector_label: "ai"
+  prometheus_url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+  opensearch_url: "https://opensearch-cluster-master.opensearch.svc.cluster.local:9200"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
 
 # ==========================================
 # 7. NODE ROLE MAPPING

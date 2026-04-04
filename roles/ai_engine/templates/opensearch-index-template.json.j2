@@ -1,0 +1,33 @@
+{
+  "index_patterns": ["ai-anomalies-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.refresh_interval": "30s"
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "source": { "type": "keyword" },
+        "model": { "type": "keyword" },
+        "is_anomaly": { "type": "boolean" },
+        "anomaly_score": { "type": "float" },
+        "normalized_score": { "type": "float" },
+        "reason": { "type": "text" },
+        "top_contributors": { "type": "keyword" },
+        "features": { "type": "object", "enabled": true },
+        "window": {
+          "properties": {
+            "lookback_hours": { "type": "integer" },
+            "step_seconds": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "aliases": {
+      "ai-anomalies": {}
+    }
+  }
+}

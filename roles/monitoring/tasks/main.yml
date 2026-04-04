@@ -34,6 +34,10 @@
       prometheus:
         prometheusSpec:
           retention: "{{ monitoring.prometheus_retention }}"
+          serviceMonitorSelectorNilUsesHelmValues: false
+          serviceMonitorNamespaceSelector: {}
+          podMonitorSelectorNilUsesHelmValues: false
+          podMonitorNamespaceSelector: {}
           storageSpec:
             volumeClaimTemplate:
               spec:
@@ -64,6 +68,12 @@
         service:
           type: ClusterIP
           port: "{{ grafana_port }}"
+        sidecar:
+          dashboards:
+            enabled: true
+            label: grafana_dashboard
+            labelValue: "1"
+            searchNamespace: ALL
         nodeSelector:
           workload: "{{ monitoring.node_selector_label }}"
         tolerations:

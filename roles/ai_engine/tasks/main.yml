@@ -1,0 +1,190 @@
+---
+# ============================================================
+# ROLE: ai_engine
+# Deploys a lightweight anomaly detection service built with
+# PyOD. The service runs on ai-node, queries Prometheus for
+# cluster health signals, writes anomaly events to OpenSearch,
+# and exposes its own Prometheus metrics for Grafana.
+#
+# Depends on:
+#   - logging    (OpenSearch must exist)
+#   - monitoring (Prometheus/Grafana must exist)
+#   - k3s_worker (ai-node label/taint must exist)
+# ============================================================
+
+- name: Create AI engine namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ ai_engine.namespace }}"
+
+- name: Create AI engine application ConfigMap
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: ai-engine-app
+        namespace: "{{ ai_engine.namespace }}"
+      data:
+        requirements.txt: "{{ lookup('file', role_path + '/files/app/requirements.txt') }}"
+        main.py: "{{ lookup('file', role_path + '/files/app/main.py') }}"
+
+- name: Create AI engine secret
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: ai-engine-secret
+        namespace: "{{ ai_engine.namespace }}"
+      type: Opaque
+      stringData:
+        OPENSEARCH_USERNAME: "admin"
+        OPENSEARCH_PASSWORD: "{{ opensearch.admin_password }}"
+
+- name: Deploy AI engine workload
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'deployment.yaml.j2') | from_yaml }}"
+
+- name: Deploy AI engine service
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'service.yaml.j2') | from_yaml }}"
+
+- name: Deploy AI engine ServiceMonitor
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'servicemonitor.yaml.j2') | from_yaml }}"
+
+- name: Wait for AI engine pod to be ready
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ ai_engine.namespace }} \
+      -l app.kubernetes.io/name={{ ai_engine.app_name }} \
+      -o jsonpath='{.items[0].status.phase}'
+  register: ai_engine_status
+  until: ai_engine_status.stdout == "Running"
+  retries: 40
+  delay: 15
+  changed_when: false
+
+- name: Render OpenSearch anomaly index template
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.copy:
+    content: "{{ lookup('template', 'opensearch-index-template.json.j2') }}"
+    dest: /tmp/ai-anomalies-index-template.json
+    mode: '0644'
+
+- name: Apply OpenSearch anomaly index template
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    cat /tmp/ai-anomalies-index-template.json | kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n opensearch \
+      $(kubectl get pod \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml \
+        -n opensearch \
+        -l app.kubernetes.io/name=opensearch \
+        -o jsonpath='{.items[0].metadata.name}') \
+      -i -- curl -sk \
+      -u admin:{{ opensearch.admin_password }} \
+      -H "Content-Type: application/json" \
+      -X PUT \
+      https://localhost:9200/_index_template/ai-anomalies-template \
+      --data-binary @-
+  register: ai_index_template_result
+  changed_when: "'acknowledged' in ai_index_template_result.stdout"
+
+- name: Show OpenSearch anomaly index template result
+  ansible.builtin.debug:
+    var: ai_index_template_result.stdout
+
+- name: Create Grafana AI anomaly dashboard ConfigMap
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: ai-anomaly-dashboard
+        namespace: monitoring
+        labels:
+          grafana_dashboard: "1"
+      data:
+        ai-anomaly-overview.json: "{{ lookup('file', role_path + '/files/grafana/ai-anomaly-overview.json') }}"
+
+- name: Verify AI engine metrics endpoint
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ ai_engine.namespace }} \
+      $(kubectl get pod \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml \
+        -n {{ ai_engine.namespace }} \
+        -l app.kubernetes.io/name={{ ai_engine.app_name }} \
+        -o jsonpath='{.items[0].metadata.name}') \
+      -- python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:{{ ai_engine.port }}/metrics').read().decode())" \
+      | grep '^ai_anomaly_runs_total'
+  register: ai_metrics_check
+  changed_when: false
+
+- name: Show AI engine metrics verification
+  ansible.builtin.debug:
+    var: ai_metrics_check.stdout
+
+- name: Show AI engine pod summary
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ ai_engine.namespace }} \
+      -o wide
+  register: ai_engine_pods
+  changed_when: false
+
+- name: Print AI engine pod summary
+  ansible.builtin.debug:
+    var: ai_engine_pods.stdout_lines
+
+- name: Remove temporary AI index template file
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.file:
+    path: /tmp/ai-anomalies-index-template.json
+    state: absent
