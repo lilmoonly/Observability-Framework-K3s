@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-anomaly-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  ai-anomaly-overview.json: |
+{{ lookup('file', role_path + '/files/grafana/ai-anomaly-overview.json') | indent(4, true) }}

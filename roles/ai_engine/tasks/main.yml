@@ -135,16 +135,7 @@
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
-    definition:
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: ai-anomaly-dashboard
-        namespace: monitoring
-        labels:
-          grafana_dashboard: "1"
-      data:
-        ai-anomaly-overview.json: "{{ lookup('file', role_path + '/files/grafana/ai-anomaly-overview.json') }}"
+    definition: "{{ lookup('template', 'grafana-dashboard-configmap.yaml.j2') | from_yaml }}"
 
 - name: Verify AI engine metrics endpoint
   become: true
