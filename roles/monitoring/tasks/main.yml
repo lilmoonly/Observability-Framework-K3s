@@ -1,59 +1,23 @@
 ---
 # ============================================================
 # ROLE: monitoring
+# Deploys the full monitoring stack via kube-prometheus-stack:
+#   - Prometheus        (metrics collection + storage)
+#   - Grafana           (metrics visualization UI)
+#   - Alertmanager      (alert routing)
+#   - kube-state-metrics(Kubernetes object metrics)
+#   - node-exporter     (host-level metrics DaemonSet)
+#
+# All components pinned to monitor-node via nodeSelector.
+# Grafana service type is ClusterIP — Ingress handles routing.
+#
+# Depends on:
+#   - common role (Helm installed + repos added)
+#   - k3s_master + k3s_worker (cluster must be healthy)
 # ============================================================
 
 # ============================================================
-# 1. Create Monitoring Namespace First
-# Custom dashboard ConfigMaps must exist before Grafana starts
-# because they are mounted through Grafana provisioning.
-# ============================================================
-- name: Create monitoring namespace
-  become: true
-  delegate_to: k8s-ctrl
-  kubernetes.core.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
-    state: present
-    definition:
-      apiVersion: v1
-      kind: Namespace
-      metadata:
-        name: monitoring
-
-# ============================================================
-# 2. Render and Apply Custom Dashboard ConfigMap
-# These dashboards are mounted into Grafana via
-# grafana.dashboardsConfigMaps.custom.
-# ============================================================
-- name: Render custom dashboards ConfigMap
-  become: true
-  delegate_to: k8s-ctrl
-  ansible.builtin.copy:
-    content: "{{ lookup('template', 'grafana-custom-dashboards.yaml.j2') }}"
-    dest: /tmp/grafana-custom-dashboards.yaml
-    mode: '0644'
-
-- name: Apply custom dashboards ConfigMap
-  become: true
-  delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl apply \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -f /tmp/grafana-custom-dashboards.yaml
-  register: custom_dashboards_result
-  changed_when: "'created' in custom_dashboards_result.stdout or 'configured' in custom_dashboards_result.stdout"
-
-- name: Show custom dashboards result
-  ansible.builtin.debug:
-    msg: "{{ custom_dashboards_result.stdout }}"
-
-# ============================================================
-# 3. Deploy kube-prometheus-stack
-# Fixes included here:
-#   - discover ServiceMonitors/PodMonitors cluster-wide
-#   - provision community dashboards declaratively
-#   - provision custom dashboards from ConfigMap
-#   - keep OpenSearch datasource sidecar enabled
+# 1. Deploy kube-prometheus-stack
 # ============================================================
 - name: Deploy kube-prometheus-stack via Helm
   become: true
@@ -70,15 +34,6 @@
       prometheus:
         prometheusSpec:
           retention: "{{ monitoring.prometheus_retention }}"
-          serviceMonitorSelectorNilUsesHelmValues: false
-          serviceMonitorSelector: {}
-          serviceMonitorNamespaceSelector: {}
-          podMonitorSelectorNilUsesHelmValues: false
-          podMonitorSelector: {}
-          podMonitorNamespaceSelector: {}
-          probeSelectorNilUsesHelmValues: false
-          probeSelector: {}
-          probeNamespaceSelector: {}
           storageSpec:
             volumeClaimTemplate:
               spec:
@@ -105,6 +60,7 @@
               effect:   "NoSchedule"
       grafana:
         adminPassword: "{{ monitoring.grafana_admin_password }}"
+        # ClusterIP — Ingress role handles external routing
         service:
           type: ClusterIP
           port: "{{ grafana_port }}"
@@ -115,59 +71,6 @@
             operator: "Equal"
             value:    "{{ monitoring.node_selector_label }}"
             effect:   "NoSchedule"
-        sidecar:
-          dashboards:
-            enabled: false
-          datasources:
-            enabled: true
-            label: grafana_datasource
-            labelValue: "1"
-            searchNamespace: ALL
-        plugins:
-          - grafana-opensearch-datasource
-        defaultDashboardsEnabled: false
-        dashboardProviders:
-          dashboardproviders.yaml:
-            apiVersion: 1
-            providers:
-              - name: community
-                orgId: 1
-                folder: Community
-                type: file
-                disableDeletion: false
-                editable: true
-                options:
-                  path: /var/lib/grafana/dashboards/community
-              - name: custom
-                orgId: 1
-                folder: Custom
-                type: file
-                disableDeletion: false
-                editable: true
-                options:
-                  path: /var/lib/grafana/dashboards/custom
-        dashboards:
-          community:
-            k3s-cluster-16450:
-              gnetId: 16450
-              datasource: Prometheus
-            node-exporter-full-1860:
-              gnetId: 1860
-              datasource: Prometheus
-            cnpg-postgresql-20417:
-              gnetId: 20417
-              datasource: Prometheus
-            kubernetes-pods-6417:
-              gnetId: 6417
-              datasource: Prometheus
-            fluent-bit-7752:
-              gnetId: 7752
-              datasource: Prometheus
-            opensearch-14191:
-              gnetId: 14191
-              datasource: Prometheus
-        dashboardsConfigMaps:
-          custom: grafana-custom-dashboards
       prometheusOperator:
         nodeSelector:
           workload: "{{ monitoring.node_selector_label }}"
@@ -193,6 +96,9 @@
             operator: "Equal"
             value:    "{{ monitoring.node_selector_label }}"
             effect:   "NoSchedule"
+      # node-exporter runs on ALL nodes as a DaemonSet.
+      # Exists toleration ensures it bypasses every workload
+      # taint so no node is left without host metrics.
       nodeExporter:
         enabled: true
         tolerations:
@@ -200,7 +106,7 @@
             effect:   "NoSchedule"
 
 # ============================================================
-# 4. Wait for Prometheus to Be Ready
+# 2. Wait for Prometheus to Be Ready
 # ============================================================
 - name: Wait for Prometheus pod to be ready
   become: true
@@ -218,7 +124,7 @@
   changed_when: false
 
 # ============================================================
-# 5. Wait for Grafana to Be Ready
+# 3. Wait for Grafana to Be Ready
 # ============================================================
 - name: Wait for Grafana pod to be ready
   become: true
@@ -236,7 +142,7 @@
   changed_when: false
 
 # ============================================================
-# 6. Wait for Alertmanager to Be Ready
+# 4. Wait for Alertmanager to Be Ready
 # ============================================================
 - name: Wait for Alertmanager pod to be ready
   become: true
@@ -254,7 +160,9 @@
   changed_when: false
 
 # ============================================================
-# 7. Verify Prometheus is Scraping Targets
+# 5. Verify Prometheus is Scraping Targets
+# FIX: Write python script to temp file to avoid shell
+# collapsing multiline code into a single broken line.
 # ============================================================
 - name: Write Prometheus target check script
   become: true
@@ -291,7 +199,10 @@
     msg: "{{ prometheus_targets.stdout }}"
 
 # ============================================================
-# 8. Show Monitoring Stack Pod Summary
+# 6. Show Monitoring Stack Pod Summary
+# Final confirmation before handing off to Phase 7.
+# Shows all pods in monitoring namespace with their
+# node placement so you can verify pinning worked.
 # ============================================================
 - name: Show monitoring stack pod summary
   become: true
@@ -307,132 +218,3 @@
 - name: Print monitoring stack pod summary
   ansible.builtin.debug:
     var: monitoring_pods.stdout_lines
-
-# ============================================================
-# 9. Add OpenSearch Datasource via ConfigMap
-# ============================================================
-- name: Create OpenSearch datasource ConfigMap
-  become: true
-  delegate_to: k8s-ctrl
-  kubernetes.core.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
-    state: present
-    definition:
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: grafana-opensearch-datasource
-        namespace: monitoring
-        labels:
-          grafana_datasource: "1"
-      data:
-        opensearch-datasource.yaml: |
-          apiVersion: 1
-          datasources:
-            - name: OpenSearch
-              type: grafana-opensearch-datasource
-              uid: opensearch
-              access: proxy
-              url: https://opensearch-cluster-master.opensearch.svc.cluster.local:9200
-              basicAuth: true
-              basicAuthUser: admin
-              secureJsonData:
-                basicAuthPassword: "{{ opensearch.admin_password }}"
-              jsonData:
-                database: fluent-bit
-                interval: Daily
-                timeField: "@timestamp"
-                tlsSkipVerify: true
-                version: "2.x"
-                flavor: opensearch
-              isDefault: false
-              editable: true
-
-# ============================================================
-# 10. Wait for Grafana API and OpenSearch Datasource Ready
-# ============================================================
-- name: Wait for Grafana API to be reachable
-  become: true
-  delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl exec \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n monitoring \
-      $(kubectl get pod \
-        --kubeconfig /etc/rancher/k3s/k3s.yaml \
-        -n monitoring \
-        -l app.kubernetes.io/name=grafana \
-        -o jsonpath='{.items[0].metadata.name}') \
-      -- wget -qO- \
-      "http://admin:{{ monitoring.grafana_admin_password }}@localhost:3000/api/health" \
-      | grep -q '"database": "ok"'
-  register: grafana_api_check
-  until: grafana_api_check.rc == 0
-  retries: 20
-  delay: 15
-  changed_when: false
-
-- name: Wait for OpenSearch datasource to be registered
-  become: true
-  delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl exec \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n monitoring \
-      $(kubectl get pod \
-        --kubeconfig /etc/rancher/k3s/k3s.yaml \
-        -n monitoring \
-        -l app.kubernetes.io/name=grafana \
-        -o jsonpath='{.items[0].metadata.name}') \
-      -- wget -qO- \
-      "http://admin:{{ monitoring.grafana_admin_password }}@localhost:3000/api/datasources/name/OpenSearch" \
-      | grep -q '"uid":"opensearch"'
-  register: datasource_ready
-  until: datasource_ready.rc == 0
-  retries: 20
-  delay: 10
-  changed_when: false
-
-- name: Show OpenSearch datasource registration status
-  ansible.builtin.debug:
-    msg: "OpenSearch datasource registered successfully in Grafana"
-
-# ============================================================
-# 11. Show provisioned dashboard files inside Grafana
-# Helps verify that community + custom dashboards were mounted.
-# ============================================================
-- name: Show provisioned dashboard files inside Grafana
-  become: true
-  delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl exec \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n monitoring \
-      $(kubectl get pod \
-        --kubeconfig /etc/rancher/k3s/k3s.yaml \
-        -n monitoring \
-        -l app.kubernetes.io/name=grafana \
-        -o jsonpath='{.items[0].metadata.name}') \
-      -- find /var/lib/grafana/dashboards -maxdepth 2 -type f | sort
-  register: grafana_dashboard_files
-  changed_when: false
-  ignore_errors: true
-
-- name: Print provisioned dashboard files
-  ansible.builtin.debug:
-    var: grafana_dashboard_files.stdout_lines
-
-# ============================================================
-# 12. Cleanup temporary files
-# ============================================================
-- name: Cleanup custom dashboards temp file
-  become: true
-  ansible.builtin.file:
-    path: /tmp/grafana-custom-dashboards.yaml
-    state: absent
-
-- name: Cleanup Prometheus target check script
-  become: true
-  ansible.builtin.file:
-    path: /tmp/check_targets.py
-    state: absent
