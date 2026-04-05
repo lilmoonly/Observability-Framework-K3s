@@ -12,6 +12,8 @@ spec:
       app.kubernetes.io/name: {{ ai_engine.app_name }}
   template:
     metadata:
+      annotations:
+        checksum/ai-engine-app: "{{ (lookup('file', role_path + '/files/app/main.py') ~ lookup('file', role_path + '/files/app/requirements.txt')) | hash('sha1') }}"
       labels:
         app.kubernetes.io/name: {{ ai_engine.app_name }}
     spec:

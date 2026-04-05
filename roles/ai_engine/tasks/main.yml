@@ -119,24 +119,28 @@
 - name: Apply OpenSearch anomaly index template
   become: true
   delegate_to: k8s-ctrl
-  ansible.builtin.uri:
-    url: "https://{{ opensearch_service_ip.stdout }}:9200/_index_template/ai-anomalies-template"
-    method: PUT
-    user: admin
-    password: "{{ opensearch.admin_password }}"
-    force_basic_auth: true
-    body: "{{ lookup('template', 'opensearch-index-template.json.j2') }}"
-    headers:
-      Content-Type: application/json
-    validate_certs: false
-    status_code: [200, 201]
-    return_content: true
+  ansible.builtin.command:
+    argv:
+      - curl
+      - -sS
+      - -f
+      - -k
+      - -u
+      - "admin:{{ opensearch.admin_password }}"
+      - -H
+      - "Content-Type: application/json"
+      - -X
+      - PUT
+      - "https://{{ opensearch_service_ip.stdout }}:9200/_index_template/ai-anomalies-template"
+      - --data-binary
+      - "@/tmp/ai-anomalies-index-template.json"
   register: ai_index_template_result
-  changed_when: ai_index_template_result.json.acknowledged | default(false)
+  changed_when: "'\"acknowledged\":true' in (ai_index_template_result.stdout | replace(' ', ''))"
+  failed_when: ai_index_template_result.rc != 0
 
 - name: Show OpenSearch anomaly index template result
   ansible.builtin.debug:
-    var: ai_index_template_result.json
+    var: ai_index_template_result.stdout
 
 - name: Create Grafana AI anomaly dashboard ConfigMap
   become: true
@@ -146,22 +150,30 @@
     state: present
     definition: "{{ lookup('template', 'grafana-dashboard-configmap.yaml.j2') | from_yaml }}"
 
-- name: Verify AI engine metrics endpoint
+- name: Look up AI engine service ClusterIP
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
-    kubectl exec \
+    kubectl get svc \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
       -n {{ ai_engine.namespace }} \
-      $(kubectl get pod \
-        --kubeconfig /etc/rancher/k3s/k3s.yaml \
-        -n {{ ai_engine.namespace }} \
-        -l app.kubernetes.io/name={{ ai_engine.app_name }} \
-        -o jsonpath='{.items[0].metadata.name}') \
-      -- python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:{{ ai_engine.port }}/metrics').read().decode())" \
-      | grep '^ai_anomaly_runs_total'
+      {{ ai_engine.app_name }} \
+      -o jsonpath='{.spec.clusterIP}'
+  register: ai_engine_service_ip
+  changed_when: false
+
+- name: Verify AI engine metrics endpoint
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - curl
+      - -sS
+      - -f
+      - "http://{{ ai_engine_service_ip.stdout }}:{{ ai_engine.port }}/metrics"
   register: ai_metrics_check
   changed_when: false
+  failed_when: "'ai_anomaly_runs_total' not in ai_metrics_check.stdout"
 
 - name: Show AI engine metrics verification
   ansible.builtin.debug:

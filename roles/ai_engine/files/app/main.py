@@ -212,10 +212,12 @@ def evaluate_once():
     if len(rows) < MIN_TRAINING_SAMPLES + 1:
         DETECTOR_READY.set(0)
         LAST_RUN_DURATION.set(time.monotonic() - started_at)
-        raise RuntimeError(
-            "Detector is still warming up: "
-            f"need at least {MIN_TRAINING_SAMPLES + 1} aligned samples, found {len(rows)}."
+        LOG.info(
+            "Detector is still warming up: need at least %s aligned samples, found %s.",
+            MIN_TRAINING_SAMPLES + 1,
+            len(rows),
         )
+        return
 
     train_raw = matrix[:-1]
     latest_raw = matrix[-1]
