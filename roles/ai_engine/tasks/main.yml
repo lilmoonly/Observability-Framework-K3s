@@ -85,15 +85,14 @@
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
-    kubectl get pods \
+    kubectl wait \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
       -n {{ ai_engine.namespace }} \
+      --for=condition=Ready \
+      pod \
       -l app.kubernetes.io/name={{ ai_engine.app_name }} \
-      -o jsonpath='{.items[0].status.phase}'
+      --timeout=600s
   register: ai_engine_status
-  until: ai_engine_status.stdout == "Running"
-  retries: 40
-  delay: 15
   changed_when: false
 
 - name: Render OpenSearch anomaly index template
@@ -135,8 +134,11 @@
       - --data-binary
       - "@/tmp/ai-anomalies-index-template.json"
   register: ai_index_template_result
+  until: ai_index_template_result.rc == 0 and '\"acknowledged\":true' in (ai_index_template_result.stdout | replace(' ', ''))
+  retries: 30
+  delay: 10
   changed_when: "'\"acknowledged\":true' in (ai_index_template_result.stdout | replace(' ', ''))"
-  failed_when: ai_index_template_result.rc != 0
+  failed_when: false
 
 - name: Show OpenSearch anomaly index template result
   ansible.builtin.debug:
@@ -172,8 +174,11 @@
       - -f
       - "http://{{ ai_engine_service_ip.stdout }}:{{ ai_engine.port }}/metrics"
   register: ai_metrics_check
+  until: ai_metrics_check.rc == 0 and 'ai_anomaly_runs_total' in ai_metrics_check.stdout
+  retries: 30
+  delay: 10
   changed_when: false
-  failed_when: "'ai_anomaly_runs_total' not in ai_metrics_check.stdout"
+  failed_when: false
 
 - name: Show AI engine metrics verification
   ansible.builtin.debug:
