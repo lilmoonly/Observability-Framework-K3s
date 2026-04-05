@@ -69,53 +69,12 @@
         service:
           type: ClusterIP
           port: "{{ grafana_port }}"
-        dashboardProviders:
-          dashboardproviders.yaml:
-            apiVersion: 1
-            providers:
-              - name: "community-infrastructure"
-                orgId: 1
-                folder: "Infrastructure"
-                type: file
-                disableDeletion: false
-                editable: true
-                options:
-                  path: /var/lib/grafana/dashboards/community-infrastructure
-        dashboards:
-          community-infrastructure:
-            kubernetes-views-global:
-              url: "https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-global.json"
-              datasource: "Prometheus"
-              token: ""
-            kubernetes-views-nodes:
-              url: "https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-nodes.json"
-              datasource: "Prometheus"
-              token: ""
-            kubernetes-views-pods:
-              url: "https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-pods.json"
-              datasource: "Prometheus"
-              token: ""
-            kubernetes-views-namespaces:
-              url: "https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-namespaces.json"
-              datasource: "Prometheus"
-              token: ""
-            kubernetes-system-api-server:
-              url: "https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-api-server.json"
-              datasource: "Prometheus"
-              token: ""
-            kubernetes-system-coredns:
-              url: "https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-coredns.json"
-              datasource: "Prometheus"
-              token: ""
-            prometheus-overview:
-              url: "https://grafana.com/api/dashboards/22537/revisions/latest/download"
-              datasource: "Prometheus"
-              token: ""
         sidecar:
           dashboards:
             enabled: true
             label: grafana_dashboard
             labelValue: "1"
+            folderAnnotation: grafana_folder
             searchNamespace: ALL
         nodeSelector:
           workload: "{{ monitoring.node_selector_label }}"
@@ -193,6 +152,14 @@
   retries: 40
   delay: 15
   changed_when: false
+
+- name: Create vendored infrastructure dashboards ConfigMap
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'grafana-community-dashboards-configmap.yaml.j2') | from_yaml }}"
 
 # ============================================================
 # 4. Wait for Alertmanager to Be Ready

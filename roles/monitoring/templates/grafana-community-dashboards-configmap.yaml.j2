@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: community-infrastructure-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: "Infrastructure"
+data:
+  kubernetes-views-global.json: |
+{{ lookup('file', role_path + '/files/grafana/community/kubernetes-views-global.json') | indent(4, true) }}
+  kubernetes-views-nodes.json: |
+{{ lookup('file', role_path + '/files/grafana/community/kubernetes-views-nodes.json') | indent(4, true) }}
+  kubernetes-views-pods.json: |
+{{ lookup('file', role_path + '/files/grafana/community/kubernetes-views-pods.json') | indent(4, true) }}
+  kubernetes-views-namespaces.json: |
+{{ lookup('file', role_path + '/files/grafana/community/kubernetes-views-namespaces.json') | indent(4, true) }}
+  kubernetes-system-api-server.json: |
+{{ lookup('file', role_path + '/files/grafana/community/kubernetes-system-api-server.json') | indent(4, true) }}
+  kubernetes-system-coredns.json: |
+{{ lookup('file', role_path + '/files/grafana/community/kubernetes-system-coredns.json') | indent(4, true) }}
+  prometheus-overview.json: |
+{{ lookup('file', role_path + '/files/grafana/community/prometheus-overview.json') | indent(4, true) }}
