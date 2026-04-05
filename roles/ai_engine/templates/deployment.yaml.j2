@@ -68,18 +68,27 @@ spec:
           volumeMounts:
             - name: app
               mountPath: /app
+          startupProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 10
+            failureThreshold: 30
+            timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /metrics
               port: metrics
-            initialDelaySeconds: 20
+            initialDelaySeconds: 5
             periodSeconds: 15
+            timeoutSeconds: 5
           livenessProbe:
             httpGet:
               path: /metrics
               port: metrics
-            initialDelaySeconds: 40
+            initialDelaySeconds: 10
             periodSeconds: 20
+            timeoutSeconds: 5
           resources:
             requests:
               cpu: {{ ai_engine.resources.requests.cpu }}

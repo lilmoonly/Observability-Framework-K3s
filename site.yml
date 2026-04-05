@@ -24,6 +24,9 @@
 - name: Phase 1 - Prepare All Nodes
   hosts: k8s_cluster
   become: true
+  tags:
+    - phase1
+    - common
   roles:
     - common
 
@@ -35,6 +38,9 @@
 - name: Phase 2 - Setup Control Plane
   hosts: master
   become: true
+  tags:
+    - phase2
+    - k3s_master
   roles:
     - k3s_master
 
@@ -46,6 +52,9 @@
 - name: Phase 3 - Setup Workers and Labeling
   hosts: workers
   become: true
+  tags:
+    - phase3
+    - k3s_worker
   roles:
     - k3s_worker
 
@@ -59,6 +68,9 @@
 - name: Phase 4 - Deploy Database Layer
   hosts: master
   become: true
+  tags:
+    - phase4
+    - database
   roles:
     - database
 
@@ -71,6 +83,9 @@
 - name: Phase 5 - Deploy Logging Stack
   hosts: master
   become: true
+  tags:
+    - phase5
+    - logging
   roles:
     - logging
 
@@ -83,6 +98,9 @@
 - name: Phase 6 - Deploy Monitoring Stack
   hosts: master
   become: true
+  tags:
+    - phase6
+    - monitoring
   roles:
     - monitoring
 
@@ -98,6 +116,9 @@
 - name: Phase 7 - Deploy AI Anomaly Detection
   hosts: master
   become: true
+  tags:
+    - phase7
+    - ai_engine
   roles:
     - ai_engine
 
@@ -115,6 +136,9 @@
 - name: Phase 8 - Configure Ingress Routing
   hosts: master
   become: true
+  tags:
+    - phase8
+    - ingress
   roles:
     - ingress
 
@@ -126,5 +150,8 @@
 - name: Phase 9 - Deploy Forgejo
   hosts: master
   become: true
+  tags:
+    - phase9
+    - forgejo
   roles:
     - forgejo
