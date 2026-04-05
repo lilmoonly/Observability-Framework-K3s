@@ -9,8 +9,20 @@
     },
     {
       "type": "panel",
+      "id": "gauge",
+      "name": "Gauge",
+      "version": ""
+    },
+    {
+      "type": "panel",
       "id": "stat",
       "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
       "version": ""
     },
     {
@@ -38,12 +50,13 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": null,
   "links": [],
   "panels": [
     {
       "datasource": "Prometheus",
+      "description": "Ready means the model has enough aligned Prometheus samples to begin anomaly scoring.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -54,12 +67,10 @@
               "options": {
                 "0": {
                   "color": "yellow",
-                  "index": 0,
                   "text": "Warming Up"
                 },
                 "1": {
                   "color": "green",
-                  "index": 1,
                   "text": "Ready"
                 }
               },
@@ -84,7 +95,7 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 6,
+        "w": 4,
         "x": 0,
         "y": 0
       },
@@ -106,25 +117,154 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "ai_anomaly_ready",
-          "legendFormat": "Detector readiness",
-          "range": true,
+          "expr": "max(ai_anomaly_ready)",
+          "instant": true,
+          "legendFormat": "Detector state",
+          "range": false,
           "refId": "A"
         }
       ],
-      "title": "Detector Status",
+      "title": "Detector State",
       "type": "stat"
     },
     {
       "datasource": "Prometheus",
+      "description": "Percent of required aligned Prometheus samples already collected.",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-GrYlRd"
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.4
+              },
+              {
+                "color": "yellow",
+                "value": 0.75
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "clamp_max(max(ai_anomaly_available_samples) / clamp_min(max(ai_anomaly_required_samples), 1), 1)",
+          "instant": true,
+          "legendFormat": "Training progress",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Training Progress",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "When this reaches 0, the detector has enough history to score anomalies.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "clamp_min(max(ai_anomaly_required_samples) - max(ai_anomaly_available_samples), 0)",
+          "instant": true,
+          "legendFormat": "Samples remaining",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Samples Remaining",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Latest normalized score from the model. Compare it with the threshold line in the timeline below.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
           },
           "decimals": 2,
-          "min": 0,
           "max": 1,
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -147,13 +287,13 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 6,
-        "x": 6,
+        "w": 4,
+        "x": 12,
         "y": 0
       },
-      "id": 2,
+      "id": 4,
       "options": {
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "area",
         "justifyMode": "center",
         "orientation": "auto",
@@ -169,213 +309,192 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "ai_anomaly_score_normalized",
-          "legendFormat": "Score",
-          "range": true,
+          "expr": "max(ai_anomaly_score_normalized)",
+          "instant": true,
+          "legendFormat": "Current score",
+          "range": false,
           "refId": "A"
         }
       ],
-      "title": "Normalized Anomaly Score",
+      "title": "Current Score",
       "type": "stat"
     },
     {
       "datasource": "Prometheus",
+      "description": "How many anomaly events the AI engine has written to OpenSearch in the last 24 hours.",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
           }
         },
         "overrides": []
       },
       "gridPos": {
         "h": 5,
-        "w": 6,
-        "x": 12,
+        "w": 4,
+        "x": 16,
         "y": 0
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value"
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "ai_anomaly_training_samples or ai_anomaly_available_samples",
-          "legendFormat": "Samples",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Samples Available",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "id": 4,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value"
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "increase(ai_anomaly_events_total[24h])",
-          "legendFormat": "Events",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Anomalies in 24h",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 5
       },
       "id": 5,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "textMode": "value"
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "ai_anomaly_score_normalized",
-          "legendFormat": "Normalized score",
-          "range": true,
+          "expr": "sum(increase(ai_anomaly_events_total[24h]))",
+          "instant": true,
+          "legendFormat": "Events in last 24h",
+          "range": false,
           "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "ai_anomaly_detected",
-          "legendFormat": "Detected",
-          "range": true,
-          "refId": "B"
         }
       ],
-      "title": "Anomaly Timeline",
-      "type": "timeseries"
+      "title": "Events Written to OpenSearch (24h)",
+      "type": "stat"
     },
     {
       "datasource": "Prometheus",
+      "description": "Shows when the detector last completed a successful evaluation.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "yellow",
+                  "text": "No successful run yet"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "unit": "dateTimeFromNow"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(ai_anomaly_last_success_timestamp_seconds)",
+          "instant": true,
+          "legendFormat": "Last successful run",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Last Successful Run",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "The detector is actionable when the score crosses the threshold and the detected line jumps to 1.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "percent"
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "decimals": 2,
+          "max": 1,
+          "min": 0
         },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 5
-      },
-      "id": 6,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "ai_feature_value{feature=\"cluster_cpu_usage_pct\"}",
-          "legendFormat": "CPU %",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "ai_feature_value{feature=\"cluster_memory_usage_pct\"}",
-          "legendFormat": "Memory %",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "title": "Cluster Resource Signals",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Anomaly threshold"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Detected (0/1)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
           }
-        },
-        "overrides": []
+        ]
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
+        "h": 8,
+        "w": 14,
         "x": 0,
-        "y": 14
+        "y": 5
       },
       "id": 7,
       "options": {
@@ -386,53 +505,129 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "ai_feature_value{feature=\"running_pods\"}",
-          "legendFormat": "Running",
+          "expr": "max(ai_anomaly_score_normalized)",
+          "legendFormat": "Normalized score",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "ai_feature_value{feature=\"pending_pods\"}",
-          "legendFormat": "Pending",
+          "expr": "max(ai_anomaly_threshold)",
+          "legendFormat": "Anomaly threshold",
           "range": true,
           "refId": "B"
         },
         {
           "editorMode": "code",
-          "expr": "ai_feature_value{feature=\"failed_pods\"}",
-          "legendFormat": "Failed",
+          "expr": "max(ai_anomaly_detected)",
+          "legendFormat": "Detected (0/1)",
           "range": true,
           "refId": "C"
         }
       ],
-      "title": "Pod Health Signals",
+      "title": "Score vs Threshold",
       "type": "timeseries"
     },
     {
       "datasource": "Prometheus",
+      "description": "Current feature values used by the detector. This table is populated even during warm-up.",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
           }
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 14
+        "h": 8,
+        "w": 10,
+        "x": 14,
+        "y": 5
       },
       "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max by (feature) (ai_feature_value)",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{feature}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "feature": 0,
+              "Value": 1
+            },
+            "renameByName": {
+              "feature": "Feature",
+              "Value": "Current value"
+            }
+          }
+        }
+      ],
+      "title": "Current Feature Snapshot",
+      "type": "table"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Core cluster-level feature trends feeding the AI model.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "id": 9,
       "options": {
         "legend": {
           "calcs": [],
@@ -441,27 +636,234 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "ai_feature_value{feature=\"pod_restart_delta_15m\"}",
-          "legendFormat": "Restarts / 15m",
+          "expr": "max(ai_feature_value{feature=\"cluster_cpu_usage_pct\"})",
+          "legendFormat": "CPU usage %",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "ai_anomaly_run_failures_total",
-          "legendFormat": "Run failures total",
+          "expr": "max(ai_feature_value{feature=\"cluster_memory_usage_pct\"})",
+          "legendFormat": "Memory usage %",
           "range": true,
           "refId": "B"
         }
       ],
-      "title": "Operational Signals",
+      "title": "Resource Trend",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Workload health inputs that often explain why the detector raised a score.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"running_pods\"})",
+          "legendFormat": "Running pods",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"pending_pods\"})",
+          "legendFormat": "Pending pods",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"failed_pods\"})",
+          "legendFormat": "Failed pods",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"pod_restart_delta_15m\"})",
+          "legendFormat": "Container restarts / 15m",
+          "range": true,
+          "refId": "D"
+        }
+      ],
+      "title": "Workload Health Trend",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Higher z-scores indicate the strongest contributors to the latest anomaly. This table appears after the first successful model fit.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
+      "id": 11,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max by (feature) (ai_feature_zscore)",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{feature}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "feature": 0,
+              "Value": 1
+            },
+            "renameByName": {
+              "feature": "Feature",
+              "Value": "Z-score"
+            }
+          }
+        }
+      ],
+      "title": "Contributor Ranking",
+      "type": "table"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Rolling one-hour activity for the detector. Use this to see whether it is actively evaluating, failing, or writing events.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 21
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(increase(ai_anomaly_runs_total[1h]))",
+          "legendFormat": "Runs last hour",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(increase(ai_anomaly_run_failures_total[1h]))",
+          "legendFormat": "Failures last hour",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(increase(ai_anomaly_events_total[1h]))",
+          "legendFormat": "Events written last hour",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Detector Activity",
       "type": "timeseries"
     }
   ],
@@ -482,8 +884,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "AI Anomaly Overview",
+  "title": "AI Engine Command Center",
   "uid": "ai-anomaly-overview",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

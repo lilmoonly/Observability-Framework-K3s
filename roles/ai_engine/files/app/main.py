@@ -78,6 +78,10 @@ ANOMALY_SCORE_NORMALIZED = Gauge(
     "ai_anomaly_score_normalized",
     "Min-max normalized anomaly score from the latest evaluated window.",
 )
+ANOMALY_THRESHOLD_VALUE = Gauge(
+    "ai_anomaly_threshold",
+    "Normalized anomaly score threshold used to mark anomalies.",
+)
 TRAINING_SAMPLE_COUNT = Gauge(
     "ai_anomaly_training_samples",
     "Number of historical samples used in the latest model fit.",
@@ -207,8 +211,12 @@ def evaluate_once():
     started_at = time.monotonic()
 
     rows, matrix = collect_feature_matrix()
+    latest_row = rows[-1]
     AVAILABLE_SAMPLE_COUNT.set(len(rows))
     REQUIRED_SAMPLE_COUNT.set(MIN_TRAINING_SAMPLES + 1)
+    for feature_name, feature_value in latest_row["features"].items():
+        FEATURE_VALUE.labels(feature=feature_name).set(float(feature_value))
+
     if len(rows) < MIN_TRAINING_SAMPLES + 1:
         DETECTOR_READY.set(0)
         LAST_RUN_DURATION.set(time.monotonic() - started_at)
@@ -244,10 +252,6 @@ def evaluate_once():
 
     top_contributors = compute_top_contributors(train_raw, latest_raw)
     is_anomaly = bool(latest_label == 1 and normalized_score >= ANOMALY_THRESHOLD)
-    latest_row = rows[-1]
-
-    for feature_name, feature_value in latest_row["features"].items():
-        FEATURE_VALUE.labels(feature=feature_name).set(float(feature_value))
 
     ANOMALY_FLAG.set(1 if is_anomaly else 0)
     ANOMALY_SCORE.set(latest_score)
@@ -301,6 +305,7 @@ def main():
     ANOMALY_FLAG.set(0)
     ANOMALY_SCORE.set(0)
     ANOMALY_SCORE_NORMALIZED.set(0)
+    ANOMALY_THRESHOLD_VALUE.set(ANOMALY_THRESHOLD)
     TRAINING_SAMPLE_COUNT.set(0)
     AVAILABLE_SAMPLE_COUNT.set(0)
     REQUIRED_SAMPLE_COUNT.set(MIN_TRAINING_SAMPLES + 1)
