@@ -127,6 +127,7 @@
     release_namespace: opensearch
     wait: yes
     values:
+      metricsPort: 2020
       config:
         outputs: |
           [OUTPUT]
@@ -145,36 +146,131 @@
           effect:   "NoSchedule"
 
 # ============================================================
-# 5. Verify Logging Stack is Healthy
-# Confirms all three components are running before
-# handing off to the monitoring role in Phase 6.
+# 5. Verify OpenSearch is Healthy
+# A direct curl against the ClusterIP is more reliable than
+# kubectl exec and avoids kubelet proxy issues on reruns.
 # ============================================================
-- name: Verify OpenSearch is accepting connections
+- name: Look up OpenSearch service ClusterIP
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
-    kubectl exec \
+    kubectl get svc \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
       -n opensearch \
-      $(kubectl get pod \
-        --kubeconfig /etc/rancher/k3s/k3s.yaml \
-        -n opensearch \
-        -l app.kubernetes.io/name=opensearch \
-        -o jsonpath='{.items[0].metadata.name}') \
-      -- curl -sk \
-      -u admin:{{ opensearch.admin_password }} \
-      https://localhost:9200/_cluster/health \
-      | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['status'])"
+      opensearch-cluster-master \
+      -o jsonpath='{.spec.clusterIP}'
+  register: opensearch_service_ip
+  changed_when: false
+
+- name: Verify OpenSearch is accepting connections
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - curl
+      - -sS
+      - -k
+      - -u
+      - "admin:{{ opensearch.admin_password }}"
+      - "https://{{ opensearch_service_ip.stdout }}:9200/_cluster/health"
   register: opensearch_health
-  until: opensearch_health.stdout in ['green', 'yellow']
+  until: opensearch_health.rc == 0 and ('\"status\":\"green\"' in (opensearch_health.stdout | replace(' ', '')) or '\"status\":\"yellow\"' in (opensearch_health.stdout | replace(' ', '')))
   retries: 20
   delay: 15
   changed_when: false
 
 - name: Show OpenSearch cluster health
   ansible.builtin.debug:
-    msg: "OpenSearch cluster health: {{ opensearch_health.stdout }}"
+    msg: "{{ opensearch_health.stdout }}"
 
+# ============================================================
+# 6. Expose and Scrape Fluent Bit Metrics
+# Fluent Bit already exposes internal metrics on port 2020;
+# we add a stable Service and ServiceMonitor for Prometheus.
+# ============================================================
+- name: Create Fluent Bit metrics service
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'fluent-bit-metrics-service.yaml.j2') | from_yaml }}"
+
+- name: Create Fluent Bit ServiceMonitor
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'fluent-bit-servicemonitor.yaml.j2') | from_yaml }}"
+
+- name: Wait for Fluent Bit metrics endpoints to exist
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get endpoints \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n opensearch \
+      fluent-bit-metrics \
+      -o jsonpath='{.subsets[*].addresses[*].ip}'
+  register: fluent_bit_metrics_endpoints
+  until: fluent_bit_metrics_endpoints.stdout != ""
+  retries: 30
+  delay: 10
+  changed_when: false
+
+# ============================================================
+# 7. Deploy and Scrape OpenSearch Exporter
+# A separate exporter keeps the OpenSearch StatefulSet stock
+# and makes the framework reusable across environments.
+# ============================================================
+- name: Create OpenSearch exporter secret
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'opensearch-exporter-secret.yaml.j2') | from_yaml }}"
+
+- name: Deploy OpenSearch exporter
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'opensearch-exporter-deployment.yaml.j2') | from_yaml }}"
+
+- name: Create OpenSearch exporter service
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'opensearch-exporter-service.yaml.j2') | from_yaml }}"
+
+- name: Create OpenSearch exporter ServiceMonitor
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'opensearch-exporter-servicemonitor.yaml.j2') | from_yaml }}"
+
+- name: Wait for OpenSearch exporter deployment to become available
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl rollout status \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n opensearch \
+      deployment/opensearch-exporter \
+      --timeout=300s
+  register: opensearch_exporter_rollout
+  changed_when: false
+
+# ============================================================
+# 8. Show Logging Stack Pod Summary
+# ============================================================
 - name: Show logging stack pod summary
   become: true
   delegate_to: k8s-ctrl

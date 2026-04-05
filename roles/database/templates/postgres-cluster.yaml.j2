@@ -46,6 +46,13 @@ spec:
     name: app-db-superuser-secret
 
   # --------------------------------------------------------
+  # Monitoring — let CNPG create a PodMonitor so Prometheus
+  # can scrape PostgreSQL exporter metrics automatically.
+  # --------------------------------------------------------
+  monitoring:
+    enablePodMonitor: true
+
+  # --------------------------------------------------------
   # Storage — uses K3s default local-path provisioner
   # --------------------------------------------------------
   storage:

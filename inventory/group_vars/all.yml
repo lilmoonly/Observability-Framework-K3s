@@ -24,6 +24,7 @@ flannel_interface: "enp0s8"
 opensearch:
   version: "2.12.0"
   admin_password: "S#r2-L%m4!"
+  exporter_image: "quay.io/prometheuscommunity/elasticsearch-exporter:v1.9.0"
   # Laptop-friendly JVM heap. Keeps OpenSearch usable without
   # forcing the logging VM to reserve multiple extra gigabytes.
   heap_size: "512m"
@@ -51,6 +52,7 @@ database:
   instances: 1
   storage_size: "2Gi"
   node_selector_label: "db"
+  force_recreate: false
   # Superuser password for CNPG operator internal management
   superuser_password: "SuperuserPassword123!"
   app_db_name: "app"

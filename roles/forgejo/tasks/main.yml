@@ -240,7 +240,29 @@
           port: "{{ forgejo.port | int }}"
 
 # ============================================================
-# STEP 6: Wait for Forgejo Pod to Be Running
+# STEP 6: Expose Forgejo Metrics to Prometheus
+# Forgejo serves Prometheus metrics from the application
+# itself, so a small dedicated Service keeps scraping stable
+# without coupling monitoring to the chart's main Service.
+# ============================================================
+- name: Create Forgejo metrics service
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'metrics-service.yaml.j2') | from_yaml }}"
+
+- name: Create Forgejo metrics ServiceMonitor
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'metrics-servicemonitor.yaml.j2') | from_yaml }}"
+
+# ============================================================
+# STEP 7: Wait for Forgejo Pod to Be Running
 # ============================================================
 - name: Wait for Forgejo pod to be ready
   become: true
@@ -258,29 +280,37 @@
   changed_when: false
 
 # ============================================================
-# STEP 7: Verify Forgejo is Connected to PostgreSQL
+# STEP 8: Verify Forgejo is Connected to PostgreSQL
 # Queries the Forgejo admin API to confirm the application
 # started correctly and is connected to the database.
 # A 200 response means Forgejo is fully initialised.
 # ============================================================
-- name: Verify Forgejo API is responding
+- name: Look up Forgejo service ClusterIP
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
-    kubectl exec \
+    kubectl get svc \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
       -n forgejo \
-      $(kubectl get pod \
-        --kubeconfig /etc/rancher/k3s/k3s.yaml \
-        -n forgejo \
-        -l app.kubernetes.io/name=forgejo \
-        -o jsonpath='{.items[0].metadata.name}') \
-      -- curl -sk \
-      -o /dev/null \
-      -w "%{http_code}" \
-      http://localhost:{{ forgejo.port }}/api/healthz
+      -l app.kubernetes.io/name=forgejo \
+      -o jsonpath='{.items[0].spec.clusterIP}'
+  register: forgejo_service_ip
+  changed_when: false
+
+- name: Verify Forgejo API is responding
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - curl
+      - -sS
+      - -o
+      - /dev/null
+      - -w
+      - "%{http_code}"
+      - "http://{{ forgejo_service_ip.stdout }}:{{ forgejo.port }}/api/healthz"
   register: forgejo_health
-  until: forgejo_health.stdout == "200"
+  until: forgejo_health.rc == 0 and forgejo_health.stdout == "200"
   retries: 20
   delay: 15
   changed_when: false
@@ -290,7 +320,7 @@
     msg: "Forgejo API health check → HTTP {{ forgejo_health.stdout }}"
 
 # ============================================================
-# STEP 8: Show Forgejo Pod Summary
+# STEP 9: Show Forgejo Pod Summary
 # Final confirmation — shows pod status, node placement
 # and confirms it landed on app-worker as expected.
 # ============================================================
@@ -310,7 +340,7 @@
     var: forgejo_pods.stdout_lines
 
 # ============================================================
-# STEP 9: Render and Apply Forgejo Ingress
+# STEP 10: Render and Apply Forgejo Ingress
 # Done here — not in the ingress role — because the
 # forgejo namespace must exist before the Ingress can
 # be created and the namespace is created in STEP 1.

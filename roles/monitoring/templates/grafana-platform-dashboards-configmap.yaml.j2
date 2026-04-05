@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: community-platform-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: "Platform Services"
+data:
+  cloudnativepg-overview.json: |
+{{ lookup('file', role_path + '/files/grafana/platform/cloudnativepg-overview.json') | indent(4, true) }}
+  traefik-kubernetes-overview.json: |
+{{ lookup('file', role_path + '/files/grafana/platform/traefik-kubernetes-overview.json') | indent(4, true) }}
+  fluent-bit-overview.json: |
+{{ lookup('file', role_path + '/files/grafana/platform/fluent-bit-overview.json') | indent(4, true) }}
+  opensearch-overview.json: |
+{{ lookup('file', role_path + '/files/grafana/platform/opensearch-overview.json') | indent(4, true) }}

@@ -81,7 +81,19 @@
   changed_when: false
 
 # ============================================================
-# 5. Verify Traefik Ingress Controller is Running
+# 5. Enable Traefik Metrics
+# K3s manages Traefik via Helm; HelmChartConfig is the
+# supported way to turn on the Prometheus metrics endpoint.
+# ============================================================
+- name: Install Traefik HelmChartConfig for Prometheus metrics
+  become: true
+  ansible.builtin.copy:
+    dest: /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+    mode: '0644'
+    content: "{{ lookup('template', 'traefik-helmchartconfig.yaml.j2') }}"
+
+# ============================================================
+# 6. Verify Traefik Ingress Controller is Running
 # K3s deploys Traefik automatically as a DaemonSet.
 # We confirm it is running before Phase 7 ingress rules
 # are created — if Traefik is not ready the Ingress
@@ -102,7 +114,43 @@
   changed_when: false
 
 # ============================================================
-# 6. Show Master Node Status
+# 7. Expose and Scrape Traefik Metrics
+# A dedicated in-cluster Service keeps the Prometheus target
+# stable even if K3s changes the default Traefik Service.
+# ============================================================
+- name: Create Traefik metrics service
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'traefik-metrics-service.yaml.j2') | from_yaml }}"
+
+- name: Create Traefik metrics ServiceMonitor
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'traefik-metrics-servicemonitor.yaml.j2') | from_yaml }}"
+
+- name: Wait for Traefik metrics endpoints to exist
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get endpoints \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n kube-system \
+      traefik-metrics \
+      -o jsonpath='{.subsets[*].addresses[*].ip}'
+  register: traefik_metrics_endpoints
+  until: traefik_metrics_endpoints.stdout != ""
+  retries: 30
+  delay: 10
+  changed_when: false
+
+# ============================================================
+# 8. Show Master Node Status
 # Final confirmation before handing off to Phase 3.
 # Shows node name, status, K3s version and internal IP.
 # ============================================================

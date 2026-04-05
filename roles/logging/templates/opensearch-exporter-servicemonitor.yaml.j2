@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: opensearch-exporter
+  namespace: opensearch
+  labels:
+    release: prometheus
+spec:
+  namespaceSelector:
+    matchNames:
+      - opensearch
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opensearch-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

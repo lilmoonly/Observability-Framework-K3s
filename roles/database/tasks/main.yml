@@ -108,10 +108,11 @@
         password: "{{ database.superuser_password }}"
 
 # ============================================================
-# 5. Clean Recreate Logic
-# CNPG cluster specs are mostly immutable — a clean
-# recreate is safer than trying to patch a broken cluster.
-# Skip entirely if cluster does not exist yet.
+# 5. Optional Clean Recreate Logic
+# CNPG cluster specs are mostly immutable, but monitoring or
+# other safe day-2 changes should not delete the cluster by
+# default. A clean recreate is now opt-in via
+# database.force_recreate=true.
 # ============================================================
 - name: Check if PostgreSQL cluster already exists
   become: true
@@ -136,7 +137,9 @@
       metadata:
         name: "{{ database.cluster_name }}"
         namespace: db
-  when: cluster_exists.stdout != "notfound"
+  when:
+    - cluster_exists.stdout != "notfound"
+    - database.force_recreate | default(false) | bool
 
 - name: Wait for old cluster pods to fully terminate
   become: true
@@ -152,7 +155,9 @@
   retries: 20
   delay: 10
   changed_when: false
-  when: cluster_exists.stdout != "notfound"
+  when:
+    - cluster_exists.stdout != "notfound"
+    - database.force_recreate | default(false) | bool
 
 # ============================================================
 # 6. Deploy PostgreSQL Cluster
@@ -189,10 +194,10 @@
   changed_when: false
 
 # ============================================================
-# 8. Verify Replication is Working
-# Queries pg_stat_replication on the primary to confirm
-# the replica is connected and streaming WAL.
-# A healthy result shows state=streaming and lag=0.
+# 8. Show Replication Status (Best Effort)
+# The healthy-phase check above is the authoritative gate.
+# This direct SQL query is useful context, but it should not
+# fail reruns if kubelet exec is temporarily unavailable.
 # ============================================================
 - name: Verify replication status on primary
   become: true
@@ -212,6 +217,7 @@
        FROM pg_stat_replication;"
   register: replication_status
   changed_when: false
+  failed_when: false
 
 - name: Show replication status
   ansible.builtin.debug:

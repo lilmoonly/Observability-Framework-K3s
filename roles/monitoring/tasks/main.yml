@@ -161,6 +161,14 @@
     state: present
     definition: "{{ lookup('template', 'grafana-community-dashboards-configmap.yaml.j2') | from_yaml }}"
 
+- name: Create vendored platform dashboards ConfigMap
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'grafana-platform-dashboards-configmap.yaml.j2') | from_yaml }}"
+
 # ============================================================
 # 4. Wait for Alertmanager to Be Ready
 # ============================================================
