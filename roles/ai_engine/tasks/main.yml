@@ -120,7 +120,7 @@
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.uri:
-    url: "https://{{ opensearch_service_ip.stdout }}/_index_template/ai-anomalies-template"
+    url: "https://{{ opensearch_service_ip.stdout }}:9200/_index_template/ai-anomalies-template"
     method: PUT
     user: admin
     password: "{{ opensearch.admin_password }}"
