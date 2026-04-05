@@ -104,10 +104,23 @@
     dest: /tmp/ai-anomalies-index-template.json
     mode: '0644'
 
+- name: Look up OpenSearch service ClusterIP
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get svc \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n opensearch \
+      opensearch-cluster-master \
+      -o jsonpath='{.spec.clusterIP}'
+  register: opensearch_service_ip
+  changed_when: false
+
 - name: Apply OpenSearch anomaly index template
+  become: true
   delegate_to: k8s-ctrl
   ansible.builtin.uri:
-    url: "https://{{ ai_engine.opensearch_url | regex_replace('^https?://', '') }}/_index_template/ai-anomalies-template"
+    url: "https://{{ opensearch_service_ip.stdout }}/_index_template/ai-anomalies-template"
     method: PUT
     user: admin
     password: "{{ opensearch.admin_password }}"
