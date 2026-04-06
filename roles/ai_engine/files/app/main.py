@@ -204,6 +204,7 @@ def publish_document(document):
         verify=False,
     )
     response.raise_for_status()
+    return index_name
 
 
 def evaluate_once():
@@ -261,26 +262,27 @@ def evaluate_once():
     LAST_SUCCESS_TIMESTAMP.set(time.time())
 
     if is_anomaly:
+        document = {
+            "@timestamp": latest_row["timestamp"].isoformat(),
+            "source": "prometheus",
+            "model": "pyod-iforest",
+            "is_anomaly": True,
+            "anomaly_score": latest_score,
+            "normalized_score": normalized_score,
+            "reason": (
+                "Latest cluster metrics deviated from the recent training window."
+            ),
+            "top_contributors": top_contributors,
+            "features": latest_row["features"],
+            "window": {
+                "lookback_hours": TRAINING_WINDOW_HOURS,
+                "step_seconds": STEP_SECONDS,
+            },
+        }
+        index_name = publish_document(document)
         EVENTS_TOTAL.inc()
+        LOG.info("Published anomaly event to OpenSearch index %s", index_name)
 
-    document = {
-        "@timestamp": latest_row["timestamp"].isoformat(),
-        "source": "prometheus",
-        "model": "pyod-iforest",
-        "is_anomaly": is_anomaly,
-        "anomaly_score": latest_score,
-        "normalized_score": normalized_score,
-        "reason": (
-            "Latest cluster metrics deviated from the recent training window."
-        ),
-        "top_contributors": top_contributors,
-        "features": latest_row["features"],
-        "window": {
-            "lookback_hours": TRAINING_WINDOW_HOURS,
-            "step_seconds": STEP_SECONDS,
-        },
-    }
-    publish_document(document)
     LAST_RUN_DURATION.set(time.monotonic() - started_at)
     LOG.info(
         "Anomaly evaluation complete: anomaly=%s normalized_score=%.3f top_contributors=%s",

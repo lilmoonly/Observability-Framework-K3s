@@ -422,7 +422,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max(ai_anomaly_last_success_timestamp_seconds)",
+          "expr": "max(ai_anomaly_last_success_timestamp_seconds) * 1000",
           "instant": true,
           "legendFormat": "Last successful run",
           "range": false,
