@@ -82,9 +82,11 @@
   changed_when: false
 
 # ============================================================
-# 5. Label and Taint Control-Plane Nodes
-# Keeps topology metadata on the node itself and preserves
-# the standard control-plane NoSchedule protection.
+# 5. Label Control-Plane Nodes
+# Keeps topology metadata on the node itself. We delay the
+# control-plane taint until workers have joined so bootstrap
+# jobs like helm-install-traefik always have a place to run
+# during fresh cluster creation.
 # ============================================================
 - name: Label control-plane node with pool metadata
   become: true
@@ -101,20 +103,6 @@
       - --kubeconfig=/etc/rancher/k3s/k3s.yaml
   register: control_plane_label
   changed_when: "'not labeled' not in control_plane_label.stdout"
-
-- name: Taint control-plane node
-  become: true
-  ansible.builtin.command:
-    argv:
-      - kubectl
-      - taint
-      - nodes
-      - "{{ inventory_hostname }}"
-      - "{{ item.key }}={{ item.value }}:{{ item.effect }}"
-      - --overwrite
-      - --kubeconfig=/etc/rancher/k3s/k3s.yaml
-  loop: "{{ cluster_topology.node_pools[cluster_topology.control_plane_pool].taints | default([]) }}"
-  changed_when: false
 
 # ============================================================
 # 6. Enable Traefik Metrics

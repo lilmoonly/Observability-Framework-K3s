@@ -78,12 +78,33 @@
   run_once: true
 
 # ============================================================
-# 5. Taint Nodes for Workload Isolation
+# 5. Taint Control-Plane and Worker Nodes for Isolation
+# The control-plane taint is applied here, not during the
+# single-node bootstrap phase, so K3s addon installer jobs
+# like helm-install-traefik can still schedule cleanly on
+# a fresh cluster before workers exist.
+#
 # Each node gets the taints defined by its configured pool.
 # Pods must have a matching toleration + nodeSelector
 # to be scheduled on a tainted node.
 # run_once so taints are applied once after all workers join.
 # ============================================================
+- name: Taint control-plane nodes after workers join
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - taint
+      - nodes
+      - "{{ item.0 }}"
+      - "{{ item.1.key }}={{ item.1.value }}:{{ item.1.effect }}"
+      - --overwrite
+      - --kubeconfig=/etc/rancher/k3s/k3s.yaml
+  loop: "{{ query('nested', groups['master'], cluster_topology.node_pools[cluster_topology.control_plane_pool].taints | default([])) }}"
+  run_once: true
+  changed_when: false
+
 - name: Build worker taint plan from pool definitions
   ansible.builtin.set_fact:
     worker_taint_plan: "{{ (worker_taint_plan | default([])) + [{'hostname': item, 'pool': resolved_pool, 'taints': cluster_topology.node_pools[resolved_pool].taints | default([])}] }}"
