@@ -119,7 +119,21 @@
   no_log: true
 
 # ============================================================
-# 2. Wait for Prometheus to Be Ready
+# 2. Create Traefik ServiceMonitor
+# The Service exists from the k3s_master role, but the
+# ServiceMonitor CRD only becomes available after the
+# kube-prometheus-stack release is installed.
+# ============================================================
+- name: Create Traefik metrics ServiceMonitor
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', role_path + '/../k3s_master/templates/traefik-metrics-servicemonitor.yaml.j2') | from_yaml }}"
+
+# ============================================================
+# 3. Wait for Prometheus to Be Ready
 # ============================================================
 - name: Wait for Prometheus pod to be ready
   become: true
@@ -137,7 +151,7 @@
   changed_when: false
 
 # ============================================================
-# 3. Wait for Grafana to Be Ready
+# 4. Wait for Grafana to Be Ready
 # ============================================================
 - name: Wait for Grafana pod to be ready
   become: true
@@ -171,7 +185,7 @@
     definition: "{{ lookup('template', 'grafana-platform-dashboards-configmap.yaml.j2') | from_yaml }}"
 
 # ============================================================
-# 4. Wait for Alertmanager to Be Ready
+# 5. Wait for Alertmanager to Be Ready
 # ============================================================
 - name: Wait for Alertmanager pod to be ready
   become: true
@@ -189,7 +203,7 @@
   changed_when: false
 
 # ============================================================
-# 5. Verify Prometheus is Scraping Targets
+# 6. Verify Prometheus is Scraping Targets
 # FIX: Write python script to temp file to avoid shell
 # collapsing multiline code into a single broken line.
 # ============================================================
@@ -228,7 +242,7 @@
     msg: "{{ prometheus_targets.stdout }}"
 
 # ============================================================
-# 6. Show Monitoring Stack Pod Summary
+# 7. Show Monitoring Stack Pod Summary
 # Final confirmation before handing off to Phase 7.
 # Shows all pods in monitoring namespace with their
 # node placement so you can verify pinning worked.

@@ -115,9 +115,11 @@
   changed_when: false
 
 # ============================================================
-# 7. Expose and Scrape Traefik Metrics
+# 7. Expose Traefik Metrics
 # A dedicated in-cluster Service keeps the Prometheus target
 # stable even if K3s changes the default Traefik Service.
+# The ServiceMonitor is created later by the monitoring role,
+# after the Prometheus Operator CRDs exist.
 # ============================================================
 - name: Create Traefik metrics service
   become: true
@@ -126,14 +128,6 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
     definition: "{{ lookup('template', 'traefik-metrics-service.yaml.j2') | from_yaml }}"
-
-- name: Create Traefik metrics ServiceMonitor
-  become: true
-  delegate_to: k8s-ctrl
-  kubernetes.core.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
-    state: present
-    definition: "{{ lookup('template', 'traefik-metrics-servicemonitor.yaml.j2') | from_yaml }}"
 
 - name: Wait for Traefik metrics endpoints to exist
   become: true
