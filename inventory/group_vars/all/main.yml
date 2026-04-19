@@ -141,7 +141,14 @@ database:
 ai_engine:
   namespace: "ai-engine"
   app_name: "pyod-anomaly-detector"
-  image: "python:3.11-slim"
+  image:
+    repository: "observability-framework/ai-engine"
+    tag: "0.1.0"
+    pull_policy: "IfNotPresent"
+  build:
+    enabled: true
+    platform: "linux/amd64"
+    archive_path: "/tmp/observability-framework-ai-engine.tar"
   port: 8000
   anomaly_threshold: 0.90
   rolling_baseline_samples: 12

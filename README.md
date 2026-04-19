@@ -96,6 +96,7 @@ The full deployment is split into nine tagged phases in [site.yml](site.yml).
 - Vagrant
 - VirtualBox
 - Ansible on the host machine
+- Docker on the host machine when `ai_engine.build.enabled=true`
 - Enough local resources to run 8 Ubuntu VMs
 
 ### 1. Start the VMs
@@ -130,6 +131,7 @@ This currently pins:
 - Helm CLI version
 - Python Kubernetes client version used by Ansible hosts
 - Helm chart versions for OpenSearch, OpenSearch Dashboards, Fluent Bit, kube-prometheus-stack, CloudNativePG, and Forgejo
+- The K3s binary version via `k3s_version`
 
 This means reruns no longer drift just because an upstream chart repository published a newer release between installs.
 
@@ -255,9 +257,9 @@ The AI engine is a Python service deployed on the configured AI pool. It is conf
 
 Current packaging note:
 
-- the `ai-engine` container image is still configured from Ansible variables rather than built as a framework artifact
-- the service still builds its Python virtualenv at pod startup
-- replacing that runtime dependency install with a prebuilt image is the next Phase 3 hardening step
+- the framework now builds a pinned `ai-engine` image locally from [roles/ai_engine/files/app](roles/ai_engine/files/app), exports it, and imports it into the AI pool before deployment
+- if you already publish that image from CI, you can disable the local build path with `ai_engine.build.enabled: false` and point `ai_engine.image` at your registry artifact instead
+- the remaining Phase 3 gap is making this image flow fully offline-friendly through a mirrored or preloaded artifact source
 
 What it does:
 

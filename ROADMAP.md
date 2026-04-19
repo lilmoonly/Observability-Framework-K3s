@@ -191,6 +191,6 @@ What still keeps it in "advanced lab" territory rather than "production framewor
 With `v1.1` and `v1.2` completed, the next sprint should focus on the remaining `v1.3` packaging work:
 
 1. Keep all core tool and chart versions pinned from shared config.
-2. Replace the remaining moving bootstrap paths, especially K3s install flow.
-3. Build and publish a real `ai-engine` image so pods stop installing Python packages at startup.
+2. Finish replacing the remaining live bootstrap dependencies with mirrored or vendored artifacts.
+3. Move the new `ai-engine` image flow from local build/import into a CI-produced artifact pipeline.
 4. Add an offline-friendly artifact strategy for production mirrors or vendored bundles.

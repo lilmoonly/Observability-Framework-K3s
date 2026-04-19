@@ -191,6 +191,12 @@
         dest: "/tmp/{{ helm_archive_name }}"
         mode: '0644'
 
+    - name: Ensure Helm extraction directory exists
+      ansible.builtin.file:
+        path: "{{ helm_extract_root }}"
+        state: directory
+        mode: '0755'
+
     - name: Extract pinned Helm archive
       ansible.builtin.unarchive:
         src: "/tmp/{{ helm_archive_name }}"

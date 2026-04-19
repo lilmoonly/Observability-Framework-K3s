@@ -25,21 +25,90 @@
       metadata:
         name: "{{ ai_engine.namespace }}"
 
-- name: Create AI engine application ConfigMap
+- name: Verify Docker CLI exists for local AI image build
+  become: false
+  delegate_to: localhost
+  ansible.builtin.command:
+    argv:
+      - /bin/sh
+      - -c
+      - command -v docker
+  register: ai_engine_docker_cli
+  changed_when: false
+  when: ai_engine.build.enabled | bool
+
+- name: Build pinned AI engine image locally
+  become: false
+  delegate_to: localhost
+  ansible.builtin.command:
+    argv:
+      - docker
+      - build
+      - --platform
+      - "{{ ai_engine.build.platform }}"
+      - -t
+      - "{{ ai_engine.image.repository }}:{{ ai_engine.image.tag }}"
+      - .
+    chdir: "{{ role_path }}/files/app"
+  register: ai_engine_image_build
+  changed_when: true
+  when: ai_engine.build.enabled | bool
+
+- name: Export AI engine image archive locally
+  become: false
+  delegate_to: localhost
+  ansible.builtin.command:
+    argv:
+      - docker
+      - save
+      - -o
+      - "{{ ai_engine.build.archive_path }}"
+      - "{{ ai_engine.image.repository }}:{{ ai_engine.image.tag }}"
+  changed_when: true
+  when: ai_engine.build.enabled | bool
+
+- name: Copy AI engine image archive to AI pool nodes
   become: true
-  delegate_to: k8s-ctrl
-  kubernetes.core.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
-    state: present
-    definition:
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: ai-engine-app
-        namespace: "{{ ai_engine.namespace }}"
-      data:
-        requirements.txt: "{{ lookup('file', role_path + '/files/app/requirements.txt') }}"
-        main.py: "{{ lookup('file', role_path + '/files/app/main.py') }}"
+  delegate_to: "{{ item }}"
+  ansible.builtin.copy:
+    src: "{{ ai_engine.build.archive_path }}"
+    dest: "{{ ai_engine.build.archive_path }}"
+    mode: '0644'
+  loop: "{{ groups[cluster_topology.pool_group_prefix ~ ai_engine.pool] }}"
+  when: ai_engine.build.enabled | bool
+
+- name: Import AI engine image into K3s container runtime
+  become: true
+  delegate_to: "{{ item }}"
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - ctr
+      - -n
+      - k8s.io
+      - images
+      - import
+      - "{{ ai_engine.build.archive_path }}"
+  loop: "{{ groups[cluster_topology.pool_group_prefix ~ ai_engine.pool] }}"
+  changed_when: true
+  when: ai_engine.build.enabled | bool
+
+- name: Remove AI engine image archive from AI pool nodes
+  become: true
+  delegate_to: "{{ item }}"
+  ansible.builtin.file:
+    path: "{{ ai_engine.build.archive_path }}"
+    state: absent
+  loop: "{{ groups[cluster_topology.pool_group_prefix ~ ai_engine.pool] }}"
+  when: ai_engine.build.enabled | bool
+
+- name: Remove local AI engine image archive
+  become: false
+  delegate_to: localhost
+  ansible.builtin.file:
+    path: "{{ ai_engine.build.archive_path }}"
+    state: absent
+  when: ai_engine.build.enabled | bool
 
 - name: Create AI engine secret
   become: true

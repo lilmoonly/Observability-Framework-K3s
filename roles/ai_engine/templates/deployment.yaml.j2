@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/ai-engine-app: "{{ (lookup('file', role_path + '/files/app/main.py') ~ lookup('file', role_path + '/files/app/requirements.txt')) | hash('sha1') }}"
+        checksum/ai-engine-image: "{{ (lookup('file', role_path + '/files/app/Dockerfile') ~ lookup('file', role_path + '/files/app/main.py') ~ lookup('file', role_path + '/files/app/requirements.txt')) | hash('sha1') }}"
       labels:
         app.kubernetes.io/name: {{ ai_engine.app_name }}
     spec:
@@ -24,32 +24,10 @@ spec:
           operator: Equal
           value: "{{ cluster_topology.node_pools[ai_engine.pool].workload_label }}"
           effect: "{{ cluster_topology.node_pools[ai_engine.pool].taints[0].effect }}"
-      initContainers:
-        - name: install-python-dependencies
-          image: {{ ai_engine.image }}
-          imagePullPolicy: IfNotPresent
-          command:
-            - /bin/sh
-            - -c
-          args:
-            - >-
-              python -m venv /opt/ai-engine-venv &&
-              /opt/ai-engine-venv/bin/pip install
-              --no-cache-dir
-              --disable-pip-version-check
-              -r /app/requirements.txt
-          volumeMounts:
-            - name: app
-              mountPath: /app
-            - name: python-venv
-              mountPath: /opt/ai-engine-venv
       containers:
         - name: {{ ai_engine.app_name }}
-          image: {{ ai_engine.image }}
-          imagePullPolicy: IfNotPresent
-          command:
-            - /opt/ai-engine-venv/bin/python
-            - /app/main.py
+          image: {{ ai_engine.image.repository }}:{{ ai_engine.image.tag }}
+          imagePullPolicy: {{ ai_engine.image.pull_policy }}
           env:
             - name: APP_PORT
               value: "{{ ai_engine.port }}"
@@ -102,11 +80,6 @@ spec:
           ports:
             - name: metrics
               containerPort: {{ ai_engine.port }}
-          volumeMounts:
-            - name: app
-              mountPath: /app
-            - name: python-venv
-              mountPath: /opt/ai-engine-venv
           startupProbe:
             httpGet:
               path: /metrics
@@ -136,9 +109,3 @@ spec:
             limits:
               cpu: {{ ai_engine.resources.limits.cpu }}
               memory: {{ ai_engine.resources.limits.memory }}
-      volumes:
-        - name: app
-          configMap:
-            name: ai-engine-app
-        - name: python-venv
-          emptyDir: {}
