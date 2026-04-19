@@ -118,6 +118,8 @@ This file is intentionally ignored by git and should hold:
 - PostgreSQL passwords
 - Forgejo admin password
 
+The playbook now fails early if this file still contains placeholders or the old demo credentials.
+
 ### 3. Deploy Everything
 
 From the repository root:

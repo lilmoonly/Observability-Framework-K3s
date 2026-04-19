@@ -54,6 +54,7 @@ What still keeps it in "advanced lab" territory rather than "production framewor
 - repository can be shared without exposing real credentials
 - first deploy requires supplying secrets out-of-band
 - no secret values appear in normal Ansible output
+- playbook fails early when placeholder or demo secrets are still in use
 
 ## v1.2 Topology Abstraction
 
@@ -187,13 +188,11 @@ What still keeps it in "advanced lab" territory rather than "production framewor
 6. `v1.6` CI and smoke validation
 7. `v1.7` Profiles, docs, and runbooks
 
-## Immediate Next Sprint
+## Next Sprint
 
-Start with the first batch below before touching broader scaling or packaging work:
+With `v1.1` completed, the next sprint should focus on `v1.2` topology abstraction:
 
-1. Create encrypted secrets input and remove plaintext credentials from shared vars.
-2. Tighten kubeconfig and generated file permissions.
-3. Add `no_log` to sensitive tasks.
-4. Design the pool-based topology model that will replace fixed node-name assumptions.
-
-That combination gives the best short-term payoff: lower risk now, and a cleaner base for the scaling refactor next.
+1. Define a pool-based node model for control plane and workload groups.
+2. Replace hardcoded node-name tainting and placement logic.
+3. Add profile examples for compact, lab, and scaled topologies.
+4. Keep the current 6-node lab as one supported profile rather than the only layout.

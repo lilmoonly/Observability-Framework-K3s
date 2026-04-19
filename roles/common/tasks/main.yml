@@ -7,7 +7,59 @@
 # ============================================================
 
 # ============================================================
-# 1. Kernel Parameters
+# 1. Preflight Secret Validation
+# Fail early if placeholder or known demo credentials are
+# still in use. This keeps the framework from silently
+# deploying with insecure defaults.
+# ============================================================
+- name: Validate secret inputs before continuing
+  ansible.builtin.assert:
+    that:
+      - secret_value | length >= item.min_length
+      - not secret_value.startswith('replace-with-')
+      - secret_value not in item.forbidden_values
+    fail_msg: >-
+      {{ item.label }} is missing, too short, or still using a placeholder/demo
+      value. Set it in inventory/group_vars/all/secrets.yml and re-run.
+    quiet: true
+  vars:
+    secret_value: "{{ vars[item.variable] | default('') | string | trim }}"
+  loop:
+    - label: K3s cluster token
+      variable: vault_k3s_token
+      min_length: 16
+      forbidden_values:
+        - "SuperSecretTokenForK3sClusterJoin123!"
+    - label: OpenSearch admin password
+      variable: vault_opensearch_admin_password
+      min_length: 12
+      forbidden_values:
+        - "S#r2-L%m4!"
+    - label: Grafana admin password
+      variable: vault_grafana_admin_password
+      min_length: 12
+      forbidden_values:
+        - "admin"
+    - label: PostgreSQL superuser password
+      variable: vault_database_superuser_password
+      min_length: 12
+      forbidden_values:
+        - "SuperuserPassword123!"
+    - label: PostgreSQL application password
+      variable: vault_database_app_password
+      min_length: 12
+      forbidden_values:
+        - "appuserpassword"
+    - label: Forgejo admin password
+      variable: vault_forgejo_admin_password
+      min_length: 12
+      forbidden_values:
+        - "Strong_AdminPassword123!"
+  run_once: true
+  no_log: true
+
+# ============================================================
+# 2. Kernel Parameters
 # ============================================================
 - name: Set Linux kernel parameter vm.max_map_count
   become: true
@@ -18,7 +70,7 @@
     reload: yes
 
 # ============================================================
-# 2. Disable Swap (Kubernetes requirement)
+# 3. Disable Swap (Kubernetes requirement)
 # ============================================================
 - name: Disable swap immediately
   become: true
@@ -33,7 +85,7 @@
     replace: '# \1'
 
 # ============================================================
-# 3. Package Management
+# 4. Package Management
 # ============================================================
 - name: Update apt cache
   become: true
@@ -57,7 +109,7 @@
   when: ansible_os_family == 'Debian'
 
 # ============================================================
-# 4. System Configuration
+# 5. System Configuration
 # ============================================================
 - name: Set system timezone
   become: true
@@ -71,7 +123,7 @@
     executable: pip3
 
 # ============================================================
-# 5. Network — Fix iptables FORWARD chain
+# 6. Network — Fix iptables FORWARD chain
 # Must run on ALL nodes before K3s starts.
 # Without this, flannel pod-to-pod traffic is dropped which
 # breaks CNPG replication and API server connectivity.
@@ -83,7 +135,7 @@
     policy: ACCEPT
 
 # ============================================================
-# 6. Install Helm (master node only)
+# 7. Install Helm (master node only)
 # Safe to install before cluster exists — it is just
 # a client binary that talks to the cluster later.
 # ============================================================
@@ -96,7 +148,7 @@
   when: inventory_hostname in groups['master']
 
 # ============================================================
-# 7. Add Helm repos (master node only)
+# 8. Add Helm repos (master node only)
 # Repos are just client-side config — no cluster needed.
 # They will be available immediately when cluster is ready.
 # ============================================================
