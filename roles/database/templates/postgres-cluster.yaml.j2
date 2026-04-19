@@ -65,6 +65,9 @@ spec:
   # run elsewhere if that pool is unavailable.
   # --------------------------------------------------------
   affinity:
+    enablePodAntiAffinity: true
+    topologyKey: "kubernetes.io/hostname"
+    podAntiAffinityType: "required"
     nodeSelector:
       workload: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
     tolerations:

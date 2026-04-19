@@ -1,6 +1,6 @@
 # AI-Powered K3s Observability Framework
 
-This repository provisions a reusable K3s observability framework with Ansible and Vagrant. The default lab profile is a 6-node reference environment, but worker placement is now pool-based so the same roles can be reused across larger topologies without rewriting scheduling logic.
+This repository provisions a reusable K3s observability framework with Ansible and Vagrant. The default lab profile is an 8-node reference environment with dedicated HA-ready app and database pools, while worker placement stays pool-based so the same roles can be reused across larger topologies without rewriting scheduling logic.
 
 The framework is opinionated about platform observability, but application roles can stay lightweight. Forgejo is included as an example workload, not as the core purpose of the project.
 
@@ -20,11 +20,13 @@ The framework is opinionated about platform observability, but application roles
 | Node | Hostname | IP | Purpose |
 | --- | --- | --- | --- |
 | 1 | `k8s-ctrl` | `192.168.56.10` | K3s control plane and Ansible control target |
-| 2 | `app-worker` | `192.168.56.11` | `general` worker pool |
-| 3 | `db-worker` | `192.168.56.12` | `database` worker pool |
-| 4 | `logging-node` | `192.168.56.13` | OpenSearch, OpenSearch Dashboards, Fluent Bit support |
-| 5 | `monitor-node` | `192.168.56.14` | `monitoring` worker pool |
-| 6 | `ai-node` | `192.168.56.15` | `ai` worker pool |
+| 2 | `app-node-1` | `192.168.56.11` | `general` worker pool |
+| 3 | `app-node-2` | `192.168.56.12` | `general` worker pool |
+| 4 | `db-node-1` | `192.168.56.13` | `database` worker pool |
+| 5 | `db-node-2` | `192.168.56.14` | `database` worker pool |
+| 6 | `logging-node` | `192.168.56.15` | `logging` worker pool |
+| 7 | `monitor-node` | `192.168.56.16` | `monitoring` worker pool |
+| 8 | `ai-node` | `192.168.56.17` | `ai` worker pool |
 
 ## Topology Model
 
@@ -36,6 +38,7 @@ The framework now uses named worker pools instead of hardcoded node identities.
 - Workloads target pools like `forgejo.pool`, `database.pool`, `monitoring.pool`, `opensearch.pool`, and `ai_engine.pool`
 - Today the control plane is still single-node, but worker pools can now scale horizontally by adding more hosts to the corresponding `pool_*` groups
 - Smaller topologies can share infrastructure by pointing multiple workload settings at the same pool, for example `monitoring.pool: general` and `ai_engine.pool: general`
+- The default lab now uses two `general` nodes and two `database` nodes so application workloads and CloudNativePG have room for node-level HA without scaling monitoring, logging, or AI yet
 
 ## Stack
 
@@ -56,7 +59,7 @@ The framework now uses named worker pools instead of hardcoded node identities.
 
 - [site.yml](site.yml) - master playbook with phase tags
 - [inventory/inventory.ini](inventory/inventory.ini) - node inventory
-- [inventory/examples/lab.inventory.ini](inventory/examples/lab.inventory.ini) - reference 6-node pool-based inventory
+- [inventory/examples/lab.inventory.ini](inventory/examples/lab.inventory.ini) - reference 8-node pool-based inventory
 - [inventory/examples/scaled.inventory.ini](inventory/examples/scaled.inventory.ini) - larger worker-pool example
 - [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) - framework-wide non-secret configuration
 - [inventory/group_vars/all/secrets.yml.example](inventory/group_vars/all/secrets.yml.example) - example secrets file for vault-managed values
@@ -93,7 +96,7 @@ The full deployment is split into nine tagged phases in [site.yml](site.yml).
 - Vagrant
 - VirtualBox
 - Ansible on the host machine
-- Enough local resources to run 6 Ubuntu VMs
+- Enough local resources to run 8 Ubuntu VMs
 
 ### 1. Start the VMs
 
