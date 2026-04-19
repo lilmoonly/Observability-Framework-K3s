@@ -263,7 +263,7 @@ Useful AI metrics exposed by the service:
 - `ai_anomaly_last_published_timestamp_seconds`
 - `ai_anomaly_rule_hits`
 - `ai_anomaly_severity_level`
-- `ai_anomaly_suppressed_total`
+- `ai_anomaly_suppression_events_total`
 - `ai_feature_value`
 - `ai_feature_baseline`
 - `ai_feature_residual`

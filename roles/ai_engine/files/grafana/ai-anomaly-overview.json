@@ -885,7 +885,7 @@
         },
         {
           "editorMode": "code",
-          "expr": "sum(increase(ai_anomaly_suppressed_total[1h]))",
+          "expr": "sum(increase(ai_anomaly_suppression_events_total[1h]))",
           "legendFormat": "Suppressed duplicates last hour",
           "range": true,
           "refId": "D"

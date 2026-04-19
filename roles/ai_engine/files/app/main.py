@@ -204,7 +204,7 @@ LAST_PUBLISHED_TIMESTAMP = Gauge(
     "Unix timestamp of the most recent anomaly event published to OpenSearch.",
 )
 SUPPRESSED_TOTAL = Counter(
-    "ai_anomaly_suppressed_total",
+    "ai_anomaly_suppression_events",
     "Total number of anomaly events suppressed to avoid noisy duplicates.",
 )
 SUPPRESSED_FLAG = Gauge(
