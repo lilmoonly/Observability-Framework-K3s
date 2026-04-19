@@ -65,6 +65,11 @@ EVENT_STATUS_CODES = {
 def with_zero(query):
     return f"({query}) or vector(0)"
 
+
+SAMPLE_REFERENCE_QUERY = (
+    'sum(kube_node_status_condition{condition="Ready",status=~"true|false|unknown"})'
+)
+
 QUERY_DEFINITIONS = {
     "cluster_cpu_usage_pct": with_zero(
         '100 * avg(1 - rate(node_cpu_seconds_total{mode="idle"}[5m]))'
@@ -380,25 +385,25 @@ def collect_feature_matrix():
     end_ts = int(now.timestamp())
     start_ts = int((now - timedelta(hours=TRAINING_WINDOW_HOURS)).timestamp())
 
+    reference_series = prom_query_range(
+        SAMPLE_REFERENCE_QUERY, start_ts, end_ts, STEP_SECONDS
+    )
+    ordered_timestamps = sorted(reference_series.keys())
+    if not ordered_timestamps:
+        raise RuntimeError(
+            "No aligned timestamps were available from the Prometheus sample reference query."
+        )
+
     series = {}
     for feature_name, query in QUERY_DEFINITIONS.items():
         series[feature_name] = prom_query_range(query, start_ts, end_ts, STEP_SECONDS)
 
-    common_timestamps = None
-    for feature_values in series.values():
-        timestamps = set(feature_values.keys())
-        common_timestamps = timestamps if common_timestamps is None else common_timestamps & timestamps
-
-    if not common_timestamps:
-        raise RuntimeError("No aligned timestamps were available across Prometheus queries.")
-
-    ordered_timestamps = sorted(common_timestamps)
     rows = []
     matrix = []
     for timestamp in ordered_timestamps:
         feature_row = {}
         for feature_name in QUERY_DEFINITIONS:
-            feature_row[feature_name] = float(series[feature_name][timestamp])
+            feature_row[feature_name] = float(series[feature_name].get(timestamp, 0.0))
         rows.append(
             {
                 "timestamp": datetime.fromtimestamp(timestamp, tz=timezone.utc),
