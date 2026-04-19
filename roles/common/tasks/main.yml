@@ -185,17 +185,32 @@
     helm_download_url: "https://get.helm.sh/{{ helm_archive_name }}"
     helm_extract_root: "/tmp/helm-{{ artifact_versions.helm }}"
   block:
-    - name: Download pinned Helm archive
-      ansible.builtin.get_url:
-        url: "{{ helm_download_url }}"
-        dest: "/tmp/{{ helm_archive_name }}"
-        mode: '0644'
+    - name: Check installed Helm version
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/helm
+          - version
+          - --short
+      register: helm_version_check
+      changed_when: false
+      failed_when: false
+
+    - name: Download pinned Helm archive with curl
+      ansible.builtin.command:
+        argv:
+          - curl
+          - -fsSL
+          - "{{ helm_download_url }}"
+          - -o
+          - "/tmp/{{ helm_archive_name }}"
+      when: helm_version_check.rc != 0 or artifact_versions.helm not in helm_version_check.stdout
 
     - name: Ensure Helm extraction directory exists
       ansible.builtin.file:
         path: "{{ helm_extract_root }}"
         state: directory
         mode: '0755'
+      when: helm_version_check.rc != 0 or artifact_versions.helm not in helm_version_check.stdout
 
     - name: Extract pinned Helm archive
       ansible.builtin.unarchive:
@@ -203,6 +218,7 @@
         dest: "{{ helm_extract_root }}"
         remote_src: true
         creates: "{{ helm_extract_root }}/{{ ansible_system | lower }}-{{ helm_platform_arch }}/helm"
+      when: helm_version_check.rc != 0 or artifact_versions.helm not in helm_version_check.stdout
 
     - name: Install pinned Helm binary
       ansible.builtin.copy:
@@ -210,6 +226,7 @@
         dest: /usr/local/bin/helm
         mode: '0755'
         remote_src: true
+      when: helm_version_check.rc != 0 or artifact_versions.helm not in helm_version_check.stdout
   when: inventory_hostname in groups['master']
 
 # ============================================================

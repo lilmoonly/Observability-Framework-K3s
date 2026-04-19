@@ -21,11 +21,43 @@
   vars:
     k3s_binary_asset: >-
       {% if ansible_architecture in ['x86_64', 'amd64'] %}k3s{% elif ansible_architecture in ['aarch64', 'arm64'] %}k3s-arm64{% else %}k3s{% endif %}
-  ansible.builtin.get_url:
-    url: "https://github.com/k3s-io/k3s/releases/download/{{ k3s_version }}/{{ k3s_binary_asset }}"
-    dest: /usr/local/bin/k3s
-    mode: '0755'
-  register: k3s_agent_binary
+    k3s_download_path: "/tmp/k3s-{{ k3s_version }}"
+  block:
+    - name: Check installed K3s version on worker
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - --version
+      register: k3s_agent_version
+      changed_when: false
+      failed_when: false
+
+    - name: Download pinned K3s binary for worker with curl
+      ansible.builtin.command:
+        argv:
+          - curl
+          - -fsSL
+          - "https://github.com/k3s-io/k3s/releases/download/{{ k3s_version }}/{{ k3s_binary_asset }}"
+          - -o
+          - "{{ k3s_download_path }}"
+      when: k3s_agent_version.rc != 0 or k3s_version not in k3s_agent_version.stdout
+
+    - name: Install pinned K3s binary on worker
+      ansible.builtin.command:
+        argv:
+          - install
+          - -m
+          - "0755"
+          - "{{ k3s_download_path }}"
+          - /usr/local/bin/k3s
+      register: k3s_agent_binary
+      when: k3s_agent_version.rc != 0 or k3s_version not in k3s_agent_version.stdout
+
+    - name: Mark K3s binary unchanged when pinned version already present on worker
+      ansible.builtin.set_fact:
+        k3s_agent_binary:
+          changed: false
+      when: k3s_agent_version.rc == 0 and k3s_version in k3s_agent_version.stdout
 
 - name: Ensure kubectl symlink points to pinned K3s binary on worker
   become: true
