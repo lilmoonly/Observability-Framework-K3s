@@ -25,14 +25,24 @@
       metadata:
         name: "{{ ai_engine.namespace }}"
 
-- name: Verify Docker CLI exists for local AI image build
+- name: Resolve Docker CLI path for local AI image build
   become: false
   delegate_to: localhost
-  ansible.builtin.command:
-    argv:
-      - /bin/sh
-      - -c
-      - command -v docker
+  ansible.builtin.shell: |
+    for candidate in docker /opt/homebrew/bin/docker /usr/local/bin/docker /usr/bin/docker; do
+      if command -v "$candidate" >/dev/null 2>&1; then
+        command -v "$candidate"
+        exit 0
+      fi
+      if [ -x "$candidate" ]; then
+        printf '%s\n' "$candidate"
+        exit 0
+      fi
+    done
+    echo "Docker CLI not found on localhost" >&2
+    exit 1
+  args:
+    executable: /bin/sh
   register: ai_engine_docker_cli
   changed_when: false
   when: ai_engine.build.enabled | bool
@@ -42,7 +52,7 @@
   delegate_to: localhost
   ansible.builtin.command:
     argv:
-      - docker
+      - "{{ ai_engine_docker_cli.stdout }}"
       - build
       - --platform
       - "{{ ai_engine.build.platform }}"
@@ -59,7 +69,7 @@
   delegate_to: localhost
   ansible.builtin.command:
     argv:
-      - docker
+      - "{{ ai_engine_docker_cli.stdout }}"
       - save
       - -o
       - "{{ ai_engine.build.archive_path }}"
