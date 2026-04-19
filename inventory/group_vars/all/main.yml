@@ -1,13 +1,18 @@
 ---
 # ==========================================
+# Shared framework configuration.
+# Sensitive values are intentionally sourced
+# from inventory/group_vars/all/secrets.yml.
+# ==========================================
+
+# ==========================================
 # 1. CLUSTER INFRASTRUCTURE (K3s)
 # ==========================================
 k3s_version: "v1.31.0+k3s1"
 master_ip: "192.168.56.10"
 
-# This token is used by workers to join the master.
-# In a real setup, use 'ansible-vault' to encrypt this.
-k3s_token: "SuperSecretTokenForK3sClusterJoin123!"
+# This token is loaded from the encrypted secrets file.
+k3s_token: "{{ vault_k3s_token }}"
 
 # ==========================================
 # 2. SYSTEM SETTINGS
@@ -23,7 +28,7 @@ flannel_interface: "enp0s8"
 # ==========================================
 opensearch:
   version: "2.12.0"
-  admin_password: "S#r2-L%m4!"
+  admin_password: "{{ vault_opensearch_admin_password }}"
   exporter_image: "quay.io/prometheuscommunity/elasticsearch-exporter:v1.9.0"
   # Laptop-friendly JVM heap. Keeps OpenSearch usable without
   # forcing the logging VM to reserve multiple extra gigabytes.
@@ -39,7 +44,7 @@ monitoring:
   # Shorter retention reduces Prometheus RAM and disk pressure
   # on smaller single-user lab environments.
   prometheus_retention: "3d"
-  grafana_admin_password: "admin"
+  grafana_admin_password: "{{ vault_grafana_admin_password }}"
   prometheus_storage: "5Gi"
   node_selector_label: "monitoring"
 
@@ -54,10 +59,10 @@ database:
   node_selector_label: "db"
   force_recreate: false
   # Superuser password for CNPG operator internal management
-  superuser_password: "SuperuserPassword123!"
+  superuser_password: "{{ vault_database_superuser_password }}"
   app_db_name: "app"
   app_user: "appuser"
-  app_password: "appuserpassword"
+  app_password: "{{ vault_database_app_password }}"
   port: 5432
   host: "app-db-cluster-rw.db.svc.cluster.local"
 
@@ -137,7 +142,7 @@ opensearch_dashboards_port: 5601
 forgejo:
   port: 8080
   admin_username: "forgejo_admin"
-  admin_password: "Strong_AdminPassword123!"
+  admin_password: "{{ vault_forgejo_admin_password }}"
   admin_email: "admin@example.com"
 
 # ==========================================

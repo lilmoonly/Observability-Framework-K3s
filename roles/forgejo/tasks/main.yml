@@ -30,7 +30,7 @@
 
 # ============================================================
 # STEP 2: Create Forgejo Admin Secret
-# Credentials come from forgejo block in group_vars/all.yml.
+# Credentials come from the shared group_vars configuration.
 # Stored as a K8s Secret so they are never in Helm values.
 # ============================================================
 - name: Create Forgejo Admin Secret
@@ -49,6 +49,7 @@
       stringData:
         username: "{{ forgejo.admin_username }}"
         password: "{{ forgejo.admin_password }}"
+  no_log: true
 
 # ============================================================
 # STEP 3: Create DB Secret in the forgejo namespace
@@ -77,6 +78,7 @@
         FORGEJO__database__NAME:    "{{ database.app_db_name }}"
         FORGEJO__database__USER:    "{{ database.app_user }}"
         FORGEJO__database__PASSWD:  "{{ database.app_password }}"
+  no_log: true
 
 # ============================================================
 # STEP 4: Wait for PostgreSQL RW Service to Be Available

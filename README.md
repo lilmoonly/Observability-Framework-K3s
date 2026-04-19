@@ -45,7 +45,8 @@ The framework is opinionated about platform observability, but application roles
 
 - [site.yml](site.yml) - master playbook with phase tags
 - [inventory/inventory.ini](inventory/inventory.ini) - node inventory
-- [inventory/group_vars/all.yml](inventory/group_vars/all.yml) - framework-wide configuration
+- [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) - framework-wide non-secret configuration
+- [inventory/group_vars/all/secrets.yml.example](inventory/group_vars/all/secrets.yml.example) - example secrets file for vault-managed values
 - [roles/common](roles/common) - base OS and tooling setup
 - [roles/k3s_master](roles/k3s_master) - control plane bootstrap and Traefik metrics
 - [roles/k3s_worker](roles/k3s_worker) - worker join, taints, and labels
@@ -89,7 +90,7 @@ vagrant up
 
 ### 2. Review Configuration
 
-Adjust the framework settings in [inventory/group_vars/all.yml](inventory/group_vars/all.yml).
+Adjust the framework settings in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml).
 
 Important settings live under:
 
@@ -100,18 +101,35 @@ Important settings live under:
 - `ingress`
 - `forgejo`
 
+### 2a. Create the Secrets File
+
+Copy the example secrets file and encrypt it before the first deploy:
+
+```bash
+cp inventory/group_vars/all/secrets.yml.example inventory/group_vars/all/secrets.yml
+ansible-vault encrypt inventory/group_vars/all/secrets.yml
+```
+
+This file is intentionally ignored by git and should hold:
+
+- K3s cluster join token
+- OpenSearch admin password
+- Grafana admin password
+- PostgreSQL passwords
+- Forgejo admin password
+
 ### 3. Deploy Everything
 
 From the repository root:
 
 ```bash
-ansible-playbook site.yml
+ansible-playbook site.yml --ask-vault-pass
 ```
 
 You can also run explicitly with the inventory file:
 
 ```bash
-ansible-playbook -i inventory/inventory.ini site.yml
+ansible-playbook -i inventory/inventory.ini site.yml --ask-vault-pass
 ```
 
 ## Rerun From a Specific Phase
@@ -199,7 +217,7 @@ Application dashboards:
 
 ## AI Engine
 
-The AI engine is a Python service deployed on `ai-node`. It is configured in [inventory/group_vars/all.yml](inventory/group_vars/all.yml) and implemented in [main.py](roles/ai_engine/files/app/main.py).
+The AI engine is a Python service deployed on `ai-node`. It is configured in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) and implemented in [main.py](roles/ai_engine/files/app/main.py).
 
 What it does:
 
@@ -290,7 +308,7 @@ kubectl exec -n opensearch statefulset/opensearch-cluster-master -- \
 ## Operational Notes
 
 - Community dashboards are vendored under [roles/monitoring/files/grafana](roles/monitoring/files/grafana) for offline-safe provisioning
-- The database role is safe to rerun for monitoring changes because [inventory/group_vars/all.yml](inventory/group_vars/all.yml) now uses `database.force_recreate: false` by default
+- The database role is safe to rerun for monitoring changes because [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) now uses `database.force_recreate: false` by default
 - If you intentionally want to destroy and recreate the PostgreSQL cluster, set `database.force_recreate: true`
 - Traefik metrics are enabled through a K3s `HelmChartConfig`
 - OpenSearch is monitored through a separate exporter instead of modifying the OpenSearch image

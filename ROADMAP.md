@@ -44,7 +44,7 @@ What still keeps it in "advanced lab" territory rather than "production framewor
 
 ### Scope
 
-- move cluster/application secrets from `inventory/group_vars/all.yml` into an encrypted secrets file
+- move cluster/application secrets out of committed shared vars and into an encrypted secrets file
 - add `no_log: true` to tasks that may print credentials
 - tighten kubeconfig permissions and any generated secret-bearing files
 - document the secure bootstrap flow in the README

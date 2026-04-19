@@ -58,6 +58,7 @@
         initialDelaySeconds: 180
         periodSeconds:       10
         failureThreshold:    60
+  no_log: true
 
 # ============================================================
 # 2. Wait for OpenSearch to Be Ready
@@ -109,6 +110,7 @@
       tolerations:
         - operator: "Exists"
           effect:   "NoSchedule"
+  no_log: true
 
 # ============================================================
 # 4. Deploy Fluent-bit
@@ -144,6 +146,7 @@
       tolerations:
         - operator: "Exists"
           effect:   "NoSchedule"
+  no_log: true
 
 # ============================================================
 # 5. Verify OpenSearch is Healthy
@@ -178,6 +181,7 @@
   retries: 20
   delay: 15
   changed_when: false
+  no_log: true
 
 - name: Show OpenSearch cluster health
   ansible.builtin.debug:
@@ -231,6 +235,7 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
     definition: "{{ lookup('template', 'opensearch-exporter-secret.yaml.j2') | from_yaml }}"
+  no_log: true
 
 - name: Deploy OpenSearch exporter
   become: true

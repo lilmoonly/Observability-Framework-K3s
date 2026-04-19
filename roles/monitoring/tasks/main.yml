@@ -116,6 +116,7 @@
         tolerations:
           - operator: "Exists"
             effect:   "NoSchedule"
+  no_log: true
 
 # ============================================================
 # 2. Wait for Prometheus to Be Ready

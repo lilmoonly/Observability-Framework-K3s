@@ -56,6 +56,7 @@
       stringData:
         OPENSEARCH_USERNAME: "admin"
         OPENSEARCH_PASSWORD: "{{ opensearch.admin_password }}"
+  no_log: true
 
 - name: Deploy AI engine workload
   become: true
@@ -139,6 +140,7 @@
   delay: 10
   changed_when: "'\"acknowledged\":true' in (ai_index_template_result.stdout | replace(' ', ''))"
   failed_when: false
+  no_log: true
 
 - name: Show OpenSearch anomaly index template result
   ansible.builtin.debug:

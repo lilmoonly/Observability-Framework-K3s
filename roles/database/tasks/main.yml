@@ -87,6 +87,7 @@
       stringData:
         username: "{{ database.app_user }}"
         password: "{{ database.app_password }}"
+  no_log: true
 
 # Used by CNPG operator for internal management tasks
 # including replication slot coordination
@@ -106,6 +107,7 @@
       stringData:
         username: "postgres"
         password: "{{ database.superuser_password }}"
+  no_log: true
 
 # ============================================================
 # 5. Optional Clean Recreate Logic

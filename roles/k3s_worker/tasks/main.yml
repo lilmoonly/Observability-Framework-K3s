@@ -20,6 +20,7 @@
       --flannel-iface={{ flannel_interface }}
   args:
     creates: /etc/rancher/k3s/config.yaml.d
+  no_log: true
 
 # ============================================================
 # 2. Label Node With Workload Role
