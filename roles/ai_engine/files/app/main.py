@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import requests
 from prometheus_client import Counter, Gauge, start_http_server
-from pyod.models.iforest import IForest
+from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
 
@@ -663,16 +663,17 @@ def evaluate_once():
     train_scaled = scaler.fit_transform(train_model)
     latest_scaled = scaler.transform(latest_model.reshape(1, -1))
 
-    model = IForest(
+    model = IsolationForest(
         contamination=CONTAMINATION,
         n_estimators=100,
         random_state=42,
     )
     model.fit(train_scaled)
 
-    train_scores = model.decision_function(train_scaled)
-    latest_score = float(model.decision_function(latest_scaled)[0])
-    latest_label = int(model.predict(latest_scaled)[0])
+    train_scores = -model.score_samples(train_scaled)
+    latest_score = float(-model.score_samples(latest_scaled)[0])
+    latest_prediction = int(model.predict(latest_scaled)[0])
+    latest_label = 1 if latest_prediction == -1 else 0
     combined_scores = np.append(train_scores, latest_score)
     min_score = float(np.min(combined_scores))
     max_score = float(np.max(combined_scores))
@@ -704,7 +705,7 @@ def evaluate_once():
         document = {
             "@timestamp": latest_row["timestamp"].isoformat(),
             "source": "prometheus",
-            "model": "pyod-iforest",
+            "model": "sklearn-iforest",
             "is_anomaly": True,
             "anomaly_score": latest_score,
             "normalized_score": normalized_score,
