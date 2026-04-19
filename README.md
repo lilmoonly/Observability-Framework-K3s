@@ -204,20 +204,41 @@ The AI engine is a Python service deployed on `ai-node`. It is configured in [in
 What it does:
 
 - Queries Prometheus on a schedule
-- Builds a multivariate feature vector from recent cluster health metrics
-- Trains a PyOD Isolation Forest model on recent history
+- Builds a multivariate feature vector from recent cluster, namespace, pod, ingress, and control-plane metrics
+- Computes a rolling median baseline and residuals so gradual growth is less likely to be treated as an incident
+- Trains a PyOD Isolation Forest model on recent residual history
+- Combines model output with rule-based checks for obvious incidents
 - Scores the newest time window against that learned baseline
 - Exposes its own Prometheus metrics for Grafana
+- Assigns anomaly severity and suppresses duplicate events during noisy periods
 - Writes confirmed anomaly events to OpenSearch
 
 Current features:
 
 - `cluster_cpu_usage_pct`
 - `cluster_memory_usage_pct`
+- `cluster_disk_usage_pct`
+- `cluster_network_receive_bytes_per_sec`
+- `cluster_network_transmit_bytes_per_sec`
 - `running_pods`
 - `pending_pods`
 - `failed_pods`
 - `pod_restart_delta_15m`
+- `node_not_ready_count`
+- `node_memory_pressure_count`
+- `node_disk_pressure_count`
+- `node_pid_pressure_count`
+- `apiserver_5xx_rate`
+- `apiserver_p99_latency_seconds`
+- `traefik_request_rate`
+- `traefik_5xx_rate`
+- `traefik_p95_latency_seconds`
+- `max_namespace_cpu_usage_cores`
+- `max_namespace_memory_working_set_bytes`
+- `max_namespace_restarts_15m`
+- `max_pod_cpu_usage_cores`
+- `max_pod_memory_working_set_bytes`
+- `max_pod_restarts_15m`
 
 Operational behavior:
 
@@ -225,6 +246,9 @@ Operational behavior:
 - With the default 5-minute step and `min_training_samples: 36`, it needs 37 aligned samples before the first real evaluation
 - That is roughly 3 hours of Prometheus history
 - During warm-up, Grafana shows detector readiness and sample progress
+- The detector applies both model-based anomaly checks and simple incident rules
+- Severity is assigned as `warning` or `critical`
+- Duplicate anomalies are suppressed for a configurable window to avoid flooding OpenSearch
 - Only true anomalies are written to OpenSearch
 - Anomaly documents are stored in indices named like `ai-anomalies-YYYY.MM.DD`
 
@@ -236,7 +260,13 @@ Useful AI metrics exposed by the service:
 - `ai_anomaly_score_normalized`
 - `ai_anomaly_threshold`
 - `ai_anomaly_last_success_timestamp_seconds`
+- `ai_anomaly_last_published_timestamp_seconds`
+- `ai_anomaly_rule_hits`
+- `ai_anomaly_severity_level`
+- `ai_anomaly_suppressed_total`
 - `ai_feature_value`
+- `ai_feature_baseline`
+- `ai_feature_residual`
 - `ai_feature_zscore`
 
 ## Verification

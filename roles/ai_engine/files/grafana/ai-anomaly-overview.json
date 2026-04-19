@@ -370,12 +370,12 @@
           "editorMode": "code",
           "expr": "sum(increase(ai_anomaly_events_total[24h]))",
           "instant": true,
-          "legendFormat": "Events in last 24h",
+          "legendFormat": "Published anomaly events in last 24h",
           "range": false,
           "refId": "A"
         }
       ],
-      "title": "Events Written to OpenSearch (24h)",
+      "title": "Published Anomaly Events (24h)",
       "type": "stat"
     },
     {
@@ -654,6 +654,13 @@
           "legendFormat": "Memory usage %",
           "range": true,
           "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"cluster_disk_usage_pct\"})",
+          "legendFormat": "Disk usage %",
+          "range": true,
+          "refId": "C"
         }
       ],
       "title": "Resource Trend",
@@ -661,7 +668,7 @@
     },
     {
       "datasource": "Prometheus",
-      "description": "Workload health inputs that often explain why the detector raised a score.",
+      "description": "Workload and platform health inputs that often explain why the detector raised a score.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -730,6 +737,20 @@
           "legendFormat": "Container restarts / 15m",
           "range": true,
           "refId": "D"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"max_namespace_restarts_15m\"})",
+          "legendFormat": "Max namespace restarts / 15m",
+          "range": true,
+          "refId": "E"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"node_not_ready_count\"})",
+          "legendFormat": "Not ready nodes",
+          "range": true,
+          "refId": "F"
         }
       ],
       "title": "Workload Health Trend",
@@ -737,7 +758,7 @@
     },
     {
       "datasource": "Prometheus",
-      "description": "Higher z-scores indicate the strongest contributors to the latest anomaly. This table appears after the first successful model fit.",
+      "description": "Higher z-scores indicate the strongest residual contributors after subtracting the rolling baseline. This table appears after the first successful model fit.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -799,7 +820,7 @@
     },
     {
       "datasource": "Prometheus",
-      "description": "Rolling one-hour activity for the detector. Use this to see whether it is actively evaluating, failing, or writing events.",
+      "description": "Rolling one-hour activity for the detector. Use this to see whether it is actively evaluating, failing, publishing anomaly events, or suppressing duplicates.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -858,9 +879,16 @@
         {
           "editorMode": "code",
           "expr": "sum(increase(ai_anomaly_events_total[1h]))",
-          "legendFormat": "Events written last hour",
+          "legendFormat": "Published anomalies last hour",
           "range": true,
           "refId": "C"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(increase(ai_anomaly_suppressed_total[1h]))",
+          "legendFormat": "Suppressed duplicates last hour",
+          "range": true,
+          "refId": "D"
         }
       ],
       "title": "Detector Activity",

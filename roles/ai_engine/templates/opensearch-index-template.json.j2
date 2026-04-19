@@ -15,13 +15,22 @@
         "is_anomaly": { "type": "boolean" },
         "anomaly_score": { "type": "float" },
         "normalized_score": { "type": "float" },
+        "detection_source": { "type": "keyword" },
+        "severity": { "type": "keyword" },
+        "severity_level": { "type": "integer" },
+        "model_triggered": { "type": "boolean" },
+        "rule_triggered": { "type": "boolean" },
+        "rule_hits": { "type": "keyword" },
         "reason": { "type": "text" },
         "top_contributors": { "type": "keyword" },
         "features": { "type": "object", "enabled": true },
+        "baseline": { "type": "object", "enabled": true },
+        "residuals": { "type": "object", "enabled": true },
         "window": {
           "properties": {
             "lookback_hours": { "type": "integer" },
-            "step_seconds": { "type": "integer" }
+            "step_seconds": { "type": "integer" },
+            "rolling_baseline_samples": { "type": "integer" }
           }
         }
       }

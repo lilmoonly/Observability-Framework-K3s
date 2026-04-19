@@ -70,15 +70,27 @@ ai_engine:
   image: "python:3.11-slim"
   port: 8000
   anomaly_threshold: 0.90
+  rolling_baseline_samples: 12
   contamination: 0.05
   training_window: "24h"
   lookback_hours: 24
   check_interval_seconds: 300
   step_seconds: 300
   min_training_samples: 36
+  suppression_window_seconds: 1800
   node_selector_label: "ai"
   prometheus_url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
   opensearch_url: "https://opensearch-cluster-master.opensearch.svc.cluster.local:9200"
+  rule_thresholds:
+    restart_delta_15m: 5
+    pending_pods: 5
+    failed_pods: 1
+    node_not_ready: 1
+    node_pressure: 1
+    apiserver_5xx_rate: 0.10
+    ingress_5xx_rate: 0.10
+  severity_thresholds:
+    critical_score: 0.97
   resources:
     requests:
       cpu: "100m"

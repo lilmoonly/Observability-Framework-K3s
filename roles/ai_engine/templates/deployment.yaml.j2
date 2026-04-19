@@ -46,10 +46,30 @@ spec:
               value: "{{ ai_engine.step_seconds }}"
             - name: ANOMALY_THRESHOLD
               value: "{{ ai_engine.anomaly_threshold }}"
+            - name: ROLLING_BASELINE_SAMPLES
+              value: "{{ ai_engine.rolling_baseline_samples }}"
             - name: CONTAMINATION
               value: "{{ ai_engine.contamination }}"
             - name: MIN_TRAINING_SAMPLES
               value: "{{ ai_engine.min_training_samples }}"
+            - name: SUPPRESSION_WINDOW_SECONDS
+              value: "{{ ai_engine.suppression_window_seconds }}"
+            - name: RULE_RESTART_DELTA_THRESHOLD
+              value: "{{ ai_engine.rule_thresholds.restart_delta_15m }}"
+            - name: RULE_PENDING_PODS_THRESHOLD
+              value: "{{ ai_engine.rule_thresholds.pending_pods }}"
+            - name: RULE_FAILED_PODS_THRESHOLD
+              value: "{{ ai_engine.rule_thresholds.failed_pods }}"
+            - name: RULE_NODE_NOT_READY_THRESHOLD
+              value: "{{ ai_engine.rule_thresholds.node_not_ready }}"
+            - name: RULE_NODE_PRESSURE_THRESHOLD
+              value: "{{ ai_engine.rule_thresholds.node_pressure }}"
+            - name: RULE_APISERVER_5XX_RATE_THRESHOLD
+              value: "{{ ai_engine.rule_thresholds.apiserver_5xx_rate }}"
+            - name: RULE_INGRESS_5XX_RATE_THRESHOLD
+              value: "{{ ai_engine.rule_thresholds.ingress_5xx_rate }}"
+            - name: SEVERITY_CRITICAL_SCORE
+              value: "{{ ai_engine.severity_thresholds.critical_score }}"
             - name: PROMETHEUS_URL
               value: "{{ ai_engine.prometheus_url }}"
             - name: OPENSEARCH_URL
