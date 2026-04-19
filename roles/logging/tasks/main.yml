@@ -188,9 +188,10 @@
     msg: "{{ opensearch_health.stdout }}"
 
 # ============================================================
-# 6. Expose and Scrape Fluent Bit Metrics
+# 6. Expose Fluent Bit Metrics
 # Fluent Bit already exposes internal metrics on port 2020;
-# we add a stable Service and ServiceMonitor for Prometheus.
+# we add a stable Service here, and the monitoring role creates
+# the ServiceMonitor later after Prometheus Operator CRDs exist.
 # ============================================================
 - name: Create Fluent Bit metrics service
   become: true
@@ -199,14 +200,6 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
     definition: "{{ lookup('template', 'fluent-bit-metrics-service.yaml.j2') | from_yaml }}"
-
-- name: Create Fluent Bit ServiceMonitor
-  become: true
-  delegate_to: k8s-ctrl
-  kubernetes.core.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
-    state: present
-    definition: "{{ lookup('template', 'fluent-bit-servicemonitor.yaml.j2') | from_yaml }}"
 
 - name: Wait for Fluent Bit metrics endpoints to exist
   become: true
@@ -252,14 +245,6 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
     definition: "{{ lookup('template', 'opensearch-exporter-service.yaml.j2') | from_yaml }}"
-
-- name: Create OpenSearch exporter ServiceMonitor
-  become: true
-  delegate_to: k8s-ctrl
-  kubernetes.core.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
-    state: present
-    definition: "{{ lookup('template', 'opensearch-exporter-servicemonitor.yaml.j2') | from_yaml }}"
 
 - name: Wait for OpenSearch exporter deployment to become available
   become: true

@@ -119,8 +119,8 @@
   no_log: true
 
 # ============================================================
-# 2. Create Traefik ServiceMonitor
-# The Service exists from the k3s_master role, but the
+# 2. Create Platform ServiceMonitors
+# The Services exist from earlier roles, but the
 # ServiceMonitor CRD only becomes available after the
 # kube-prometheus-stack release is installed.
 # ============================================================
@@ -131,6 +131,22 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
     definition: "{{ lookup('template', role_path + '/../k3s_master/templates/traefik-metrics-servicemonitor.yaml.j2') | from_yaml }}"
+
+- name: Create Fluent Bit ServiceMonitor
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', role_path + '/../logging/templates/fluent-bit-servicemonitor.yaml.j2') | from_yaml }}"
+
+- name: Create OpenSearch exporter ServiceMonitor
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', role_path + '/../logging/templates/opensearch-exporter-servicemonitor.yaml.j2') | from_yaml }}"
 
 # ============================================================
 # 3. Wait for Prometheus to Be Ready
