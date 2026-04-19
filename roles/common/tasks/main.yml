@@ -13,17 +13,18 @@
 # deploying with insecure defaults.
 # ============================================================
 - name: Validate secret inputs before continuing
-  ansible.builtin.assert:
-    that:
-      - secret_value | length >= item.min_length
-      - not secret_value.startswith('replace-with-')
-      - secret_value not in item.forbidden_values
-    fail_msg: >-
+  ansible.builtin.fail:
+    msg: >-
       {{ item.label }} is missing, too short, or still using a placeholder/demo
       value. Set it in inventory/group_vars/all/secrets.yml and re-run.
-    quiet: true
   vars:
     secret_value: "{{ vars[item.variable] | default('') | string | trim }}"
+    secret_is_invalid: >-
+      {{
+        (secret_value | length < item.min_length)
+        or (secret_value is match('^replace-with-'))
+        or (secret_value in item.forbidden_values)
+      }}
   loop:
     - label: K3s cluster token
       variable: vault_k3s_token
@@ -55,8 +56,10 @@
       min_length: 12
       forbidden_values:
         - "Strong_AdminPassword123!"
+  loop_control:
+    label: "{{ item.label }}"
+  when: secret_is_invalid | bool
   run_once: true
-  no_log: true
 
 # ============================================================
 # 2. Kernel Parameters
