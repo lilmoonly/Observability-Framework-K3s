@@ -251,7 +251,6 @@
   kubernetes.core.helm_repository:
     name: "{{ item.name }}"
     repo_url: "{{ item.repo_url }}"
-    force_update: true
     state: present
   loop:
     - name: opensearch
