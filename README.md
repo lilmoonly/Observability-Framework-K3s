@@ -300,10 +300,23 @@ kubectl exec -n opensearch statefulset/opensearch-cluster-master -- \
 kubectl scale deploy/pyod-anomaly-detector -n ai-engine --replicas=0
 ```
 
+## Production Roadmap
+
+The concrete production-hardening plan now lives in [ROADMAP.md](ROADMAP.md).
+
+The current execution order is:
+
+1. Security hardening
+2. Topology abstraction and horizontal scaling
+3. Deterministic packaging and offline installs
+4. Readiness and rerun hardening
+5. Alerting and SLOs
+6. CI and smoke validation
+7. Profiles, docs, and runbooks
+
 ## Next Customization Points
 
 - Add application-specific roles beyond Forgejo
-- Extend the AI engine feature set with latency, error rate, disk, and network metrics
-- Add alerting rules based on Prometheus and anomaly events
-- Add namespace- or workload-level anomaly models
-- Replace example credentials in [inventory/group_vars/all.yml](inventory/group_vars/all.yml) with vault-managed secrets for real environments
+- Extend the AI engine with more service-level or workload-level anomaly models
+- Add platform-specific alerting packs beyond the base roadmap
+- Add more reusable application roles beyond the example Forgejo workload
