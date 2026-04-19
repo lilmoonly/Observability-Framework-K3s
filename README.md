@@ -110,6 +110,7 @@ Adjust the framework settings in [inventory/group_vars/all/main.yml](inventory/g
 
 Important settings live under:
 
+- `artifact_versions`
 - `cluster_topology`
 - `opensearch`
 - `monitoring`
@@ -120,7 +121,19 @@ Important settings live under:
 
 The default inventory is [inventory/inventory.ini](inventory/inventory.ini). You can also copy one of the pool-based examples from [inventory/examples/lab.inventory.ini](inventory/examples/lab.inventory.ini) or [inventory/examples/scaled.inventory.ini](inventory/examples/scaled.inventory.ini) and adapt it to your environment.
 
-### 2a. Create the Secrets File
+### 2a. Deterministic Artifact Pins
+
+Phase 3 packaging work now centralizes the main version pins in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) under `artifact_versions`.
+
+This currently pins:
+
+- Helm CLI version
+- Python Kubernetes client version used by Ansible hosts
+- Helm chart versions for OpenSearch, OpenSearch Dashboards, Fluent Bit, kube-prometheus-stack, CloudNativePG, and Forgejo
+
+This means reruns no longer drift just because an upstream chart repository published a newer release between installs.
+
+### 2b. Create the Secrets File
 
 Copy the example secrets file and encrypt it before the first deploy:
 
@@ -239,6 +252,12 @@ Application dashboards:
 ## AI Engine
 
 The AI engine is a Python service deployed on the configured AI pool. It is configured in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) and implemented in [main.py](roles/ai_engine/files/app/main.py).
+
+Current packaging note:
+
+- the `ai-engine` container image is still configured from Ansible variables rather than built as a framework artifact
+- the service still builds its Python virtualenv at pod startup
+- replacing that runtime dependency install with a prebuilt image is the next Phase 3 hardening step
 
 What it does:
 

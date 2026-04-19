@@ -15,8 +15,6 @@ The framework already provides:
 
 What still keeps it in "advanced lab" territory rather than "production framework":
 
-- plaintext secrets and weak defaults
-- fixed 6-node topology assumptions
 - live internet/bootstrap dependencies
 - some soft readiness gates and best-effort checks
 - no bundled alert/rule pack
@@ -190,9 +188,9 @@ What still keeps it in "advanced lab" territory rather than "production framewor
 
 ## Next Sprint
 
-With `v1.1` completed, the next sprint should focus on `v1.2` topology abstraction:
+With `v1.1` and `v1.2` completed, the next sprint should focus on the remaining `v1.3` packaging work:
 
-1. Define a pool-based node model for control plane and workload groups.
-2. Replace hardcoded node-name tainting and placement logic.
-3. Add profile examples for compact, lab, and scaled topologies.
-4. Keep the current 6-node lab as one supported profile rather than the only layout.
+1. Keep all core tool and chart versions pinned from shared config.
+2. Replace the remaining moving bootstrap paths, especially K3s install flow.
+3. Build and publish a real `ai-engine` image so pods stop installing Python packages at startup.
+4. Add an offline-friendly artifact strategy for production mirrors or vendored bundles.

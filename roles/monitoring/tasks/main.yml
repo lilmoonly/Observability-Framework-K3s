@@ -26,6 +26,7 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: prometheus
     chart_ref: prometheus-community/kube-prometheus-stack
+    chart_version: "{{ artifact_versions.charts.kube_prometheus_stack }}"
     release_namespace: monitoring
     create_namespace: true
     wait: yes

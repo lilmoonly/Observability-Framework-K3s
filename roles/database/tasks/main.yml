@@ -19,6 +19,7 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: cnpg-operator
     chart_ref: cnpg/cloudnative-pg
+    chart_version: "{{ artifact_versions.charts.cloudnative_pg }}"
     release_namespace: cnpg-system
     create_namespace: true
     wait: yes

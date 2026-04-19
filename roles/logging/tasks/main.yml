@@ -24,6 +24,7 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: opensearch
     chart_ref: opensearch/opensearch
+    chart_version: "{{ artifact_versions.charts.opensearch }}"
     release_namespace: opensearch
     create_namespace: true
     wait: yes
@@ -93,6 +94,7 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: opensearch-dashboards
     chart_ref: opensearch/opensearch-dashboards
+    chart_version: "{{ artifact_versions.charts.opensearch_dashboards }}"
     release_namespace: opensearch
     wait: yes
     values:
@@ -137,6 +139,7 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: fluent-bit
     chart_ref: fluent/fluent-bit
+    chart_version: "{{ artifact_versions.charts.fluent_bit }}"
     release_namespace: opensearch
     wait: yes
     values:

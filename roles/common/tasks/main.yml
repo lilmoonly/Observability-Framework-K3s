@@ -156,7 +156,7 @@
 - name: Ensure python3-kubernetes is installed via pip
   become: true
   ansible.builtin.pip:
-    name: kubernetes
+    name: "kubernetes=={{ artifact_versions.python_kubernetes }}"
     executable: pip3
 
 # ============================================================
@@ -178,10 +178,32 @@
 # ============================================================
 - name: Install Helm on master node
   become: true
-  ansible.builtin.shell: |
-    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-  args:
-    creates: /usr/local/bin/helm
+  vars:
+    helm_platform_arch: >-
+      {% if ansible_architecture in ['x86_64', 'amd64'] %}amd64{% elif ansible_architecture in ['aarch64', 'arm64'] %}arm64{% else %}amd64{% endif %}
+    helm_archive_name: "helm-{{ artifact_versions.helm }}-{{ ansible_system | lower }}-{{ helm_platform_arch }}.tar.gz"
+    helm_download_url: "https://get.helm.sh/{{ helm_archive_name }}"
+    helm_extract_root: "/tmp/helm-{{ artifact_versions.helm }}"
+  block:
+    - name: Download pinned Helm archive
+      ansible.builtin.get_url:
+        url: "{{ helm_download_url }}"
+        dest: "/tmp/{{ helm_archive_name }}"
+        mode: '0644'
+
+    - name: Extract pinned Helm archive
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ helm_archive_name }}"
+        dest: "{{ helm_extract_root }}"
+        remote_src: true
+        creates: "{{ helm_extract_root }}/{{ ansible_system | lower }}-{{ helm_platform_arch }}/helm"
+
+    - name: Install pinned Helm binary
+      ansible.builtin.copy:
+        src: "{{ helm_extract_root }}/{{ ansible_system | lower }}-{{ helm_platform_arch }}/helm"
+        dest: /usr/local/bin/helm
+        mode: '0755'
+        remote_src: true
   when: inventory_hostname in groups['master']
 
 # ============================================================
@@ -189,13 +211,20 @@
 # Repos are just client-side config — no cluster needed.
 # They will be available immediately when cluster is ready.
 # ============================================================
-- name: Add Helm repos
+- name: Add required Helm repositories
   become: true
-  ansible.builtin.shell: |
-    /usr/local/bin/helm repo add opensearch https://opensearch-project.github.io/helm-charts/
-    /usr/local/bin/helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-    /usr/local/bin/helm repo add cnpg https://cloudnative-pg.github.io/charts
-    /usr/local/bin/helm repo add fluent https://fluent.github.io/helm-charts
-    /usr/local/bin/helm repo update
-  changed_when: false
+  kubernetes.core.helm_repository:
+    name: "{{ item.name }}"
+    repo_url: "{{ item.repo_url }}"
+    force_update: true
+    state: present
+  loop:
+    - name: opensearch
+      repo_url: https://opensearch-project.github.io/helm-charts/
+    - name: prometheus-community
+      repo_url: https://prometheus-community.github.io/helm-charts
+    - name: cnpg
+      repo_url: https://cloudnative-pg.github.io/charts
+    - name: fluent
+      repo_url: https://fluent.github.io/helm-charts
   when: inventory_hostname in groups['master']

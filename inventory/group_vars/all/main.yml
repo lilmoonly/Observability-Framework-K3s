@@ -11,6 +11,22 @@
 k3s_version: "v1.31.0+k3s1"
 master_ip: "192.168.56.10"
 
+# ==========================================
+# 1a. DETERMINISTIC TOOLING + CHART VERSIONS
+# Centralized version pins reduce drift between
+# repeated installs and make upgrades explicit.
+# ==========================================
+artifact_versions:
+  helm: "v3.20.2"
+  python_kubernetes: "31.0.0"
+  charts:
+    opensearch: "2.36.0"
+    opensearch_dashboards: "2.32.0"
+    fluent_bit: "0.54.0"
+    kube_prometheus_stack: "80.13.3"
+    cloudnative_pg: "0.26.1"
+    forgejo: "16.0.2"
+
 # This token is loaded from the encrypted secrets file.
 k3s_token: "{{ vault_k3s_token }}"
 

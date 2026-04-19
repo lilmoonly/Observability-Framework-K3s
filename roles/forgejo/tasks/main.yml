@@ -119,6 +119,7 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: forgejo
     chart_ref: oci://code.forgejo.org/forgejo-helm/forgejo
+    chart_version: "{{ artifact_versions.charts.forgejo }}"
     release_namespace: forgejo
     create_namespace: false
     wait: yes
