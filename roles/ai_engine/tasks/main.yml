@@ -45,7 +45,21 @@
     executable: /bin/sh
   register: ai_engine_docker_cli
   changed_when: false
+  failed_when: false
   when: ai_engine.build.enabled | bool
+
+- name: Decide whether AI engine should use prebuilt image flow
+  ansible.builtin.set_fact:
+    ai_engine_use_built_image: "{{ (ai_engine.build.enabled | bool) and (ai_engine_docker_cli.rc | default(1) == 0) }}"
+
+- name: Explain AI engine packaging mode
+  ansible.builtin.debug:
+    msg: >-
+      {{
+        'AI engine will use the prebuilt-image flow from localhost Docker.'
+        if ai_engine_use_built_image | bool
+        else 'AI engine will fall back to runtime packaging because Docker is not available on the Ansible control machine.'
+      }}
 
 - name: Build pinned AI engine image locally
   become: false
@@ -62,7 +76,7 @@
     chdir: "{{ role_path }}/files/app"
   register: ai_engine_image_build
   changed_when: true
-  when: ai_engine.build.enabled | bool
+  when: ai_engine_use_built_image | bool
 
 - name: Export AI engine image archive locally
   become: false
@@ -75,7 +89,7 @@
       - "{{ ai_engine.build.archive_path }}"
       - "{{ ai_engine.image.repository }}:{{ ai_engine.image.tag }}"
   changed_when: true
-  when: ai_engine.build.enabled | bool
+  when: ai_engine_use_built_image | bool
 
 - name: Copy AI engine image archive to AI pool nodes
   become: true
@@ -85,7 +99,7 @@
     dest: "{{ ai_engine.build.archive_path }}"
     mode: '0644'
   loop: "{{ groups[cluster_topology.pool_group_prefix ~ ai_engine.pool] }}"
-  when: ai_engine.build.enabled | bool
+  when: ai_engine_use_built_image | bool
 
 - name: Import AI engine image into K3s container runtime
   become: true
@@ -101,7 +115,7 @@
       - "{{ ai_engine.build.archive_path }}"
   loop: "{{ groups[cluster_topology.pool_group_prefix ~ ai_engine.pool] }}"
   changed_when: true
-  when: ai_engine.build.enabled | bool
+  when: ai_engine_use_built_image | bool
 
 - name: Remove AI engine image archive from AI pool nodes
   become: true
@@ -110,7 +124,7 @@
     path: "{{ ai_engine.build.archive_path }}"
     state: absent
   loop: "{{ groups[cluster_topology.pool_group_prefix ~ ai_engine.pool] }}"
-  when: ai_engine.build.enabled | bool
+  when: ai_engine_use_built_image | bool
 
 - name: Remove local AI engine image archive
   become: false
@@ -118,7 +132,24 @@
   ansible.builtin.file:
     path: "{{ ai_engine.build.archive_path }}"
     state: absent
-  when: ai_engine.build.enabled | bool
+  when: ai_engine_use_built_image | bool
+
+- name: Create AI engine application ConfigMap for runtime packaging fallback
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: ai-engine-app
+        namespace: "{{ ai_engine.namespace }}"
+      data:
+        requirements.txt: "{{ lookup('file', role_path + '/files/app/requirements.txt') }}"
+        main.py: "{{ lookup('file', role_path + '/files/app/main.py') }}"
+  when: not (ai_engine_use_built_image | bool)
 
 - name: Create AI engine secret
   become: true

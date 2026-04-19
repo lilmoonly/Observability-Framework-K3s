@@ -141,6 +141,7 @@ database:
 ai_engine:
   namespace: "ai-engine"
   app_name: "pyod-anomaly-detector"
+  runtime_base_image: "python:3.11-slim"
   image:
     repository: "observability-framework/ai-engine"
     tag: "0.1.0"
