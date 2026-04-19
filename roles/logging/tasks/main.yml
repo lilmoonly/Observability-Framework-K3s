@@ -107,6 +107,13 @@
       service:
         type: ClusterIP
         port: "{{ opensearch_dashboards_port }}"
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          cpu: 300m
+          memory: 512Mi
       nodeSelector:
         workload: "{{ cluster_topology.node_pools[opensearch.pool].workload_label }}"
       tolerations:
@@ -134,6 +141,13 @@
     wait: yes
     values:
       metricsPort: 2020
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
       config:
         outputs: |
           [OUTPUT]
