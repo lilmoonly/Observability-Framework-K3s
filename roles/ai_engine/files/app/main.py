@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import threading
 import time
@@ -47,6 +48,18 @@ RULE_INGRESS_5XX_RATE_THRESHOLD = float(
     os.getenv("RULE_INGRESS_5XX_RATE_THRESHOLD", "0.1")
 )
 SEVERITY_CRITICAL_SCORE = float(os.getenv("SEVERITY_CRITICAL_SCORE", "0.97"))
+
+RECENT_EVENT_SLOTS = 5
+DETECTION_SOURCE_CODES = {
+    "baseline": 0,
+    "model": 1,
+    "rules": 2,
+    "model+rules": 3,
+}
+EVENT_STATUS_CODES = {
+    "published": 1,
+    "suppressed": 2,
+}
 
 
 def with_zero(query):
@@ -117,6 +130,53 @@ QUERY_DEFINITIONS = {
     "max_pod_restarts_15m": with_zero(
         'max(sum by (namespace,pod) (increase(kube_pod_container_status_restarts_total{namespace!=""}[15m])))'
     ),
+}
+
+RULE_DEFINITIONS = {
+    "failed_pods_present": {
+        "feature": "failed_pods",
+        "threshold": RULE_FAILED_PODS_THRESHOLD,
+    },
+    "pending_pods_spike": {
+        "feature": "pending_pods",
+        "threshold": RULE_PENDING_PODS_THRESHOLD,
+    },
+    "cluster_restart_spike": {
+        "feature": "pod_restart_delta_15m",
+        "threshold": RULE_RESTART_DELTA_THRESHOLD,
+    },
+    "namespace_restart_hotspot": {
+        "feature": "max_namespace_restarts_15m",
+        "threshold": RULE_RESTART_DELTA_THRESHOLD,
+    },
+    "pod_restart_hotspot": {
+        "feature": "max_pod_restarts_15m",
+        "threshold": RULE_RESTART_DELTA_THRESHOLD,
+    },
+    "node_not_ready": {
+        "feature": "node_not_ready_count",
+        "threshold": RULE_NODE_NOT_READY_THRESHOLD,
+    },
+    "node_memory_pressure": {
+        "feature": "node_memory_pressure_count",
+        "threshold": RULE_NODE_PRESSURE_THRESHOLD,
+    },
+    "node_disk_pressure": {
+        "feature": "node_disk_pressure_count",
+        "threshold": RULE_NODE_PRESSURE_THRESHOLD,
+    },
+    "node_pid_pressure": {
+        "feature": "node_pid_pressure_count",
+        "threshold": RULE_NODE_PRESSURE_THRESHOLD,
+    },
+    "apiserver_5xx_spike": {
+        "feature": "apiserver_5xx_rate",
+        "threshold": RULE_APISERVER_5XX_RATE_THRESHOLD,
+    },
+    "ingress_5xx_spike": {
+        "feature": "traefik_5xx_rate",
+        "threshold": RULE_INGRESS_5XX_RATE_THRESHOLD,
+    },
 }
 
 RUNS_TOTAL = Counter(
@@ -191,6 +251,11 @@ FEATURE_RESIDUAL = Gauge(
     "Residual value per feature after subtracting the rolling baseline.",
     ["feature"],
 )
+FEATURE_SNAPSHOT = Gauge(
+    "ai_feature_snapshot",
+    "Unified feature snapshot for dashboard tables. Kinds: current, baseline, residual, zscore.",
+    ["feature", "kind"],
+)
 RULE_HIT_COUNT = Gauge(
     "ai_anomaly_rule_hits",
     "Number of rule-based checks triggered by the latest evaluation.",
@@ -211,12 +276,68 @@ SUPPRESSED_FLAG = Gauge(
     "ai_anomaly_suppressed",
     "Whether the latest anomaly was suppressed instead of being written (1/0).",
 )
+RULE_VALUE = Gauge(
+    "ai_anomaly_rule_value",
+    "Current observed value for each explicit anomaly rule.",
+    ["rule"],
+)
+RULE_THRESHOLD = Gauge(
+    "ai_anomaly_rule_threshold",
+    "Configured threshold for each explicit anomaly rule.",
+    ["rule"],
+)
+RULE_STATE = Gauge(
+    "ai_anomaly_rule_state",
+    "Whether each explicit anomaly rule is currently firing (1/0).",
+    ["rule"],
+)
+RULE_SNAPSHOT = Gauge(
+    "ai_anomaly_rule_snapshot",
+    "Unified rule snapshot for dashboard tables. Kinds: current_value, threshold, firing.",
+    ["rule", "kind"],
+)
+RECENT_EVENT_TIMESTAMP = Gauge(
+    "ai_anomaly_recent_event_timestamp_seconds",
+    "Timestamp of recent anomaly outcomes, stored in fixed slots for dashboard tables.",
+    ["slot"],
+)
+RECENT_EVENT_SCORE = Gauge(
+    "ai_anomaly_recent_event_score_normalized",
+    "Normalized score of recent anomaly outcomes, stored in fixed slots for dashboard tables.",
+    ["slot"],
+)
+RECENT_EVENT_RULE_HITS = Gauge(
+    "ai_anomaly_recent_event_rule_hits_value",
+    "Rule hit count of recent anomaly outcomes, stored in fixed slots for dashboard tables.",
+    ["slot"],
+)
+RECENT_EVENT_SEVERITY = Gauge(
+    "ai_anomaly_recent_event_severity_level",
+    "Severity level of recent anomaly outcomes, stored in fixed slots for dashboard tables.",
+    ["slot"],
+)
+RECENT_EVENT_SOURCE = Gauge(
+    "ai_anomaly_recent_event_source_code",
+    "Detection source of recent anomaly outcomes, encoded as 0=baseline, 1=model, 2=rules, 3=model+rules.",
+    ["slot"],
+)
+RECENT_EVENT_STATUS = Gauge(
+    "ai_anomaly_recent_event_status_code",
+    "Recent anomaly outcome status, encoded as 1=published, 2=suppressed.",
+    ["slot"],
+)
+RECENT_EVENT_SNAPSHOT = Gauge(
+    "ai_anomaly_recent_event_snapshot",
+    "Unified recent anomaly snapshot for dashboard tables. Kinds: timestamp_ms, severity_level, source_code, status_code, normalized_score, rule_hit_count.",
+    ["slot", "kind"],
+)
 
 LAST_PUBLISHED_EVENT = {
     "signature": None,
     "published_at": 0.0,
     "severity_level": 0,
 }
+RECENT_EVENTS = []
 
 
 def prom_query_range(query, start_ts, end_ts, step_seconds):
@@ -247,6 +368,8 @@ def prom_query_range(query, start_ts, end_ts, step_seconds):
             try:
                 numeric_value = float(point[1])
             except ValueError:
+                numeric_value = 0.0
+            if not math.isfinite(numeric_value):
                 numeric_value = 0.0
             values[timestamp] = values.get(timestamp, 0.0) + numeric_value
     return values
@@ -323,6 +446,9 @@ def compute_top_contributors(train_model, latest_model):
     contributors = []
     for index, feature_name in enumerate(QUERY_DEFINITIONS):
         FEATURE_ZSCORE.labels(feature=feature_name).set(float(zscores[index]))
+        FEATURE_SNAPSHOT.labels(feature=feature_name, kind="zscore").set(
+            float(zscores[index])
+        )
         contributors.append((feature_name, float(zscores[index])))
 
     contributors.sort(key=lambda item: item[1], reverse=True)
@@ -331,29 +457,18 @@ def compute_top_contributors(train_model, latest_model):
 
 def evaluate_rules(features):
     rule_hits = []
-
-    if features["failed_pods"] >= RULE_FAILED_PODS_THRESHOLD:
-        rule_hits.append("failed_pods_present")
-    if features["pending_pods"] >= RULE_PENDING_PODS_THRESHOLD:
-        rule_hits.append("pending_pods_spike")
-    if features["pod_restart_delta_15m"] >= RULE_RESTART_DELTA_THRESHOLD:
-        rule_hits.append("cluster_restart_spike")
-    if features["max_namespace_restarts_15m"] >= RULE_RESTART_DELTA_THRESHOLD:
-        rule_hits.append("namespace_restart_hotspot")
-    if features["max_pod_restarts_15m"] >= RULE_RESTART_DELTA_THRESHOLD:
-        rule_hits.append("pod_restart_hotspot")
-    if features["node_not_ready_count"] >= RULE_NODE_NOT_READY_THRESHOLD:
-        rule_hits.append("node_not_ready")
-    if features["node_memory_pressure_count"] >= RULE_NODE_PRESSURE_THRESHOLD:
-        rule_hits.append("node_memory_pressure")
-    if features["node_disk_pressure_count"] >= RULE_NODE_PRESSURE_THRESHOLD:
-        rule_hits.append("node_disk_pressure")
-    if features["node_pid_pressure_count"] >= RULE_NODE_PRESSURE_THRESHOLD:
-        rule_hits.append("node_pid_pressure")
-    if features["apiserver_5xx_rate"] >= RULE_APISERVER_5XX_RATE_THRESHOLD:
-        rule_hits.append("apiserver_5xx_spike")
-    if features["traefik_5xx_rate"] >= RULE_INGRESS_5XX_RATE_THRESHOLD:
-        rule_hits.append("ingress_5xx_spike")
+    for rule_name, definition in RULE_DEFINITIONS.items():
+        current_value = float(features[definition["feature"]])
+        threshold = float(definition["threshold"])
+        is_firing = current_value >= threshold
+        RULE_VALUE.labels(rule=rule_name).set(current_value)
+        RULE_THRESHOLD.labels(rule=rule_name).set(threshold)
+        RULE_STATE.labels(rule=rule_name).set(1 if is_firing else 0)
+        RULE_SNAPSHOT.labels(rule=rule_name, kind="current_value").set(current_value)
+        RULE_SNAPSHOT.labels(rule=rule_name, kind="threshold").set(threshold)
+        RULE_SNAPSHOT.labels(rule=rule_name, kind="firing").set(1 if is_firing else 0)
+        if is_firing:
+            rule_hits.append(rule_name)
 
     return rule_hits
 
@@ -393,6 +508,70 @@ def build_event_signature(rule_hits, top_contributors):
     rule_part = ",".join(sorted(rule_hits)) if rule_hits else "no-rules"
     contributor_part = ",".join(top_contributors) if top_contributors else "no-contributors"
     return f"{rule_part}|{contributor_part}"
+
+
+def record_recent_event(
+    event_timestamp,
+    severity_level,
+    detection_source,
+    status,
+    normalized_score,
+    rule_hit_count,
+):
+    RECENT_EVENTS.insert(
+        0,
+        {
+            "timestamp": float(event_timestamp),
+            "severity_level": int(severity_level),
+            "source_code": DETECTION_SOURCE_CODES[detection_source],
+            "status_code": EVENT_STATUS_CODES[status],
+            "normalized_score": float(normalized_score),
+            "rule_hit_count": int(rule_hit_count),
+        },
+    )
+    del RECENT_EVENTS[RECENT_EVENT_SLOTS:]
+
+    for index in range(RECENT_EVENT_SLOTS):
+        slot = str(index + 1)
+        if index < len(RECENT_EVENTS):
+            event = RECENT_EVENTS[index]
+            RECENT_EVENT_TIMESTAMP.labels(slot=slot).set(event["timestamp"])
+            RECENT_EVENT_SEVERITY.labels(slot=slot).set(event["severity_level"])
+            RECENT_EVENT_SOURCE.labels(slot=slot).set(event["source_code"])
+            RECENT_EVENT_STATUS.labels(slot=slot).set(event["status_code"])
+            RECENT_EVENT_SCORE.labels(slot=slot).set(event["normalized_score"])
+            RECENT_EVENT_RULE_HITS.labels(slot=slot).set(event["rule_hit_count"])
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="timestamp_ms").set(
+                event["timestamp"] * 1000
+            )
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="severity_level").set(
+                event["severity_level"]
+            )
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="source_code").set(
+                event["source_code"]
+            )
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="status_code").set(
+                event["status_code"]
+            )
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="normalized_score").set(
+                event["normalized_score"]
+            )
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="rule_hit_count").set(
+                event["rule_hit_count"]
+            )
+        else:
+            RECENT_EVENT_TIMESTAMP.labels(slot=slot).set(0)
+            RECENT_EVENT_SEVERITY.labels(slot=slot).set(0)
+            RECENT_EVENT_SOURCE.labels(slot=slot).set(0)
+            RECENT_EVENT_STATUS.labels(slot=slot).set(0)
+            RECENT_EVENT_SCORE.labels(slot=slot).set(0)
+            RECENT_EVENT_RULE_HITS.labels(slot=slot).set(0)
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="timestamp_ms").set(0)
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="severity_level").set(0)
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="source_code").set(0)
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="status_code").set(0)
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="normalized_score").set(0)
+            RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="rule_hit_count").set(0)
 
 
 def should_publish_anomaly(signature, severity_level):
@@ -443,12 +622,22 @@ def evaluate_once():
     REQUIRED_SAMPLE_COUNT.set(MIN_TRAINING_SAMPLES + 1)
     for feature_name, feature_value in latest_row["features"].items():
         FEATURE_VALUE.labels(feature=feature_name).set(float(feature_value))
+        FEATURE_SNAPSHOT.labels(feature=feature_name, kind="current").set(
+            float(feature_value)
+        )
         FEATURE_BASELINE.labels(feature=feature_name).set(
+            float(latest_row["baseline"][feature_name])
+        )
+        FEATURE_SNAPSHOT.labels(feature=feature_name, kind="baseline").set(
             float(latest_row["baseline"][feature_name])
         )
         FEATURE_RESIDUAL.labels(feature=feature_name).set(
             float(latest_row["residuals"][feature_name])
         )
+        FEATURE_SNAPSHOT.labels(feature=feature_name, kind="residual").set(
+            float(latest_row["residuals"][feature_name])
+        )
+    evaluate_rules(latest_row["features"])
 
     if len(rows) < MIN_TRAINING_SAMPLES + 1:
         DETECTOR_READY.set(0)
@@ -537,6 +726,14 @@ def evaluate_once():
             index_name = publish_document(document)
             EVENTS_TOTAL.inc()
             LAST_PUBLISHED_TIMESTAMP.set(time.time())
+            record_recent_event(
+                latest_row["timestamp"].timestamp(),
+                severity_level,
+                detection_source,
+                "published",
+                normalized_score,
+                len(rule_hits),
+            )
             LOG.info(
                 "Published anomaly event to OpenSearch index %s severity=%s source=%s rules=%s",
                 index_name,
@@ -547,6 +744,14 @@ def evaluate_once():
         else:
             SUPPRESSED_TOTAL.inc()
             SUPPRESSED_FLAG.set(1)
+            record_recent_event(
+                latest_row["timestamp"].timestamp(),
+                severity_level,
+                detection_source,
+                "suppressed",
+                normalized_score,
+                len(rule_hits),
+            )
             LOG.info(
                 "Suppressed duplicate anomaly severity=%s source=%s rules=%s",
                 severity_name,
@@ -595,6 +800,33 @@ def main():
         FEATURE_ZSCORE.labels(feature=feature_name).set(0)
         FEATURE_BASELINE.labels(feature=feature_name).set(0)
         FEATURE_RESIDUAL.labels(feature=feature_name).set(0)
+        FEATURE_SNAPSHOT.labels(feature=feature_name, kind="current").set(0)
+        FEATURE_SNAPSHOT.labels(feature=feature_name, kind="baseline").set(0)
+        FEATURE_SNAPSHOT.labels(feature=feature_name, kind="residual").set(0)
+        FEATURE_SNAPSHOT.labels(feature=feature_name, kind="zscore").set(0)
+    for rule_name, definition in RULE_DEFINITIONS.items():
+        RULE_VALUE.labels(rule=rule_name).set(0)
+        RULE_THRESHOLD.labels(rule=rule_name).set(float(definition["threshold"]))
+        RULE_STATE.labels(rule=rule_name).set(0)
+        RULE_SNAPSHOT.labels(rule=rule_name, kind="current_value").set(0)
+        RULE_SNAPSHOT.labels(rule=rule_name, kind="threshold").set(
+            float(definition["threshold"])
+        )
+        RULE_SNAPSHOT.labels(rule=rule_name, kind="firing").set(0)
+    for index in range(RECENT_EVENT_SLOTS):
+        slot = str(index + 1)
+        RECENT_EVENT_TIMESTAMP.labels(slot=slot).set(0)
+        RECENT_EVENT_SEVERITY.labels(slot=slot).set(0)
+        RECENT_EVENT_SOURCE.labels(slot=slot).set(0)
+        RECENT_EVENT_STATUS.labels(slot=slot).set(0)
+        RECENT_EVENT_SCORE.labels(slot=slot).set(0)
+        RECENT_EVENT_RULE_HITS.labels(slot=slot).set(0)
+        RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="timestamp_ms").set(0)
+        RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="severity_level").set(0)
+        RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="source_code").set(0)
+        RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="status_code").set(0)
+        RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="normalized_score").set(0)
+        RECENT_EVENT_SNAPSHOT.labels(slot=slot, kind="rule_hit_count").set(0)
     start_http_server(APP_PORT)
     LOG.info("Starting Prometheus metrics server on port %s", APP_PORT)
     thread = threading.Thread(target=run_forever, daemon=True)

@@ -56,27 +56,12 @@
   "panels": [
     {
       "datasource": "Prometheus",
-      "description": "Ready means the model has enough aligned Prometheus samples to begin anomaly scoring.",
+      "description": "Ready means the detector has enough aligned Prometheus history to score anomalies.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "yellow",
-                  "text": "Warming Up"
-                },
-                "1": {
-                  "color": "green",
-                  "text": "Ready"
-                }
-              },
-              "type": "value"
-            }
-          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -89,12 +74,27 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Warming Up",
+                  "color": "yellow"
+                },
+                "1": {
+                  "text": "Ready",
+                  "color": "green"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 4,
         "x": 0,
         "y": 0
@@ -129,7 +129,7 @@
     },
     {
       "datasource": "Prometheus",
-      "description": "Percent of required aligned Prometheus samples already collected.",
+      "description": "Progress is based on Prometheus history, not pod uptime.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -164,7 +164,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 4,
         "x": 4,
         "y": 0
@@ -196,32 +196,31 @@
     },
     {
       "datasource": "Prometheus",
-      "description": "When this reaches 0, the detector has enough history to score anomalies.",
+      "description": "How many aligned time steps are currently available from Prometheus history.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
-          "decimals": 0,
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "yellow",
                 "value": null
               },
               {
-                "color": "orange",
-                "value": 1
+                "color": "green",
+                "value": 37
               }
             ]
-          }
+          },
+          "decimals": 0
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 4,
         "x": 8,
         "y": 0
@@ -244,27 +243,24 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "clamp_min(max(ai_anomaly_required_samples) - max(ai_anomaly_available_samples), 0)",
+          "expr": "max(ai_anomaly_available_samples)",
           "instant": true,
-          "legendFormat": "Samples remaining",
+          "legendFormat": "Samples available",
           "range": false,
           "refId": "A"
         }
       ],
-      "title": "Samples Remaining",
+      "title": "Samples in Prometheus",
       "type": "stat"
     },
     {
       "datasource": "Prometheus",
-      "description": "Latest normalized score from the model. Compare it with the threshold line in the timeline below.",
+      "description": "Latest normalized model score for the newest evaluation window.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
-          "decimals": 2,
-          "max": 1,
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -281,12 +277,15 @@
                 "value": 0.9
               }
             ]
-          }
+          },
+          "decimals": 2,
+          "min": 0,
+          "max": 1
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 4,
         "x": 12,
         "y": 0
@@ -321,13 +320,12 @@
     },
     {
       "datasource": "Prometheus",
-      "description": "How many anomaly events the AI engine has written to OpenSearch in the last 24 hours.",
+      "description": "Current severity of the latest evaluation after combining model output and incident rules.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
-          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -336,21 +334,171 @@
                 "value": null
               },
               {
+                "color": "orange",
+                "value": 2
+              },
+              {
                 "color": "red",
-                "value": 1
+                "value": 3
               }
             ]
-          }
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Normal",
+                  "color": "green"
+                },
+                "2": {
+                  "text": "Warning",
+                  "color": "orange"
+                },
+                "3": {
+                  "text": "Critical",
+                  "color": "red"
+                }
+              }
+            }
+          ],
+          "decimals": 0
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 4,
         "x": 16,
         "y": 0
       },
       "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(ai_anomaly_severity_level)",
+          "instant": true,
+          "legendFormat": "Severity",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Latest Severity",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "How many explicit incident rules fired in the latest evaluation.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(ai_anomaly_rule_hits)",
+          "instant": true,
+          "legendFormat": "Rule hits",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Rule Hits",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "How many anomaly events were actually written to OpenSearch in the last 24 hours.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 4
+      },
+      "id": 7,
       "options": {
         "colorMode": "background",
         "graphMode": "none",
@@ -370,28 +518,91 @@
           "editorMode": "code",
           "expr": "sum(increase(ai_anomaly_events_total[24h]))",
           "instant": true,
-          "legendFormat": "Published anomaly events in last 24h",
+          "legendFormat": "Published anomalies",
           "range": false,
           "refId": "A"
         }
       ],
-      "title": "Published Anomaly Events (24h)",
+      "title": "Published Anomalies (24h)",
       "type": "stat"
     },
     {
       "datasource": "Prometheus",
-      "description": "Shows when the detector last completed a successful evaluation.",
+      "description": "How many repeated anomalies were intentionally suppressed to avoid noisy duplicate events.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 4
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(increase(ai_anomaly_suppression_events_total[24h]))",
+          "instant": true,
+          "legendFormat": "Suppressed duplicates",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Suppressed Duplicates (24h)",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "When the most recent anomaly event was published to OpenSearch.",
       "fieldConfig": {
         "defaults": {
           "mappings": [
             {
+              "type": "value",
               "options": {
                 "0": {
-                  "color": "yellow",
-                  "text": "No successful run yet"
+                  "text": "No anomaly published yet",
+                  "color": "yellow"
                 }
-              },
-              "type": "value"
+              }
             }
           ],
           "unit": "dateTimeFromNow"
@@ -399,12 +610,66 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 20,
-        "y": 0
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 4
       },
-      "id": 6,
+      "id": 9,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(ai_anomaly_last_published_timestamp_seconds) * 1000",
+          "instant": true,
+          "legendFormat": "Last published anomaly",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Last Published Anomaly",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "When the detector last completed an evaluation successfully.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "No successful run yet",
+                  "color": "yellow"
+                }
+              }
+            }
+          ],
+          "unit": "dateTimeFromNow"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 4
+      },
+      "id": 10,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -434,7 +699,7 @@
     },
     {
       "datasource": "Prometheus",
-      "description": "The detector is actionable when the score crosses the threshold and the detected line jumps to 1.",
+      "description": "Follow the score, threshold, severity, and decision state together. Severity is scaled to 0-1 so it can sit on the same timeline.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -453,15 +718,13 @@
             "showPoints": "never",
             "spanNulls": false
           },
-          "decimals": 2,
-          "max": 1,
-          "min": 0
+          "unit": "none"
         },
         "overrides": [
           {
             "matcher": {
               "id": "byName",
-              "options": "Anomaly threshold"
+              "options": "Threshold"
             },
             "properties": [
               {
@@ -487,16 +750,31 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Suppressed (0/1)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
           }
         ]
       },
       "gridPos": {
         "h": 8,
-        "w": 14,
+        "w": 12,
         "x": 0,
-        "y": 5
+        "y": 8
       },
-      "id": 7,
+      "id": 11,
       "options": {
         "legend": {
           "calcs": [],
@@ -520,24 +798,38 @@
         {
           "editorMode": "code",
           "expr": "max(ai_anomaly_threshold)",
-          "legendFormat": "Anomaly threshold",
+          "legendFormat": "Threshold",
           "range": true,
           "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_anomaly_severity_level) / 3",
+          "legendFormat": "Severity (scaled)",
+          "range": true,
+          "refId": "C"
         },
         {
           "editorMode": "code",
           "expr": "max(ai_anomaly_detected)",
           "legendFormat": "Detected (0/1)",
           "range": true,
-          "refId": "C"
+          "refId": "D"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_anomaly_suppressed)",
+          "legendFormat": "Suppressed (0/1)",
+          "range": true,
+          "refId": "E"
         }
       ],
-      "title": "Score vs Threshold",
+      "title": "Detection Timeline",
       "type": "timeseries"
     },
     {
       "datasource": "Prometheus",
-      "description": "Current feature values used by the detector. This table is populated even during warm-up.",
+      "description": "Higher residual z-scores mean the feature deviated further from its rolling baseline and contributed more strongly to the latest anomaly decision. The table is sorted from strongest contributor to weakest.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -546,17 +838,18 @@
               "type": "auto"
             },
             "inspect": false
-          }
+          },
+          "decimals": 2
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 10,
-        "x": 14,
-        "y": 5
+        "w": 12,
+        "x": 12,
+        "y": 8
       },
-      "id": 8,
+      "id": 12,
       "options": {
         "cellHeight": "sm",
         "footer": {
@@ -567,7 +860,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max by (feature) (ai_feature_value)",
+          "expr": "sort_desc(max by (feature) (ai_feature_zscore))",
           "format": "table",
           "instant": true,
           "legendFormat": "{{feature}}",
@@ -588,17 +881,17 @@
             },
             "renameByName": {
               "feature": "Feature",
-              "Value": "Current value"
+              "Value": "Residual Z-score"
             }
           }
         }
       ],
-      "title": "Current Feature Snapshot",
+      "title": "Why It Triggered",
       "type": "table"
     },
     {
       "datasource": "Prometheus",
-      "description": "Core cluster-level feature trends feeding the AI model.",
+      "description": "Cluster-wide resource pressure signals. These explain broad load or saturation issues.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -623,11 +916,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 6,
         "x": 0,
-        "y": 13
+        "y": 16
       },
-      "id": 9,
+      "id": 13,
       "options": {
         "legend": {
           "calcs": [],
@@ -663,12 +956,12 @@
           "refId": "C"
         }
       ],
-      "title": "Resource Trend",
+      "title": "Resource Pressure",
       "type": "timeseries"
     },
     {
       "datasource": "Prometheus",
-      "description": "Workload and platform health inputs that often explain why the detector raised a score.",
+      "description": "Control-plane and ingress latency signals that help catch slowdowns before pods start failing.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -686,17 +979,18 @@
             "pointSize": 4,
             "showPoints": "never",
             "spanNulls": false
-          }
+          },
+          "unit": "s"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 13
+        "w": 6,
+        "x": 6,
+        "y": 16
       },
-      "id": 10,
+      "id": 14,
       "options": {
         "legend": {
           "calcs": [],
@@ -712,115 +1006,88 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max(ai_feature_value{feature=\"running_pods\"})",
-          "legendFormat": "Running pods",
+          "expr": "max(ai_feature_value{feature=\"apiserver_p99_latency_seconds\"})",
+          "legendFormat": "API server p99 latency",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "max(ai_feature_value{feature=\"pending_pods\"})",
-          "legendFormat": "Pending pods",
+          "expr": "max(ai_feature_value{feature=\"traefik_p95_latency_seconds\"})",
+          "legendFormat": "Traefik p95 latency",
           "range": true,
           "refId": "B"
-        },
-        {
-          "editorMode": "code",
-          "expr": "max(ai_feature_value{feature=\"failed_pods\"})",
-          "legendFormat": "Failed pods",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "editorMode": "code",
-          "expr": "max(ai_feature_value{feature=\"pod_restart_delta_15m\"})",
-          "legendFormat": "Container restarts / 15m",
-          "range": true,
-          "refId": "D"
-        },
-        {
-          "editorMode": "code",
-          "expr": "max(ai_feature_value{feature=\"max_namespace_restarts_15m\"})",
-          "legendFormat": "Max namespace restarts / 15m",
-          "range": true,
-          "refId": "E"
-        },
-        {
-          "editorMode": "code",
-          "expr": "max(ai_feature_value{feature=\"node_not_ready_count\"})",
-          "legendFormat": "Not ready nodes",
-          "range": true,
-          "refId": "F"
         }
       ],
-      "title": "Workload Health Trend",
+      "title": "Latency Signals",
       "type": "timeseries"
     },
     {
       "datasource": "Prometheus",
-      "description": "Higher z-scores indicate the strongest residual contributors after subtracting the rolling baseline. This table appears after the first successful model fit.",
+      "description": "5xx spikes usually indicate user-facing failures or API instability. Watch these alongside severity and rule hits.",
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
+          "color": {
+            "mode": "palette-classic"
           },
-          "decimals": 2
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "reqps"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 21
+        "w": 6,
+        "x": 12,
+        "y": 16
       },
-      "id": 11,
+      "id": 15,
       "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
         },
-        "showHeader": true
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max by (feature) (ai_feature_zscore)",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "{{feature}}",
-          "range": false,
+          "expr": "max(ai_feature_value{feature=\"apiserver_5xx_rate\"})",
+          "legendFormat": "API server 5xx rate",
+          "range": true,
           "refId": "A"
-        }
-      ],
-      "transformations": [
+        },
         {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true
-            },
-            "indexByName": {
-              "feature": 0,
-              "Value": 1
-            },
-            "renameByName": {
-              "feature": "Feature",
-              "Value": "Z-score"
-            }
-          }
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"traefik_5xx_rate\"})",
+          "legendFormat": "Traefik 5xx rate",
+          "range": true,
+          "refId": "B"
         }
       ],
-      "title": "Contributor Ranking",
-      "type": "table"
+      "title": "Error Rate Signals",
+      "type": "timeseries"
     },
     {
       "datasource": "Prometheus",
-      "description": "Rolling one-hour activity for the detector. Use this to see whether it is actively evaluating, failing, publishing anomaly events, or suppressing duplicates.",
+      "description": "Namespace, pod, and readiness hotspots that often explain why a cluster-level anomaly was raised.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -844,11 +1111,489 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 21
+        "w": 6,
+        "x": 18,
+        "y": 16
       },
-      "id": 12,
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"pending_pods\"})",
+          "legendFormat": "Pending pods",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"failed_pods\"})",
+          "legendFormat": "Failed pods",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"max_namespace_restarts_15m\"})",
+          "legendFormat": "Max namespace restarts / 15m",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"max_pod_restarts_15m\"})",
+          "legendFormat": "Max pod restarts / 15m",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max(ai_feature_value{feature=\"node_not_ready_count\"})",
+          "legendFormat": "Not ready nodes",
+          "range": true,
+          "refId": "E"
+        }
+      ],
+      "title": "Workload Hotspots",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Compare each feature's live value with its rolling baseline and residual. Use this per row rather than across rows because features have different units.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "decimals": 3
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 14,
+        "x": 0,
+        "y": 24
+      },
+      "id": 17,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max by (feature, kind) (ai_feature_snapshot)",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{feature}} {{kind}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "keepLabels": [
+              "feature",
+              "kind"
+            ],
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "kind",
+            "rowField": "feature",
+            "valueField": "Value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "feature\\kind": 0,
+              "current": 1,
+              "baseline": 2,
+              "residual": 3,
+              "zscore": 4
+            },
+            "renameByName": {
+              "feature\\kind": "Feature",
+              "current": "Current",
+              "baseline": "Baseline",
+              "residual": "Residual",
+              "zscore": "Residual Z-score"
+            }
+          }
+        }
+      ],
+      "title": "Current vs Baseline vs Residual",
+      "type": "table"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Each row shows the live value behind a rule, the configured threshold, and whether that explicit incident rule is currently firing.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "decimals": 3
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Firing"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "No",
+                        "color": "green"
+                      },
+                      "1": {
+                        "text": "Yes",
+                        "color": "red"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 10,
+        "x": 14,
+        "y": 24
+      },
+      "id": 18,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max by (rule, kind) (ai_anomaly_rule_snapshot)",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{rule}} {{kind}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "keepLabels": [
+              "rule",
+              "kind"
+            ],
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "kind",
+            "rowField": "rule",
+            "valueField": "Value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "rule\\kind": 0,
+              "current_value": 1,
+              "threshold": 2,
+              "firing": 3
+            },
+            "renameByName": {
+              "rule\\kind": "Rule",
+              "current_value": "Current Value",
+              "threshold": "Threshold",
+              "firing": "Firing"
+            }
+          }
+        }
+      ],
+      "title": "Rule Breakdown",
+      "type": "table"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Most recent published or suppressed anomaly outcomes captured by the detector itself. Slot 1 is the newest event.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsIso"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "No event"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Severity"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "None"
+                      },
+                      "2": {
+                        "text": "Warning",
+                        "color": "orange"
+                      },
+                      "3": {
+                        "text": "Critical",
+                        "color": "red"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Source"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "Baseline"
+                      },
+                      "1": {
+                        "text": "Model"
+                      },
+                      "2": {
+                        "text": "Rules"
+                      },
+                      "3": {
+                        "text": "Model + Rules"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Outcome"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "Empty"
+                      },
+                      "1": {
+                        "text": "Published",
+                        "color": "green"
+                      },
+                      "2": {
+                        "text": "Suppressed",
+                        "color": "yellow"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 14,
+        "x": 0,
+        "y": 33
+      },
+      "id": 19,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max by (slot, kind) (ai_anomaly_recent_event_snapshot)",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "slot {{slot}} {{kind}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "keepLabels": [
+              "slot",
+              "kind"
+            ],
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "kind",
+            "rowField": "slot",
+            "valueField": "Value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "slot\\kind": 0,
+              "timestamp_ms": 1,
+              "severity_level": 2,
+              "source_code": 3,
+              "status_code": 4,
+              "normalized_score": 5,
+              "rule_hit_count": 6
+            },
+            "renameByName": {
+              "slot\\kind": "Slot",
+              "timestamp_ms": "Time",
+              "severity_level": "Severity",
+              "source_code": "Source",
+              "status_code": "Outcome",
+              "normalized_score": "Score",
+              "rule_hit_count": "Rule Hits"
+            }
+          }
+        }
+      ],
+      "title": "Recent Anomaly Outcomes",
+      "type": "table"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Shows whether the detector is healthy, whether anomalies are being published, and whether noisy duplicates are being suppressed instead.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 14,
+        "y": 33
+      },
+      "id": 20,
       "options": {
         "legend": {
           "calcs": [],
@@ -891,7 +1636,7 @@
           "refId": "D"
         }
       ],
-      "title": "Detector Activity",
+      "title": "Publication Flow",
       "type": "timeseries"
     }
   ],
@@ -914,6 +1659,6 @@
   "timezone": "",
   "title": "AI Engine Command Center",
   "uid": "ai-anomaly-overview",
-  "version": 2,
+  "version": 5,
   "weekStart": ""
 }
