@@ -220,11 +220,15 @@
         mode: '0755'
       when: helm_version_check.rc != 0 or artifact_versions.helm not in helm_version_check.stdout
 
-    - name: Extract pinned Helm archive
-      ansible.builtin.unarchive:
-        src: "/tmp/{{ helm_archive_name }}"
-        dest: "{{ helm_extract_root }}"
-        remote_src: true
+    - name: Extract pinned Helm archive with tar
+      ansible.builtin.command:
+        argv:
+          - tar
+          - -xzf
+          - "/tmp/{{ helm_archive_name }}"
+          - -C
+          - "{{ helm_extract_root }}"
+      args:
         creates: "{{ helm_extract_root }}/{{ ansible_system | lower }}-{{ helm_platform_arch }}/helm"
       when: helm_version_check.rc != 0 or artifact_versions.helm not in helm_version_check.stdout
 
