@@ -126,23 +126,31 @@
 # ============================================================
 - name: Update apt cache
   become: true
-  ansible.builtin.apt:
-    update_cache: yes
+  ansible.builtin.command:
+    argv:
+      - apt-get
+      - update
+      - -y
+  changed_when: false
   when: ansible_os_family == 'Debian'
 
 - name: Install required packages
   become: true
-  ansible.builtin.apt:
-    name:
+  ansible.builtin.command:
+    argv:
+      - apt-get
+      - install
+      - -y
       - curl
       - nfs-common
       - tar
       - python3-pip
-      # iptables required for flannel networking and
-      # CNPG replication connectivity between nodes
       - iptables
       - iptables-persistent
-    state: present
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+    NEEDRESTART_MODE: a
+  changed_when: false
   when: ansible_os_family == 'Debian'
 
 # ============================================================
