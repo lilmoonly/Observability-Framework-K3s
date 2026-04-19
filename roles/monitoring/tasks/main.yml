@@ -8,7 +8,7 @@
 #   - kube-state-metrics(Kubernetes object metrics)
 #   - node-exporter     (host-level metrics DaemonSet)
 #
-# All components pinned to monitor-node via nodeSelector.
+# Monitoring components are pinned to the configured monitoring pool.
 # Grafana service type is ClusterIP — Ingress handles routing.
 #
 # Depends on:
@@ -47,21 +47,21 @@
                   requests:
                     storage: "{{ storage.prometheus_size }}"
           nodeSelector:
-            workload: "{{ monitoring.node_selector_label }}"
+            workload: "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
           tolerations:
             - key:      "workload"
               operator: "Equal"
-              value:    "{{ monitoring.node_selector_label }}"
-              effect:   "NoSchedule"
+              value:    "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
+              effect:   "{{ cluster_topology.node_pools[monitoring.pool].taints[0].effect }}"
       alertmanager:
         alertmanagerSpec:
           nodeSelector:
-            workload: "{{ monitoring.node_selector_label }}"
+            workload: "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
           tolerations:
             - key:      "workload"
               operator: "Equal"
-              value:    "{{ monitoring.node_selector_label }}"
-              effect:   "NoSchedule"
+              value:    "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
+              effect:   "{{ cluster_topology.node_pools[monitoring.pool].taints[0].effect }}"
       grafana:
         adminPassword: "{{ monitoring.grafana_admin_password }}"
         defaultDashboardsEnabled: false
@@ -77,37 +77,37 @@
             folderAnnotation: grafana_folder
             searchNamespace: ALL
         nodeSelector:
-          workload: "{{ monitoring.node_selector_label }}"
+          workload: "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
         tolerations:
           - key:      "workload"
             operator: "Equal"
-            value:    "{{ monitoring.node_selector_label }}"
-            effect:   "NoSchedule"
+            value:    "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
+            effect:   "{{ cluster_topology.node_pools[monitoring.pool].taints[0].effect }}"
       prometheusOperator:
         nodeSelector:
-          workload: "{{ monitoring.node_selector_label }}"
+          workload: "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
         tolerations:
           - key:      "workload"
             operator: "Equal"
-            value:    "{{ monitoring.node_selector_label }}"
-            effect:   "NoSchedule"
+            value:    "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
+            effect:   "{{ cluster_topology.node_pools[monitoring.pool].taints[0].effect }}"
         admissionWebhooks:
           patch:
             nodeSelector:
-              workload: "{{ monitoring.node_selector_label }}"
+              workload: "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
             tolerations:
               - key:      "workload"
                 operator: "Equal"
-                value:    "{{ monitoring.node_selector_label }}"
-                effect:   "NoSchedule"
+                value:    "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
+                effect:   "{{ cluster_topology.node_pools[monitoring.pool].taints[0].effect }}"
       kube-state-metrics:
         nodeSelector:
-          workload: "{{ monitoring.node_selector_label }}"
+          workload: "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
         tolerations:
           - key:      "workload"
             operator: "Equal"
-            value:    "{{ monitoring.node_selector_label }}"
-            effect:   "NoSchedule"
+            value:    "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
+            effect:   "{{ cluster_topology.node_pools[monitoring.pool].taints[0].effect }}"
       # node-exporter runs on ALL nodes as a DaemonSet.
       # Exists toleration ensures it bypasses every workload
       # taint so no node is left without host metrics.

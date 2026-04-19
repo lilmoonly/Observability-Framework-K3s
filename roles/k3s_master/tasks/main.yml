@@ -82,7 +82,42 @@
   changed_when: false
 
 # ============================================================
-# 5. Enable Traefik Metrics
+# 5. Label and Taint Control-Plane Nodes
+# Keeps topology metadata on the node itself and preserves
+# the standard control-plane NoSchedule protection.
+# ============================================================
+- name: Label control-plane node with pool metadata
+  become: true
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - label
+      - node
+      - "{{ inventory_hostname }}"
+      - "observability.framework/pool={{ cluster_topology.control_plane_pool }}"
+      - "workload={{ cluster_topology.node_pools[cluster_topology.control_plane_pool].workload_label }}"
+      - "kubernetes.io/role=control-plane"
+      - --overwrite
+      - --kubeconfig=/etc/rancher/k3s/k3s.yaml
+  register: control_plane_label
+  changed_when: "'not labeled' not in control_plane_label.stdout"
+
+- name: Taint control-plane node
+  become: true
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - taint
+      - nodes
+      - "{{ inventory_hostname }}"
+      - "{{ item.key }}={{ item.value }}:{{ item.effect }}"
+      - --overwrite
+      - --kubeconfig=/etc/rancher/k3s/k3s.yaml
+  loop: "{{ cluster_topology.node_pools[cluster_topology.control_plane_pool].taints | default([]) }}"
+  changed_when: false
+
+# ============================================================
+# 6. Enable Traefik Metrics
 # K3s manages Traefik via Helm; HelmChartConfig is the
 # supported way to turn on the Prometheus metrics endpoint.
 # ============================================================
@@ -94,7 +129,7 @@
     content: "{{ lookup('template', 'traefik-helmchartconfig.yaml.j2') }}"
 
 # ============================================================
-# 6. Verify Traefik Ingress Controller is Running
+# 7. Verify Traefik Ingress Controller is Running
 # K3s deploys Traefik automatically as a DaemonSet.
 # We confirm it is running before Phase 7 ingress rules
 # are created — if Traefik is not ready the Ingress
@@ -115,7 +150,7 @@
   changed_when: false
 
 # ============================================================
-# 7. Expose Traefik Metrics
+# 8. Expose Traefik Metrics
 # A dedicated in-cluster Service keeps the Prometheus target
 # stable even if K3s changes the default Traefik Service.
 # The ServiceMonitor is created later by the monitoring role,

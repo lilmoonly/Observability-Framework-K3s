@@ -24,7 +24,60 @@ disable_swap: true              # K8s requirement
 flannel_interface: "enp0s8"
 
 # ==========================================
-# 3. LOGGING (OpenSearch) - VM 4
+# 3. TOPOLOGY AND NODE POOLS
+# Pool definitions are the single source of truth for
+# worker labeling, tainting and workload placement.
+# ==========================================
+cluster_topology:
+  control_plane_pool: "control_plane"
+  default_worker_pool: "general"
+  pool_group_prefix: "pool_"
+  node_pools:
+    control_plane:
+      description: "K3s API server and control-plane services"
+      workload_label: "control-plane"
+      taints:
+        - key: "node-role.kubernetes.io/control-plane"
+          value: "true"
+          effect: "NoSchedule"
+    general:
+      description: "Default application and shared service pool"
+      workload_label: "general"
+      taints:
+        - key: "workload"
+          value: "general"
+          effect: "NoSchedule"
+    database:
+      description: "Stateful data services such as CloudNativePG"
+      workload_label: "database"
+      taints:
+        - key: "workload"
+          value: "database"
+          effect: "PreferNoSchedule"
+    logging:
+      description: "Logging and search workloads"
+      workload_label: "logging"
+      taints:
+        - key: "workload"
+          value: "logging"
+          effect: "NoSchedule"
+    monitoring:
+      description: "Prometheus, Grafana and alerting services"
+      workload_label: "monitoring"
+      taints:
+        - key: "workload"
+          value: "monitoring"
+          effect: "NoSchedule"
+    ai:
+      description: "AI and anomaly-detection workloads"
+      workload_label: "ai"
+      taints:
+        - key: "workload"
+          value: "ai"
+          effect: "NoSchedule"
+
+# ==========================================
+# 4. LOGGING (OpenSearch)
 # ==========================================
 opensearch:
   version: "2.12.0"
@@ -35,10 +88,10 @@ opensearch:
   heap_size: "512m"
   storage_size: "10Gi"
   retention_days: 7
-  node_selector_label: "logging"
+  pool: "logging"
 
 # ==========================================
-# 4. MONITORING (Prometheus & Grafana) - VM 5
+# 5. MONITORING (Prometheus & Grafana)
 # ==========================================
 monitoring:
   # Shorter retention reduces Prometheus RAM and disk pressure
@@ -46,17 +99,17 @@ monitoring:
   prometheus_retention: "3d"
   grafana_admin_password: "{{ vault_grafana_admin_password }}"
   prometheus_storage: "5Gi"
-  node_selector_label: "monitoring"
+  pool: "monitoring"
 
 # ==========================================
-# 5. DATABASE WORKER (CloudNativePG) - VM 3
+# 6. DATABASE WORKER (CloudNativePG)
 # ==========================================
 database:
   type: "postgresql"
   cluster_name: "app-db-cluster"
   instances: 1
   storage_size: "2Gi"
-  node_selector_label: "db"
+  pool: "database"
   force_recreate: false
   # Superuser password for CNPG operator internal management
   superuser_password: "{{ vault_database_superuser_password }}"
@@ -67,7 +120,7 @@ database:
   host: "app-db-cluster-rw.db.svc.cluster.local"
 
 # ==========================================
-# 6. AI ANOMALY ENGINE - VM 6
+# 7. AI ANOMALY ENGINE
 # ==========================================
 ai_engine:
   namespace: "ai-engine"
@@ -83,7 +136,7 @@ ai_engine:
   step_seconds: 300
   min_training_samples: 36
   suppression_window_seconds: 1800
-  node_selector_label: "ai"
+  pool: "ai"
   prometheus_url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
   opensearch_url: "https://opensearch-cluster-master.opensearch.svc.cluster.local:9200"
   rule_thresholds:
@@ -105,17 +158,17 @@ ai_engine:
       memory: "512Mi"
 
 # ==========================================
-# 7. NODE ROLE MAPPING
+# 8. APPLICATION WORKLOADS
 # ==========================================
-node_roles:
-  "app-worker": "app"
-  "db-worker": "db"
-  "logging-node": "logging"
-  "monitor-node": "monitoring"
-  "ai-node": "ai"
+forgejo:
+  pool: "general"
+  port: 8080
+  admin_username: "forgejo_admin"
+  admin_password: "{{ vault_forgejo_admin_password }}"
+  admin_email: "admin@example.com"
 
 # ==========================================
-# 8. PRODUCTION STORAGE SETTINGS
+# 9. PRODUCTION STORAGE SETTINGS
 # ==========================================
 storage:
   opensearch_size: "10Gi"
@@ -124,26 +177,17 @@ storage:
   storage_class: "local-path"
 
 # ==========================================
-# 9. PRODUCTION REPLICAS
+# 10. PRODUCTION REPLICAS
 # ==========================================
 replicas:
   opensearch: 1
   postgres: 2   # 1 Primary + 1 Replica
 
 # ==========================================
-# 10. SERVICE PORTS
+# 11. SERVICE PORTS
 # ==========================================
 grafana_port: 3000
 opensearch_dashboards_port: 5601
-
-# ==========================================
-# 11. FORGEJO CONFIGURATION
-# ==========================================
-forgejo:
-  port: 8080
-  admin_username: "forgejo_admin"
-  admin_password: "{{ vault_forgejo_admin_password }}"
-  admin_email: "admin@example.com"
 
 # ==========================================
 # 12. INGRESS CONFIGURATION

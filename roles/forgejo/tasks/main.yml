@@ -10,7 +10,7 @@
 # Depends on:
 #   - common     (Helm installed + repos added)
 #   - database   (PostgreSQL cluster must be healthy)
-#   - k3s_worker (app-worker node must be ready + tainted)
+#   - k3s_worker (general workload pool must be ready + tainted)
 # ============================================================
 
 # ============================================================
@@ -221,16 +221,16 @@
         size:         10Gi
 
       # --------------------------------------------------------
-      # Node placement — pin to app-worker, bypass taint
+      # Node placement — pin to the configured general pool
       # --------------------------------------------------------
       nodeSelector:
-        workload: app
+        workload: "{{ cluster_topology.node_pools[forgejo.pool].workload_label }}"
 
       tolerations:
         - key:      "workload"
           operator: "Equal"
-          value:    "app"
-          effect:   "NoSchedule"
+          value:    "{{ cluster_topology.node_pools[forgejo.pool].workload_label }}"
+          effect:   "{{ cluster_topology.node_pools[forgejo.pool].taints[0].effect }}"
 
       # --------------------------------------------------------
       # Networking — ClusterIP only
@@ -324,7 +324,7 @@
 # ============================================================
 # STEP 9: Show Forgejo Pod Summary
 # Final confirmation — shows pod status, node placement
-# and confirms it landed on app-worker as expected.
+# and confirms it landed in the configured general pool.
 # ============================================================
 - name: Show Forgejo pod summary
   become: true

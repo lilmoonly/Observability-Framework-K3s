@@ -60,18 +60,18 @@ spec:
     storageClass: {{ storage.storage_class }}
 
   # --------------------------------------------------------
-  # Node placement — pin all instances to db-worker.
-  # PreferNoSchedule means the DB can still run on other
-  # nodes if db-worker is unavailable (lab safety net).
+  # Node placement — pin all instances to the configured
+  # database pool. PreferNoSchedule means the DB can still
+  # run elsewhere if that pool is unavailable.
   # --------------------------------------------------------
   affinity:
     nodeSelector:
-      workload: db
+      workload: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
     tolerations:
       - key:      "workload"
         operator: "Equal"
-        value:    "db"
-        effect:   "PreferNoSchedule"
+        value:    "{{ cluster_topology.node_pools[database.pool].workload_label }}"
+        effect:   "{{ cluster_topology.node_pools[database.pool].taints[0].effect }}"
 
   # --------------------------------------------------------
   # Lifecycle timeouts — critical for slow Vagrant VMs.

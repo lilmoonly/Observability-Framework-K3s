@@ -1,12 +1,12 @@
 # AI-Powered K3s Observability Framework
 
-This repository provisions a reusable 6-node K3s observability lab with Ansible and Vagrant. It is designed for microservice-style Kubernetes workloads and includes logging, metrics, Grafana dashboards, PostgreSQL, ingress, and an AI-based anomaly detector.
+This repository provisions a reusable K3s observability framework with Ansible and Vagrant. The default lab profile is a 6-node reference environment, but worker placement is now pool-based so the same roles can be reused across larger topologies without rewriting scheduling logic.
 
 The framework is opinionated about platform observability, but application roles can stay lightweight. Forgejo is included as an example workload, not as the core purpose of the project.
 
 ## What This Framework Deploys
 
-- A 6-node K3s cluster with dedicated worker roles
+- A pool-based K3s topology for general, database, logging, monitoring, and AI workloads
 - CloudNativePG for PostgreSQL
 - OpenSearch and OpenSearch Dashboards for logs and AI anomaly documents
 - Fluent Bit for cluster-wide log shipping
@@ -15,16 +15,27 @@ The framework is opinionated about platform observability, but application roles
 - A custom AI anomaly detector that reads Prometheus and writes anomaly events to OpenSearch
 - Vendored Grafana dashboards that work without internet access
 
-## Architecture
+## Reference Lab Topology
 
 | Node | Hostname | IP | Purpose |
 | --- | --- | --- | --- |
 | 1 | `k8s-ctrl` | `192.168.56.10` | K3s control plane and Ansible control target |
-| 2 | `app-worker` | `192.168.56.11` | Application workloads |
-| 3 | `db-worker` | `192.168.56.12` | CloudNativePG / PostgreSQL |
+| 2 | `app-worker` | `192.168.56.11` | `general` worker pool |
+| 3 | `db-worker` | `192.168.56.12` | `database` worker pool |
 | 4 | `logging-node` | `192.168.56.13` | OpenSearch, OpenSearch Dashboards, Fluent Bit support |
-| 5 | `monitor-node` | `192.168.56.14` | Prometheus, Grafana, Alertmanager |
-| 6 | `ai-node` | `192.168.56.15` | AI anomaly detector |
+| 5 | `monitor-node` | `192.168.56.14` | `monitoring` worker pool |
+| 6 | `ai-node` | `192.168.56.15` | `ai` worker pool |
+
+## Topology Model
+
+The framework now uses named worker pools instead of hardcoded node identities.
+
+- Inventory groups follow the pattern `pool_<name>`, for example `pool_general` or `pool_logging`
+- Each host declares `node_pool=<name>`
+- Shared pool definitions live in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) under `cluster_topology.node_pools`
+- Workloads target pools like `forgejo.pool`, `database.pool`, `monitoring.pool`, `opensearch.pool`, and `ai_engine.pool`
+- Today the control plane is still single-node, but worker pools can now scale horizontally by adding more hosts to the corresponding `pool_*` groups
+- Smaller topologies can share infrastructure by pointing multiple workload settings at the same pool, for example `monitoring.pool: general` and `ai_engine.pool: general`
 
 ## Stack
 
@@ -45,6 +56,8 @@ The framework is opinionated about platform observability, but application roles
 
 - [site.yml](site.yml) - master playbook with phase tags
 - [inventory/inventory.ini](inventory/inventory.ini) - node inventory
+- [inventory/examples/lab.inventory.ini](inventory/examples/lab.inventory.ini) - reference 6-node pool-based inventory
+- [inventory/examples/scaled.inventory.ini](inventory/examples/scaled.inventory.ini) - larger worker-pool example
 - [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) - framework-wide non-secret configuration
 - [inventory/group_vars/all/secrets.yml.example](inventory/group_vars/all/secrets.yml.example) - example secrets file for vault-managed values
 - [roles/common](roles/common) - base OS and tooling setup
@@ -90,16 +103,19 @@ vagrant up
 
 ### 2. Review Configuration
 
-Adjust the framework settings in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml).
+Adjust the framework settings in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) and choose an inventory layout that matches your topology.
 
 Important settings live under:
 
+- `cluster_topology`
 - `opensearch`
 - `monitoring`
 - `database`
 - `ai_engine`
 - `ingress`
 - `forgejo`
+
+The default inventory is [inventory/inventory.ini](inventory/inventory.ini). You can also copy one of the pool-based examples from [inventory/examples/lab.inventory.ini](inventory/examples/lab.inventory.ini) or [inventory/examples/scaled.inventory.ini](inventory/examples/scaled.inventory.ini) and adapt it to your environment.
 
 ### 2a. Create the Secrets File
 
@@ -219,7 +235,7 @@ Application dashboards:
 
 ## AI Engine
 
-The AI engine is a Python service deployed on `ai-node`. It is configured in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) and implemented in [main.py](roles/ai_engine/files/app/main.py).
+The AI engine is a Python service deployed on the configured AI pool. It is configured in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) and implemented in [main.py](roles/ai_engine/files/app/main.py).
 
 What it does:
 

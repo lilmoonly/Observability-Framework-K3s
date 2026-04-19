@@ -2,14 +2,15 @@
 # ============================================================
 # ROLE: ai_engine
 # Deploys a lightweight anomaly detection service built with
-# PyOD. The service runs on ai-node, queries Prometheus for
+# PyOD. The service runs on the configured AI pool, queries
+# Prometheus for
 # cluster health signals, writes anomaly events to OpenSearch,
 # and exposes its own Prometheus metrics for Grafana.
 #
 # Depends on:
 #   - logging    (OpenSearch must exist)
 #   - monitoring (Prometheus/Grafana must exist)
-#   - k3s_worker (ai-node label/taint must exist)
+#   - k3s_worker (AI pool label/taint must exist)
 # ============================================================
 
 - name: Create AI engine namespace

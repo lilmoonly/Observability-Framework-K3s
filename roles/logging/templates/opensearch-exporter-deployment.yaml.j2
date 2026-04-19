@@ -14,12 +14,12 @@ spec:
         app.kubernetes.io/name: opensearch-exporter
     spec:
       nodeSelector:
-        workload: "{{ opensearch.node_selector_label }}"
+        workload: "{{ cluster_topology.node_pools[opensearch.pool].workload_label }}"
       tolerations:
         - key: "workload"
           operator: "Equal"
-          value: "{{ opensearch.node_selector_label }}"
-          effect: "NoSchedule"
+          value: "{{ cluster_topology.node_pools[opensearch.pool].workload_label }}"
+          effect: "{{ cluster_topology.node_pools[opensearch.pool].taints[0].effect }}"
       containers:
         - name: exporter
           image: "{{ opensearch.exporter_image }}"

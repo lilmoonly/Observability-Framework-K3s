@@ -24,12 +24,12 @@
     wait: yes
     values:
       nodeSelector:
-        workload: "db"
+        workload: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
       tolerations:
         - key:      "workload"
           operator: "Equal"
-          value:    "db"
-          effect:   "PreferNoSchedule"
+          value:    "{{ cluster_topology.node_pools[database.pool].workload_label }}"
+          effect:   "{{ cluster_topology.node_pools[database.pool].taints[0].effect }}"
 
 # ============================================================
 # 2. Wait for CNPG Operator to Be Ready

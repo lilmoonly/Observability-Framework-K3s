@@ -23,21 +23,40 @@
   no_log: true
 
 # ============================================================
-# 2. Label Node With Workload Role
+# 2. Resolve Worker Pool Metadata
+# Worker placement is now driven by inventory node_pool
+# assignments and shared cluster_topology definitions.
 # ============================================================
-- name: Label node with workload and role
-  become: true
-  delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl label node {{ inventory_hostname }} \
-      workload={{ role }} \
-      kubernetes.io/role=worker \
-      --overwrite
-  register: label_result
-  changed_when: "'labeled' in label_result.stdout"
+- name: Resolve worker pool name for this node
+  ansible.builtin.set_fact:
+    worker_pool_name: "{{ hostvars[inventory_hostname].node_pool | default(hostvars[inventory_hostname].role | default(cluster_topology.default_worker_pool)) }}"
+
+- name: Resolve worker pool configuration for this node
+  ansible.builtin.set_fact:
+    worker_pool_config: "{{ cluster_topology.node_pools[worker_pool_name] }}"
 
 # ============================================================
-# 3. Wait for All Workers to Be Ready
+# 3. Label Node With Pool Metadata
+# ============================================================
+- name: Label node with workload and pool metadata
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - label
+      - node
+      - "{{ inventory_hostname }}"
+      - "observability.framework/pool={{ worker_pool_name }}"
+      - "workload={{ worker_pool_config.workload_label }}"
+      - "kubernetes.io/role=worker"
+      - --overwrite
+      - --kubeconfig=/etc/rancher/k3s/k3s.yaml
+  register: label_result
+  changed_when: "'not labeled' not in label_result.stdout"
+
+# ============================================================
+# 4. Wait for All Workers to Be Ready
 # Before tainting we must confirm every worker node has
 # joined and is in Ready state — otherwise kubectl taint
 # will fail on nodes that have not appeared yet.
@@ -59,67 +78,59 @@
   run_once: true
 
 # ============================================================
-# 4. Taint Nodes for Workload Isolation
-# Each node gets a taint matching its workload label.
+# 5. Taint Nodes for Workload Isolation
+# Each node gets the taints defined by its configured pool.
 # Pods must have a matching toleration + nodeSelector
 # to be scheduled on a tainted node.
-# This ensures:
-#   app-worker    → only app workloads (Forgejo)
-#   db-worker     → only database workloads (CNPG)
-#   logging-node  → only logging workloads (OpenSearch)
-#   monitor-node  → only monitoring workloads (Prometheus)
-#   ai-node       → only AI workloads
 # run_once so taints are applied once after all workers join.
 # ============================================================
-- name: Taint nodes for workload isolation
+- name: Build worker taint plan from pool definitions
+  ansible.builtin.set_fact:
+    worker_taint_plan: "{{ (worker_taint_plan | default([])) + [{'hostname': item, 'pool': resolved_pool, 'taints': cluster_topology.node_pools[resolved_pool].taints | default([])}] }}"
+  vars:
+    resolved_pool: "{{ hostvars[item].node_pool | default(hostvars[item].role | default(cluster_topology.default_worker_pool)) }}"
+  loop: "{{ groups['workers'] }}"
+  run_once: true
+
+- name: Taint worker nodes for workload isolation
   become: true
   delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-    kubectl taint nodes k8s-ctrl \
-      node-role.kubernetes.io/master=true:NoSchedule \
-      --overwrite || true
-    kubectl taint nodes app-worker \
-      workload=app:NoSchedule \
-      --overwrite || true
-    kubectl taint nodes db-worker \
-      workload=db:PreferNoSchedule \
-      --overwrite || true
-    kubectl taint nodes logging-node \
-      workload=logging:NoSchedule \
-      --overwrite || true
-    kubectl taint nodes monitor-node \
-      workload=monitoring:NoSchedule \
-      --overwrite || true
-    kubectl taint nodes ai-node \
-      workload=ai:NoSchedule \
-      --overwrite || true
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - taint
+      - nodes
+      - "{{ item.0.hostname }}"
+      - "{{ item.1.key }}={{ item.1.value }}:{{ item.1.effect }}"
+      - --overwrite
+      - --kubeconfig=/etc/rancher/k3s/k3s.yaml
+  loop: "{{ query('subelements', worker_taint_plan, 'taints', {'skip_missing': True}) }}"
   run_once: true
   changed_when: false
 
 # ============================================================
-# 5. Verify db-worker Can Reach K3s API Server
+# 6. Verify Database Pool Can Reach K3s API Server
 # Confirms flannel routing is healthy after iptables fix
 # was applied in the common role during Phase 1.
 # If this fails it means pod-to-pod traffic will be broken
 # which would cause CNPG replication to fail later.
 # ============================================================
-- name: Verify db-worker can reach K3s API server
+- name: Verify database pool can reach K3s API server
   become: true
-  delegate_to: db-worker
+  delegate_to: "{{ groups[cluster_topology.pool_group_prefix ~ database.pool] | first }}"
   ansible.builtin.shell: |
     curl -sk https://{{ master_ip }}:6443/healthz
   register: api_reach
   changed_when: false
   run_once: true
 
-- name: Show API reachability from db-worker
+- name: Show API reachability from database pool
   ansible.builtin.debug:
-    msg: "db-worker -> API server: {{ api_reach.stdout }}"
+    msg: "{{ groups[cluster_topology.pool_group_prefix ~ database.pool] | first }} -> API server: {{ api_reach.stdout }}"
   run_once: true
 
 # ============================================================
-# 6. Show Final Cluster Node State
+# 7. Show Final Cluster Node State
 # Prints a summary of all nodes, their roles, taints
 # and ready status so you can confirm the cluster is
 # healthy before Phase 4 workloads are deployed.

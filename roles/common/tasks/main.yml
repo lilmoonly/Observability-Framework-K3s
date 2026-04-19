@@ -62,7 +62,41 @@
   run_once: true
 
 # ============================================================
-# 2. Kernel Parameters
+# 2. Preflight Topology Validation
+# ============================================================
+- name: Validate host node_pool assignments
+  ansible.builtin.fail:
+    msg: >-
+      Host {{ inventory_hostname }} uses node_pool='{{ resolved_node_pool }}',
+      but that pool is not defined in cluster_topology.node_pools.
+  vars:
+    resolved_node_pool: "{{ hostvars[inventory_hostname].node_pool | default(hostvars[inventory_hostname].role | default(cluster_topology.default_worker_pool)) }}"
+  when: resolved_node_pool not in cluster_topology.node_pools
+
+- name: Validate required workload pools exist in inventory
+  ansible.builtin.fail:
+    msg: >-
+      Required pool '{{ item.pool }}' has no hosts in inventory group
+      '{{ cluster_topology.pool_group_prefix ~ item.pool }}'.
+      Add at least one host to that pool before deploying {{ item.workload }}.
+  loop:
+    - workload: Forgejo and general application workloads
+      pool: "{{ forgejo.pool }}"
+    - workload: CloudNativePG
+      pool: "{{ database.pool }}"
+    - workload: OpenSearch and logging
+      pool: "{{ opensearch.pool }}"
+    - workload: monitoring stack
+      pool: "{{ monitoring.pool }}"
+    - workload: AI engine
+      pool: "{{ ai_engine.pool }}"
+  loop_control:
+    label: "{{ item.pool }}"
+  when: (groups[cluster_topology.pool_group_prefix ~ item.pool] | default([]) | length) == 0
+  run_once: true
+
+# ============================================================
+# 3. Kernel Parameters
 # ============================================================
 - name: Set Linux kernel parameter vm.max_map_count
   become: true
@@ -73,7 +107,7 @@
     reload: yes
 
 # ============================================================
-# 3. Disable Swap (Kubernetes requirement)
+# 4. Disable Swap (Kubernetes requirement)
 # ============================================================
 - name: Disable swap immediately
   become: true
@@ -88,7 +122,7 @@
     replace: '# \1'
 
 # ============================================================
-# 4. Package Management
+# 5. Package Management
 # ============================================================
 - name: Update apt cache
   become: true
@@ -112,7 +146,7 @@
   when: ansible_os_family == 'Debian'
 
 # ============================================================
-# 5. System Configuration
+# 6. System Configuration
 # ============================================================
 - name: Set system timezone
   become: true

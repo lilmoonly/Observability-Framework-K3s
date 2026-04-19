@@ -108,7 +108,7 @@
 # --------------------------------------------------------------
 # Phase 7 — Deploy AI anomaly detection service
 # Runs on master (delegates to k8s API).
-# Deploys a lightweight Python service pinned to ai-node.
+# Deploys a lightweight Python service pinned to the AI pool.
 # The service queries Prometheus, writes anomaly events
 # into OpenSearch, and exports Prometheus metrics that
 # Grafana visualizes through a pre-provisioned dashboard.

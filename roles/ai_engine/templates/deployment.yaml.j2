@@ -18,12 +18,12 @@ spec:
         app.kubernetes.io/name: {{ ai_engine.app_name }}
     spec:
       nodeSelector:
-        workload: {{ ai_engine.node_selector_label }}
+        workload: "{{ cluster_topology.node_pools[ai_engine.pool].workload_label }}"
       tolerations:
         - key: workload
           operator: Equal
-          value: {{ ai_engine.node_selector_label }}
-          effect: NoSchedule
+          value: "{{ cluster_topology.node_pools[ai_engine.pool].workload_label }}"
+          effect: "{{ cluster_topology.node_pools[ai_engine.pool].taints[0].effect }}"
       initContainers:
         - name: install-python-dependencies
           image: {{ ai_engine.image }}
