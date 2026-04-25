@@ -117,7 +117,7 @@
       is set to {{ database_pg_instances }}.
   when:
     - database.type == 'postgresql'
-    - database_pg_instances < 1
+    - (database_pg_instances | int) < 1
   run_once: true
 
 - name: Validate PostgreSQL spread capacity
@@ -130,7 +130,7 @@
   when:
     - database.type == 'postgresql'
     - database.scheduling.spread_policy == 'required'
-    - database_pg_instances > database_pool_hosts_count
+    - (database_pg_instances | int) > (database_pool_hosts_count | int)
   run_once: true
 
 - name: Validate MongoDB member count
@@ -140,7 +140,7 @@
       {{ database_mongo_members }}.
   when:
     - database.type == 'mongodb'
-    - database_mongo_members < 1
+    - (database_mongo_members | int) < 1
   run_once: true
 
 - name: Validate MongoDB spread capacity
@@ -153,7 +153,7 @@
   when:
     - database.type == 'mongodb'
     - database.scheduling.spread_policy == 'required'
-    - database_mongo_members > database_pool_hosts_count
+    - (database_mongo_members | int) > (database_pool_hosts_count | int)
   run_once: true
 
 - name: Validate MongoDB quorum HA requirements
@@ -165,7 +165,7 @@
   when:
     - database.type == 'mongodb'
     - database.availability_goal == 'quorum_ha'
-    - database_mongo_members < 3 or (database_mongo_members % 2) == 0
+    - (database_mongo_members | int) < 3 or ((database_mongo_members | int) % 2) == 0
   run_once: true
 
 - name: Warn when MongoDB replication mode does not provide automatic quorum failover
@@ -178,7 +178,7 @@
   when:
     - database.type == 'mongodb'
     - database.availability_goal != 'quorum_ha'
-    - database_mongo_members < 3 or (database_mongo_members % 2) == 0
+    - (database_mongo_members | int) < 3 or ((database_mongo_members | int) % 2) == 0
   run_once: true
 
 # ============================================================
