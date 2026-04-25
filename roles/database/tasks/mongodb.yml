@@ -49,8 +49,7 @@
   ansible.builtin.shell: |
     for resource in $(kubectl get clusterrole,clusterrolebinding \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -l app.kubernetes.io/instance=mongodb-kubernetes-operator \
-      -o name 2>/dev/null); do
+      -o name 2>/dev/null | grep 'mongodb-kubernetes-operator' || true); do
       owner_namespace="$(kubectl get \
         --kubeconfig /etc/rancher/k3s/k3s.yaml \
         "$resource" \
