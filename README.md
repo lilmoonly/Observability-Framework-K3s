@@ -243,6 +243,7 @@ Prometheus scrapes:
 - AI engine metrics
 - Traefik metrics
 - CloudNativePG metrics via PodMonitor
+- MongoDB metrics via Prometheus endpoint + ServiceMonitor
 - Fluent Bit metrics
 - OpenSearch exporter metrics
 - Forgejo metrics
@@ -251,7 +252,8 @@ MongoDB note:
 
 - MongoDB backend deployment is supported in Phase 4
 - MongoDB quorum HA expects 3 or more odd members on distinct database nodes
-- dedicated MongoDB metrics scraping and dashboards are not bundled yet in this repo version
+- MongoDB metrics are exposed through the MongoDB Prometheus endpoint and scraped by Prometheus via a ServiceMonitor
+- a vendored MongoDB Grafana dashboard is bundled in the `Platform Services` folder, so production does not need outbound internet access
 
 ### Grafana Dashboards
 

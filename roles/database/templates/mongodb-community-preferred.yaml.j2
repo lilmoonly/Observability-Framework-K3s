@@ -35,6 +35,12 @@ spec:
       scramCredentialsSecretName: "{{ database.mongodb.cluster_name }}-app-scram"
   additionalMongodConfig:
     storage.wiredTiger.engineConfig.journalCompressor: zlib
+  prometheus:
+    passwordSecretRef:
+      name: mongodb-metrics-endpoint-auth
+    username: "{{ database.mongodb.metrics.username }}"
+    port: {{ database.mongodb.metrics.port }}
+    metricsPath: "{{ database.mongodb.metrics.path }}"
   statefulSet:
     spec:
       template:

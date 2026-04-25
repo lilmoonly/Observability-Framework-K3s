@@ -149,6 +149,15 @@
     state: present
     definition: "{{ lookup('template', role_path + '/../logging/templates/opensearch-exporter-servicemonitor.yaml.j2') | from_yaml }}"
 
+- name: Create MongoDB metrics ServiceMonitor
+  become: true
+  delegate_to: k8s-ctrl
+  when: database.type == 'mongodb' and (database.mongodb.metrics.enabled | default(true) | bool)
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', role_path + '/../database/templates/mongodb-servicemonitor.yaml.j2') | from_yaml }}"
+
 # ============================================================
 # 3. Wait for Prometheus to Be Ready
 # ============================================================

@@ -178,6 +178,24 @@
         password: "{{ database.app_password }}"
   no_log: true
 
+- name: Create MongoDB metrics endpoint auth secret
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: mongodb-metrics-endpoint-auth
+        namespace: "{{ database.namespace }}"
+      type: Opaque
+      stringData:
+        username: "{{ database.mongodb.metrics.username }}"
+        password: "{{ database.mongodb.metrics.password }}"
+  no_log: true
+
 - name: Check if MongoDB replica set already exists
   become: true
   delegate_to: k8s-ctrl
@@ -230,6 +248,14 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
     definition: "{{ lookup('template', 'mongodb-community-' ~ database.scheduling.spread_policy ~ '.yaml.j2') | from_yaml }}"
+
+- name: Create MongoDB metrics Service
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'mongodb-metrics-service.yaml.j2') | from_yaml }}"
 
 - name: Wait for MongoDB replica set to report Running
   become: true

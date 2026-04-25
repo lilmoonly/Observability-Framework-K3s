@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mongodb-metrics
+  namespace: {{ database.namespace }}
+  labels:
+    release: prometheus
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ database.namespace }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongodb-metrics
+      app.kubernetes.io/instance: {{ database.mongodb.cluster_name }}
+  endpoints:
+    - port: metrics
+      path: {{ database.mongodb.metrics.path }}
+      interval: 30s
+      basicAuth:
+        username:
+          name: mongodb-metrics-endpoint-auth
+          key: username
+        password:
+          name: mongodb-metrics-endpoint-auth
+          key: password

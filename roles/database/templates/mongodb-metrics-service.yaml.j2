@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-metrics
+  namespace: {{ database.namespace }}
+  labels:
+    app.kubernetes.io/name: mongodb-metrics
+    app.kubernetes.io/instance: {{ database.mongodb.cluster_name }}
+spec:
+  type: ClusterIP
+  selector:
+    observability.framework/mongodb-cluster: "{{ database.mongodb.cluster_name }}"
+  ports:
+    - name: metrics
+      port: {{ database.mongodb.metrics.port }}
+      targetPort: {{ database.mongodb.metrics.port }}

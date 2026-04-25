@@ -176,6 +176,12 @@ database:
     members: 3
     admin_user: "mongo-admin"
     admin_password: "{{ vault_database_superuser_password }}"
+    metrics:
+      enabled: true
+      username: "prometheus"
+      password: "{{ vault_database_superuser_password }}"
+      port: 9216
+      path: "/metrics"
     # Lab-friendly defaults. Raise these in larger environments once the
     # database nodes have more headroom available.
     operator_resources:
