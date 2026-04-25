@@ -14,6 +14,57 @@
     kind: Namespace
     state: present
 
+- name: Check for legacy MongoDB operator release in mongodb-system
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - helm
+      - status
+      - mongodb-kubernetes-operator
+      - -n
+      - mongodb-system
+  register: legacy_mongodb_operator_release
+  changed_when: false
+  failed_when: false
+  when: database.mongodb.operator_namespace != 'mongodb-system'
+
+- name: Uninstall legacy MongoDB operator release from mongodb-system
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - helm
+      - uninstall
+      - mongodb-kubernetes-operator
+      - -n
+      - mongodb-system
+  when:
+    - database.mongodb.operator_namespace != 'mongodb-system'
+    - legacy_mongodb_operator_release.rc == 0
+
+- name: Remove legacy MongoDB operator cluster-scoped RBAC from mongodb-system
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    for resource in $(kubectl get clusterrole,clusterrolebinding \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -l app.kubernetes.io/instance=mongodb-kubernetes-operator \
+      -o name 2>/dev/null); do
+      owner_namespace="$(kubectl get \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml \
+        "$resource" \
+        -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-namespace}' 2>/dev/null || true)"
+      if [ "$owner_namespace" = "mongodb-system" ]; then
+        kubectl delete \
+          --kubeconfig /etc/rancher/k3s/k3s.yaml \
+          "$resource" \
+          --ignore-not-found
+      fi
+    done
+  changed_when: false
+  when: database.mongodb.operator_namespace != 'mongodb-system'
+
 - name: Install MongoDB Controllers for Kubernetes
   become: true
   delegate_to: k8s-ctrl
