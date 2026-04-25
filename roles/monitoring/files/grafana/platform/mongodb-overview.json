@@ -32,7 +32,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 3,
         "x": 0,
         "y": 0
       },
@@ -97,14 +97,14 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 4,
+        "w": 3,
+        "x": 3,
         "y": 0
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "count(max by (instance) (mongodb_info{process_type=\"mongod\",replica_state_name=\"PRIMARY\",instance=~\"$instance\"})) or vector(0)",
+          "expr": "count(max by (instance) (mongodb_info{process_type=\"mongod\",replica_state_name=~\"PRIMARY|Primary|primary\",instance=~\"$instance\"})) or vector(0)",
           "instant": true,
           "range": false,
           "refId": "A",
@@ -154,7 +154,7 @@
         "graphMode": "none",
         "justifyMode": "center"
       },
-      "description": "Healthy replica sets should normally show exactly one primary."
+      "description": "Primary count across the selected members. This query is tolerant to label casing."
     },
     {
       "id": 3,
@@ -166,14 +166,14 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 8,
+        "w": 3,
+        "x": 6,
         "y": 0
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "count(max by (instance) (mongodb_info{process_type=\"mongod\",replica_state_name=\"SECONDARY\",instance=~\"$instance\"})) or vector(0)",
+          "expr": "count(max by (instance) (mongodb_info{process_type=\"mongod\",replica_state_name=~\"SECONDARY|Secondary|secondary\",instance=~\"$instance\"})) or vector(0)",
           "instant": true,
           "range": false,
           "refId": "A",
@@ -223,20 +223,20 @@
         "graphMode": "none",
         "justifyMode": "center"
       },
-      "description": "Secondary count across the selected mongod members."
+      "description": "Secondary count across the selected members. This query is tolerant to label casing."
     },
     {
       "id": 4,
       "type": "stat",
-      "title": "Current Connections",
+      "title": "Connections",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 12,
+        "w": 3,
+        "x": 9,
         "y": 0
       },
       "targets": [
@@ -297,21 +297,21 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Disk Utilization",
+      "title": "Resident Memory",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 16,
+        "w": 3,
+        "x": 12,
         "y": 0
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100 * sum(hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"}) / clamp_min(sum(hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} + hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}), 1)",
+          "expr": "sum(mongodb_mem_resident{instance=~\"$instance\"}) or vector(0)",
           "instant": true,
           "range": false,
           "refId": "A",
@@ -323,7 +323,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
+          "unit": "decmbytes",
           "color": {
             "mode": "thresholds"
           },
@@ -333,14 +333,136 @@
               {
                 "color": "green",
                 "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "description": "Total resident memory reported by the selected mongod members."
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Disk Free",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 15,
+        "y": 0
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "description": "Total free disk space visible to the selected members."
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Read Tickets",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "min(mongodb_wiredTiger_concurrentTransactions_read_available{instance=~\"$instance\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
               },
               {
                 "color": "orange",
-                "value": 70
+                "value": 32
               },
               {
-                "color": "red",
-                "value": 85
+                "color": "green",
+                "value": 64
               }
             ]
           }
@@ -361,10 +483,10 @@
         "graphMode": "none",
         "justifyMode": "center"
       },
-      "description": "Selected-member disk usage percentage from Mongo hardware metrics."
+      "description": "Lowest available WiredTiger read tickets among the selected members."
     },
     {
-      "id": 6,
+      "id": 8,
       "type": "stat",
       "title": "Write Tickets",
       "datasource": {
@@ -373,8 +495,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 20,
+        "w": 3,
+        "x": 21,
         "y": 0
       },
       "targets": [
@@ -433,7 +555,7 @@
       "description": "Lowest available WiredTiger write tickets among the selected members."
     },
     {
-      "id": 7,
+      "id": 9,
       "type": "table",
       "title": "Replica Set Members",
       "datasource": {
@@ -449,7 +571,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max by (instance, replica_state_name, mongodb_version, rs_nm) (mongodb_info{process_type=\"mongod\",instance=~\"$instance\"})",
+          "expr": "max by (instance, replica_state_name, process_port, mongodb_version, rs_nm) (mongodb_info{process_type=\"mongod\",instance=~\"$instance\"})",
           "format": "table",
           "instant": true,
           "range": false,
@@ -490,22 +612,24 @@
             "indexByName": {
               "instance": 0,
               "replica_state_name": 1,
-              "mongodb_version": 2,
-              "rs_nm": 3
+              "process_port": 2,
+              "mongodb_version": 3,
+              "rs_nm": 4
             },
             "renameByName": {
               "instance": "Member",
               "replica_state_name": "Role",
+              "process_port": "Port",
               "mongodb_version": "Version",
               "rs_nm": "Replica Set"
             }
           }
         }
       ],
-      "description": "Replica-set membership, role, and MongoDB version for each selected member."
+      "description": "Replica-set membership, role, port, and MongoDB version for each selected member."
     },
     {
-      "id": 8,
+      "id": 10,
       "type": "timeseries",
       "title": "Connections by Member",
       "datasource": {
@@ -595,7 +719,7 @@
       "description": "Current client connections split by Mongo member."
     },
     {
-      "id": 9,
+      "id": 11,
       "type": "timeseries",
       "title": "Network Throughput",
       "datasource": {
@@ -696,7 +820,7 @@
       "description": "Ingress and egress throughput per member."
     },
     {
-      "id": 10,
+      "id": 12,
       "type": "timeseries",
       "title": "Opcounters",
       "datasource": {
@@ -830,7 +954,7 @@
       "description": "Operation rates summed across the selected replica-set members."
     },
     {
-      "id": 11,
+      "id": 13,
       "type": "timeseries",
       "title": "Memory Footprint",
       "datasource": {
@@ -931,7 +1055,7 @@
       "description": "Resident and virtual memory reported by mongod."
     },
     {
-      "id": 12,
+      "id": 14,
       "type": "timeseries",
       "title": "Disk Used vs Free",
       "datasource": {
@@ -1032,7 +1156,78 @@
       "description": "Disk consumption and free space from Mongo hardware metrics."
     },
     {
-      "id": 13,
+      "id": 15,
+      "type": "bargauge",
+      "title": "Disk Utilization by Member",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 20
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} / clamp_min(hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} + hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}, 1)",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "minVizHeight": 10
+      },
+      "description": "Current disk usage percentage by member."
+    },
+    {
+      "id": 16,
       "type": "timeseries",
       "title": "WiredTiger Cache Writes",
       "datasource": {
@@ -1041,8 +1236,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 6,
+        "x": 18,
         "y": 20
       },
       "targets": [
@@ -1122,7 +1317,7 @@
       "description": "Bytes per second written from the WiredTiger cache."
     },
     {
-      "id": 14,
+      "id": 17,
       "type": "timeseries",
       "title": "Ticket Availability",
       "datasource": {
@@ -1223,7 +1418,7 @@
       "description": "Remaining concurrent read and write tickets in WiredTiger."
     },
     {
-      "id": 15,
+      "id": 18,
       "type": "timeseries",
       "title": "Page Faults",
       "datasource": {
@@ -1313,7 +1508,7 @@
       "description": "Page faults per second by member. Persistent spikes often point to memory pressure."
     },
     {
-      "id": 16,
+      "id": 19,
       "type": "timeseries",
       "title": "Disk I/O Weighted Time",
       "datasource": {
@@ -1471,6 +1666,6 @@
   "timezone": "",
   "title": "MongoDB Overview",
   "uid": "mongodb-overview",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }
