@@ -169,7 +169,7 @@
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
-    definition: "{{ lookup('template', 'mongodb-community.yaml.j2') | from_yaml }}"
+    definition: "{{ lookup('template', 'mongodb-community-' ~ database.scheduling.spread_policy ~ '.yaml.j2') | from_yaml }}"
 
 - name: Wait for MongoDB replica set to report Running
   become: true

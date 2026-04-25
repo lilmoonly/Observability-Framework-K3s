@@ -40,7 +40,7 @@ spec:
       template:
         metadata:
           labels:
-            observability.framework/mongodb-cluster: "{{ database.mongodb.cluster_name }}"
+            "observability.framework/mongodb-cluster": "{{ database.mongodb.cluster_name }}"
         spec:
           nodeSelector:
             workload: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
@@ -49,15 +49,6 @@ spec:
               operator: "Equal"
               value: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
               effect: "{{ cluster_topology.node_pools[database.pool].taints[0].effect }}"
-          {% if database.scheduling.spread_policy == 'required' %}
-          affinity:
-            podAntiAffinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                - labelSelector:
-                    matchLabels:
-                      observability.framework/mongodb-cluster: "{{ database.mongodb.cluster_name }}"
-                  topologyKey: "{{ database.scheduling.topology_key }}"
-          {% elif database.scheduling.spread_policy == 'preferred' %}
           affinity:
             podAntiAffinity:
               preferredDuringSchedulingIgnoredDuringExecution:
@@ -65,9 +56,8 @@ spec:
                   podAffinityTerm:
                     labelSelector:
                       matchLabels:
-                        observability.framework/mongodb-cluster: "{{ database.mongodb.cluster_name }}"
+                        "observability.framework/mongodb-cluster": "{{ database.mongodb.cluster_name }}"
                     topologyKey: "{{ database.scheduling.topology_key }}"
-          {% endif %}
           containers:
             - name: mongod
               resources:
