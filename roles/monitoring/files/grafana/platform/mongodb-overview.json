@@ -23,126 +23,250 @@
   "liveNow": false,
   "panels": [
     {
-      "id": 100,
-      "type": "text",
-      "title": "MongoDB Command Center",
+      "id": 676,
+      "type": "alertlist",
+      "title": "Alerts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "gridPos": {
-        "h": 1,
-        "w": 24,
+        "h": 7,
+        "w": 3,
         "x": 0,
         "y": 0
       },
       "options": {
+        "alertInstanceLabelFilter": "{namespace=~\"$kubeNamespace\"}",
+        "alertName": "",
+        "dashboardAlerts": false,
+        "folder": "",
+        "groupBy": [],
+        "groupMode": "default",
+        "maxItems": 20,
+        "sortOrder": 1,
+        "stateFilter": {
+          "error": true,
+          "firing": true,
+          "noData": false,
+          "normal": true,
+          "pending": true
+        },
+        "viewMode": "list"
+      }
+    },
+    {
+      "id": 586,
+      "type": "text",
+      "title": "Health",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 4,
+        "x": 3,
+        "y": 0
+      },
+      "options": {
         "mode": "markdown",
-        "content": "### MongoDB Command Center\nReplica-set leadership, operator state, pod placement, and WiredTiger pressure in one view.",
+        "content": "",
         "code": {
           "language": "plaintext",
           "showLineNumbers": false,
           "showMiniMap": false
         }
       },
-      "pluginVersion": "10.3.3",
-      "transparent": true,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      }
+      "pluginVersion": "10.3.3"
     },
     {
-      "id": 1,
-      "type": "stat",
-      "title": "Mongo Members",
+      "id": 336,
+      "type": "text",
+      "title": "Overview",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 0,
-        "y": 1
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "count(max by (instance) (mongodb_info{process_type=\"mongod\",instance=~\"$instance\"})) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 3
-              }
-            ]
-          }
-        },
-        "overrides": []
+        "h": 1,
+        "w": 12,
+        "x": 7,
+        "y": 0
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
+        "mode": "markdown",
+        "content": "",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        }
       },
-      "description": "Count of selected mongod members scraped by Prometheus."
+      "pluginVersion": "10.3.3"
     },
     {
-      "id": 2,
-      "type": "stat",
-      "title": "Ready Mongo Pods",
+      "id": 352,
+      "type": "text",
+      "title": "Storage",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 4,
+        "h": 1,
+        "w": 2,
+        "x": 19,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        }
+      },
+      "pluginVersion": "10.3.3"
+    },
+    {
+      "id": 354,
+      "type": "text",
+      "title": "Operator",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 1,
         "w": 3,
+        "x": 21,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        }
+      },
+      "pluginVersion": "10.3.3"
+    },
+    {
+      "id": 585,
+      "type": "stat",
+      "title": "Replica Set",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
         "x": 3,
         "y": 1
       },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "Healthy"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "color": "orange",
+                  "index": 2,
+                  "text": "Degraded"
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 2,
+                "to": 999,
+                "result": {
+                  "color": "red",
+                  "index": 3,
+                  "text": "Critical"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "sum(max by (pod) (kube_pod_status_ready{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\",condition=\"true\"})) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
-          }
+          },
+          "editorMode": "code",
+          "expr": "(count(max by (instance) (mongodb_info{process_type=\"mongod\",replica_state_name=~\"PRIMARY|Primary|primary\",instance=~\"$instance\"})) != bool 1) + (count(max by (instance) (mongodb_info{process_type=\"mongod\",replica_state_name=~\"SECONDARY|Secondary|secondary\",instance=~\"$instance\"})) < bool 1)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
         }
       ],
+      "description": "Cluster health inferred from primary/secondary counts."
+    },
+    {
+      "id": 590,
+      "type": "stat",
+      "title": "Primary",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 1,
+        "x": 5,
+        "y": 1
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
           "color": {
             "mode": "thresholds"
           },
@@ -154,12 +278,8 @@
                 "value": null
               },
               {
-                "color": "orange",
-                "value": 2
-              },
-              {
                 "color": "green",
-                "value": 3
+                "value": 1
               }
             ]
           }
@@ -167,6 +287,10 @@
         "overrides": []
       },
       "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -174,44 +298,112 @@
           "fields": "",
           "values": false
         },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "description": "Ready MongoDB StatefulSet pods in the selected namespace."
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Primary Members",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 6,
-        "y": 1
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "editorMode": "code",
           "expr": "count(max by (instance) (mongodb_info{process_type=\"mongod\",replica_state_name=~\"PRIMARY|Primary|primary\",instance=~\"$instance\"})) or vector(0)",
           "instant": true,
           "range": false,
-          "refId": "A",
+          "refId": "A"
+        }
+      ],
+      "description": "Primary member count."
+    },
+    {
+      "id": 613,
+      "type": "stat",
+      "title": "Storage",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 1,
+        "x": 6,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "targets": [
+        {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
-          }
+          },
+          "editorMode": "code",
+          "expr": "max(100 * hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} / clamp_min(hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} + hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}, 1))",
+          "instant": true,
+          "range": false,
+          "refId": "A"
         }
       ],
+      "description": "Worst disk usage percentage across members."
+    },
+    {
+      "id": 591,
+      "type": "stat",
+      "title": "Ready Pods",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 4,
+        "x": 3,
+        "y": 3
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
           "color": {
             "mode": "thresholds"
           },
@@ -221,14 +413,14 @@
               {
                 "color": "red",
                 "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
               },
               {
                 "color": "orange",
                 "value": 2
+              },
+              {
+                "color": "green",
+                "value": 3
               }
             ]
           }
@@ -236,6 +428,10 @@
         "overrides": []
       },
       "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -243,44 +439,41 @@
           "fields": "",
           "values": false
         },
-        "orientation": "auto",
+        "showPercentChange": false,
         "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
+        "wideLayout": true
       },
-      "description": "Primary count across the selected members. This query is tolerant to label casing."
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(max by (pod) (kube_pod_status_ready{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\",condition=\"true\"})) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Ready MongoDB pods in the selected namespace."
     },
     {
-      "id": 4,
+      "id": 588,
       "type": "stat",
-      "title": "Secondary Members",
+      "title": "Read",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 9,
-        "y": 1
+        "h": 2,
+        "w": 1,
+        "x": 3,
+        "y": 5
       },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "count(max by (instance) (mongodb_info{process_type=\"mongod\",replica_state_name=~\"SECONDARY|Secondary|secondary\",instance=~\"$instance\"})) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
           "color": {
             "mode": "thresholds"
           },
@@ -293,11 +486,11 @@
               },
               {
                 "color": "orange",
-                "value": 1
+                "value": 32
               },
               {
                 "color": "green",
-                "value": 2
+                "value": 64
               }
             ]
           }
@@ -305,6 +498,10 @@
         "overrides": []
       },
       "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -312,178 +509,41 @@
           "fields": "",
           "values": false
         },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "description": "Secondary count across the selected members. This query is tolerant to label casing."
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "Operator Ready",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 12,
-        "y": 1
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
       },
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "sum(kube_pod_status_ready{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\",condition=\"true\"}) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "thresholds"
           },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "description": "Ready MongoDB Kubernetes operator pods."
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "Connections",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 15,
-        "y": 1
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(mongodb_connections_current{instance=~\"$instance\"}) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 200
-              },
-              {
-                "color": "red",
-                "value": 500
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "description": "Current client connections across the selected members."
-    },
-    {
-      "id": 7,
-      "type": "stat",
-      "title": "Read Tickets",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 18,
-        "y": 1
-      },
-      "targets": [
-        {
           "editorMode": "code",
           "expr": "min(mongodb_wiredTiger_concurrentTransactions_read_available{instance=~\"$instance\"}) or vector(0)",
           "instant": true,
           "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
+          "refId": "A"
         }
       ],
+      "description": "Lowest available read tickets."
+    },
+    {
+      "id": 612,
+      "type": "stat",
+      "title": "Write",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 1,
+        "x": 4,
+        "y": 5
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
           "color": {
             "mode": "thresholds"
           },
@@ -508,6 +568,10 @@
         "overrides": []
       },
       "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -515,235 +579,41 @@
           "fields": "",
           "values": false
         },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "description": "Lowest available WiredTiger read tickets among the selected members."
-    },
-    {
-      "id": 8,
-      "type": "stat",
-      "title": "Write Tickets",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 21,
-        "y": 1
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "editorMode": "code",
           "expr": "min(mongodb_wiredTiger_concurrentTransactions_write_available{instance=~\"$instance\"}) or vector(0)",
           "instant": true,
           "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
+          "refId": "A"
         }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 32
-              },
-              {
-                "color": "green",
-                "value": 64
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "description": "Lowest available WiredTiger write tickets among the selected members."
+      "description": "Lowest available write tickets."
     },
     {
-      "id": 9,
+      "id": 589,
       "type": "stat",
-      "title": "Resident Memory",
+      "title": "Mongo",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
+        "h": 2,
+        "w": 1,
+        "x": 5,
         "y": 5
       },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(mongodb_mem_resident{instance=~\"$instance\"}) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "decmbytes",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "description": "Total resident memory reported by the selected mongod members."
-    },
-    {
-      "id": 10,
-      "type": "stat",
-      "title": "Disk Free",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 5
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "description": "Total free disk space visible to the selected members."
-    },
-    {
-      "id": 11,
-      "type": "stat",
-      "title": "Mongo Restarts",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 5
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(kube_pod_container_status_restarts_total{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\",container=~\"mongod|mongodb-agent\"}) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
           "color": {
             "mode": "thresholds"
           },
@@ -768,6 +638,10 @@
         "overrides": []
       },
       "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -775,44 +649,41 @@
           "fields": "",
           "values": false
         },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
       },
-      "description": "Total restart count across MongoDB member containers."
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(kube_pod_container_status_restarts_total{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\",container=~\"mongod|mongodb-agent\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "MongoDB container restarts."
     },
     {
-      "id": 12,
+      "id": 655,
       "type": "stat",
-      "title": "Operator Restarts",
+      "title": "Oper",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
+        "h": 2,
+        "w": 1,
+        "x": 6,
         "y": 5
       },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(kube_pod_container_status_restarts_total{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\",container!=\"POD\"}) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
           "color": {
             "mode": "thresholds"
           },
@@ -837,6 +708,10 @@
         "overrides": []
       },
       "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -844,42 +719,1047 @@
           "fields": "",
           "values": false
         },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
       },
-      "description": "Total restart count across MongoDB operator containers."
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(kube_pod_container_status_restarts_total{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\",container!=\"POD\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Operator container restarts."
     },
     {
-      "id": 101,
-      "type": "text",
-      "title": "Control Plane & Topology",
+      "id": 338,
+      "type": "stat",
+      "title": "Last member start",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 7,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "dateTimeFromNow",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "max(kube_pod_start_time{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\"})*1000",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Most recent MongoDB member pod start time."
+    },
+    {
+      "id": 342,
+      "type": "stat",
+      "title": "OPS/s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 2,
+        "x": 9,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(irate(mongodb_opcounters_command{instance=~\"$instance\"}[$__rate_interval])) + sum(irate(mongodb_opcounters_query{instance=~\"$instance\"}[$__rate_interval])) + sum(irate(mongodb_opcounters_insert{instance=~\"$instance\"}[$__rate_interval])) + sum(irate(mongodb_opcounters_update{instance=~\"$instance\"}[$__rate_interval])) + sum(irate(mongodb_opcounters_delete{instance=~\"$instance\"}[$__rate_interval]))",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "description": "Combined operation rate across command/query/write paths."
+    },
+    {
+      "id": 344,
+      "type": "gauge",
+      "title": "CPU Utilisation",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "CPU utilisation from requests for MongoDB pods.",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 11,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "color": "text",
+                  "index": 0,
+                  "text": "Missing request"
+                }
+              }
+            }
+          ],
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "unitScale": true
+        },
+        "overrides": []
+      },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "10.3.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace=\"$kubeNamespace\", pod=~\"app-mongo-rs-[0-9]+\"}) / sum(kube_pod_container_resource_requests{job=\"kube-state-metrics\", namespace=\"$kubeNamespace\", resource=\"cpu\", pod=~\"app-mongo-rs-[0-9]+\"})",
+          "format": "time_series",
+          "instant": true,
+          "intervalFactor": 2,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 348,
+      "type": "gauge",
+      "title": "Memory Utilisation",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Memory utilisation from requests for MongoDB pods.",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 13,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "color": "text",
+                  "index": 0,
+                  "text": "Missing request"
+                }
+              }
+            }
+          ],
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "unitScale": true
+        },
+        "overrides": []
+      },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "10.3.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(container_memory_working_set_bytes{job=\"kubelet\", metrics_path=\"/metrics/cadvisor\", namespace=\"$kubeNamespace\", container!=\"\", image!=\"\", pod=~\"app-mongo-rs-[0-9]+\"}) / sum(max by(pod) (kube_pod_container_resource_requests{job=\"kube-state-metrics\", namespace=\"$kubeNamespace\", resource=\"memory\", pod=~\"app-mongo-rs-[0-9]+\"}))",
+          "format": "time_series",
+          "instant": true,
+          "intervalFactor": 2,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 465,
+      "type": "stat",
+      "title": "Primary count",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 15,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              },
+              {
+                "color": "orange",
+                "value": 2
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "count(max by (instance) (mongodb_info{process_type=\"mongod\",replica_state_name=~\"PRIMARY|Primary|primary\",instance=~\"$instance\"})) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Primary member count."
+    },
+    {
+      "id": 467,
+      "type": "stat",
+      "title": "Secondary count",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 17,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "count(max by (instance) (mongodb_info{process_type=\"mongod\",replica_state_name=~\"SECONDARY|Secondary|secondary\",instance=~\"$instance\"})) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Secondary member count."
+    },
+    {
+      "id": 340,
+      "type": "stat",
+      "title": "Operator start",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 7,
+        "y": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "dateTimeFromNow",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "max(kube_pod_start_time{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\"})*1000",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Most recent MongoDB operator pod start time."
+    },
+    {
+      "id": 466,
+      "type": "stat",
+      "title": "Connections",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 15,
+        "y": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(mongodb_connections_current{instance=~\"$instance\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Current connections across members."
+    },
+    {
+      "id": 468,
+      "type": "stat",
+      "title": "Operator ready",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 17,
+        "y": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(kube_pod_status_ready{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\",condition=\"true\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Ready MongoDB operator pods."
+    },
+    {
+      "id": 356,
+      "type": "gauge",
+      "title": "Volume Space Usage",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Highest disk usage ratio across selected members.",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 19,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "color": "text",
+                  "index": 0,
+                  "text": "Missing request"
+                }
+              }
+            }
+          ],
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "unitScale": true
+        },
+        "overrides": []
+      },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "10.3.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "max(100 * hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} / clamp_min(hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} + hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}, 1)) / 100",
+          "format": "time_series",
+          "instant": true,
+          "intervalFactor": 2,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 358,
+      "type": "stat",
+      "title": "Database Size",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 19,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Approximate used disk space visible to MongoDB hardware metrics."
+    },
+    {
+      "id": 360,
+      "type": "stat",
+      "title": "Operator Ready",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(kube_pod_status_ready{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\",condition=\"true\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "MongoDB operator readiness."
+    },
+    {
+      "id": 362,
+      "type": "stat",
+      "title": "Operator Restarts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 3,
+        "x": 21,
+        "y": 3
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(kube_pod_container_status_restarts_total{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\",container!=\"POD\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Operator restart count."
+    },
+    {
+      "id": 364,
+      "type": "stat",
+      "title": "Mongo Restarts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 3,
+        "x": 21,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(kube_pod_container_status_restarts_total{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\",container=~\"mongod|mongodb-agent\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "MongoDB member restart count."
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Server Health",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 7
       },
-      "options": {
-        "mode": "markdown",
-        "content": "### Control Plane & Topology\nSee replica-set roles, pod placement across DB nodes, and which operator image is actually running.",
-        "code": {
-          "language": "plaintext",
-          "showLineNumbers": false,
-          "showMiniMap": false
-        }
-      },
-      "pluginVersion": "10.3.3",
-      "transparent": true,
       "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      }
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "prometheus"
+          },
+          "refId": "A"
+        }
+      ],
+      "collapsed": false
     },
     {
-      "id": 13,
+      "id": 61,
       "type": "table",
       "title": "Replica Set Members",
       "datasource": {
@@ -890,20 +1770,20 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 10
+        "y": 8
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "editorMode": "code",
           "expr": "max by (instance, replica_state_name, process_port, mongodb_version, rs_nm) (mongodb_info{process_type=\"mongod\",instance=~\"$instance\"})",
           "format": "table",
           "instant": true,
           "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
+          "refId": "A"
         }
       ],
       "fieldConfig": {
@@ -950,34 +1830,34 @@
           }
         }
       ],
-      "description": "Replica-set membership, role, port, and MongoDB version for each selected member."
+      "description": "Replica-set membership, role, version, and port."
     },
     {
-      "id": 14,
+      "id": 33,
       "type": "table",
-      "title": "Mongo Pod Placement",
+      "title": "Pod Placement",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 6,
         "x": 8,
-        "y": 10
+        "y": 8
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "editorMode": "code",
           "expr": "max by (pod, node, host_ip, pod_ip) (kube_pod_info{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\"})",
           "format": "table",
           "instant": true,
           "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
+          "refId": "A"
         }
       ],
       "fieldConfig": {
@@ -1022,10 +1902,1542 @@
           }
         }
       ],
-      "description": "Kubernetes placement for each MongoDB member pod."
+      "description": "MongoDB pod placement across cluster nodes."
     },
     {
-      "id": 15,
+      "id": 32,
+      "type": "gauge",
+      "title": "CPU Utilisation",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "CPU utilisation from requests for MongoDB pods.",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 14,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "color": "text",
+                  "index": 0,
+                  "text": "Missing request"
+                }
+              }
+            }
+          ],
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "unitScale": true
+        },
+        "overrides": []
+      },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "10.3.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace=\"$kubeNamespace\", pod=~\"app-mongo-rs-[0-9]+\"}) / sum(kube_pod_container_resource_requests{job=\"kube-state-metrics\", namespace=\"$kubeNamespace\", resource=\"cpu\", pod=~\"app-mongo-rs-[0-9]+\"})",
+          "format": "time_series",
+          "instant": true,
+          "intervalFactor": 2,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "bargauge",
+      "title": "Disk Usage by Member",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Disk usage percentage per member.",
+      "gridPos": {
+        "h": 8,
+        "w": 3,
+        "x": 17,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent",
+          "unitScale": true
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "lcd",
+        "maxVizHeight": 300,
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "text": {},
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.3.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "100 * hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} / clamp_min(hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} + hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}, 1)",
+          "instant": true,
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 314,
+      "type": "stat",
+      "title": "Last member start",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 20,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "dateTimeFromNow",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "max(kube_pod_start_time{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\"})*1000",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Most recent member pod start time."
+    },
+    {
+      "id": 42,
+      "type": "stat",
+      "title": "Last operator start",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 22,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "dateTimeFromNow",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "max(kube_pod_start_time{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\"})*1000",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Most recent operator pod start time."
+    },
+    {
+      "id": 60,
+      "type": "stat",
+      "title": "Connections",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 14,
+        "y": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(mongodb_connections_current{instance=~\"$instance\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Current connections across members."
+    },
+    {
+      "id": 229,
+      "type": "stat",
+      "title": "Ready Pods",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 20,
+        "y": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              },
+              {
+                "color": "green",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(max by (pod) (kube_pod_status_ready{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\",condition=\"true\"})) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Ready member pods."
+    },
+    {
+      "id": 386,
+      "type": "stat",
+      "title": "Operator Ready",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 22,
+        "y": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(kube_pod_status_ready{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\",condition=\"true\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Ready operator pods."
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Operational Stats",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "prometheus"
+          },
+          "refId": "A"
+        }
+      ],
+      "collapsed": false
+    },
+    {
+      "id": 273,
+      "type": "timeseries",
+      "title": "CPU Usage",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unitScale": true
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{pod=~\"app-mongo-rs-[0-9]+\", namespace=~\"$kubeNamespace\"}) by (pod)",
+          "legendFormat": "{{pod}}",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "description": "CPU usage by MongoDB pod."
+    },
+    {
+      "id": 275,
+      "type": "timeseries",
+      "title": "Memory Usage (container memory working set)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unitScale": true,
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(container_memory_working_set_bytes{pod=~\"app-mongo-rs-[0-9]+\", namespace=~\"$kubeNamespace\", container!=\"\", image!=\"\"}) by (pod)",
+          "legendFormat": "{{pod}}",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "description": "Memory working set by MongoDB pod."
+    },
+    {
+      "id": 39,
+      "type": "row",
+      "title": "Workload Activity",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "datasource": {
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "prometheus"
+          },
+          "refId": "A"
+        }
+      ],
+      "collapsed": false
+    },
+    {
+      "id": 58,
+      "type": "timeseries",
+      "title": "Connections by Member",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unitScale": true
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "mongodb_connections_current{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}}",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "description": "Current connection count per member."
+    },
+    {
+      "id": 50,
+      "type": "timeseries",
+      "title": "Operation Rates [5m]",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 33
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unitScale": true,
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(mongodb_opcounters_command{instance=~\"$instance\"}[5m])) by (instance)",
+          "legendFormat": "command ({{instance}})",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(mongodb_opcounters_query{instance=~\"$instance\"}[5m])) by (instance)",
+          "legendFormat": "query ({{instance}})",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(mongodb_opcounters_insert{instance=~\"$instance\"}[5m])) by (instance)",
+          "legendFormat": "insert ({{instance}})",
+          "refId": "C",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(mongodb_opcounters_update{instance=~\"$instance\"}[5m])) by (instance)",
+          "legendFormat": "update ({{instance}})",
+          "refId": "D",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(mongodb_opcounters_delete{instance=~\"$instance\"}[5m])) by (instance)",
+          "legendFormat": "delete ({{instance}})",
+          "refId": "E",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "description": "Five-minute smoothed operation rates by member."
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Network Throughput",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 33
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unitScale": true,
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(mongodb_network_bytesIn{instance=~\"$instance\"}[5m])) by (instance)",
+          "legendFormat": "in ({{instance}})",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(mongodb_network_bytesOut{instance=~\"$instance\"}[5m])) by (instance)",
+          "legendFormat": "out ({{instance}})",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "description": "Network ingress and egress by member."
+    },
+    {
+      "id": 35,
+      "type": "row",
+      "title": "Storage & I/O",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
+      "datasource": {
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "prometheus"
+          },
+          "refId": "A"
+        }
+      ],
+      "collapsed": false
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Disk Used vs Free",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 42
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unitScale": true,
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"}",
+          "legendFormat": "used ({{instance}})",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}",
+          "legendFormat": "free ({{instance}})",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "description": "Used and free disk space per member."
+    },
+    {
+      "id": 37,
+      "type": "timeseries",
+      "title": "WiredTiger Cache Writes",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 42
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unitScale": true,
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(mongodb_wiredTiger_cache_bytes_written_from_cache{instance=~\"$instance\"}[5m])) by (instance)",
+          "legendFormat": "{{instance}}",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "description": "WiredTiger cache bytes written per second."
+    },
+    {
+      "id": 18,
+      "type": "row",
+      "title": "Replication & Engine",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "datasource": {
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "prometheus"
+          },
+          "refId": "A"
+        }
+      ],
+      "collapsed": false
+    },
+    {
+      "id": 231,
+      "type": "timeseries",
+      "title": "Ticket Availability",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 51
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unitScale": true
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "mongodb_wiredTiger_concurrentTransactions_read_available{instance=~\"$instance\"}",
+          "legendFormat": "read ({{instance}})",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "mongodb_wiredTiger_concurrentTransactions_write_available{instance=~\"$instance\"}",
+          "legendFormat": "write ({{instance}})",
+          "refId": "B",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "description": "WiredTiger concurrent transaction ticket availability."
+    },
+    {
+      "id": 239,
+      "type": "timeseries",
+      "title": "Page Faults",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 51
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unitScale": true,
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(mongodb_extra_info_page_faults{instance=~\"$instance\"}[5m])) by (instance)",
+          "legendFormat": "{{instance}}",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "description": "Page faults per second by member."
+    },
+    {
+      "id": 696,
+      "type": "row",
+      "title": "Operator",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 59
+      },
+      "datasource": {
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "prometheus"
+          },
+          "refId": "A"
+        }
+      ],
+      "collapsed": false
+    },
+    {
+      "id": 293,
       "type": "table",
       "title": "Operator Control Plane",
       "datasource": {
@@ -1034,22 +3446,22 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 10
+        "w": 12,
+        "x": 0,
+        "y": 60
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "editorMode": "code",
           "expr": "max by (pod, container, image) (kube_pod_container_info{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\",container!=\"POD\"})",
           "format": "table",
           "instant": true,
           "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
+          "refId": "A"
         }
       ],
       "fieldConfig": {
@@ -1092,941 +3504,10 @@
           }
         }
       ],
-      "description": "Active MongoDB operator container image and pod identity."
+      "description": "Current operator pod, container, and image."
     },
     {
-      "id": 102,
-      "type": "text",
-      "title": "Traffic & Capacity",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 18
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "### Traffic & Capacity\nWorkload flow, replica-level pressure, and the fastest way to spot a node drifting away from the others.",
-        "code": {
-          "language": "plaintext",
-          "showLineNumbers": false,
-          "showMiniMap": false
-        }
-      },
-      "pluginVersion": "10.3.3",
-      "transparent": true,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      }
-    },
-    {
-      "id": 16,
-      "type": "timeseries",
-      "title": "Connections by Member",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 19
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "mongodb_connections_current{instance=~\"$instance\"}",
-          "legendFormat": "{{instance}}",
-          "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "insertNulls": false,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "axisCenteredZero": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Current client connections split by Mongo member."
-    },
-    {
-      "id": 17,
-      "type": "timeseries",
-      "title": "Network Throughput",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 19
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum by (instance) (irate(mongodb_network_bytesIn{instance=~\"$instance\"}[$__rate_interval]))",
-          "legendFormat": "{{instance}} in",
-          "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum by (instance) (irate(mongodb_network_bytesOut{instance=~\"$instance\"}[$__rate_interval]))",
-          "legendFormat": "{{instance}} out",
-          "range": true,
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "Bps",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "insertNulls": false,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "axisCenteredZero": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Ingress and egress throughput per member."
-    },
-    {
-      "id": 18,
-      "type": "bargauge",
-      "title": "Disk Utilization by Member",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 19
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "100 * hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} / clamp_min(hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} + hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}, 1)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 70
-              },
-              {
-                "color": "red",
-                "value": 85
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "displayMode": "gradient",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showUnfilled": true,
-        "minVizWidth": 0,
-        "minVizHeight": 10
-      },
-      "description": "Current disk usage percentage by member."
-    },
-    {
-      "id": 19,
-      "type": "timeseries",
-      "title": "Opcounters",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 27
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(irate(mongodb_opcounters_command{instance=~\"$instance\"}[$__rate_interval]))",
-          "legendFormat": "command",
-          "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(irate(mongodb_opcounters_query{instance=~\"$instance\"}[$__rate_interval]))",
-          "legendFormat": "query",
-          "range": true,
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(irate(mongodb_opcounters_insert{instance=~\"$instance\"}[$__rate_interval]))",
-          "legendFormat": "insert",
-          "range": true,
-          "refId": "C",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(irate(mongodb_opcounters_update{instance=~\"$instance\"}[$__rate_interval]))",
-          "legendFormat": "update",
-          "range": true,
-          "refId": "D",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(irate(mongodb_opcounters_delete{instance=~\"$instance\"}[$__rate_interval]))",
-          "legendFormat": "delete",
-          "range": true,
-          "refId": "E",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "insertNulls": false,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "axisCenteredZero": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Operation rates summed across the selected replica-set members."
-    },
-    {
-      "id": 20,
-      "type": "timeseries",
-      "title": "Memory Footprint",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 27
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "mongodb_mem_resident{instance=~\"$instance\"}",
-          "legendFormat": "{{instance}} resident",
-          "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        },
-        {
-          "editorMode": "code",
-          "expr": "mongodb_mem_virtual{instance=~\"$instance\"}",
-          "legendFormat": "{{instance}} virtual",
-          "range": true,
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "decmbytes",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "insertNulls": false,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "axisCenteredZero": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Resident and virtual memory reported by mongod."
-    },
-    {
-      "id": 103,
-      "type": "text",
-      "title": "Storage Engine & I/O",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 35
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "### Storage Engine & I/O\nWiredTiger behavior, disk capacity, and kernel-level pressure that usually shows up before a user-visible incident.",
-        "code": {
-          "language": "plaintext",
-          "showLineNumbers": false,
-          "showMiniMap": false
-        }
-      },
-      "pluginVersion": "10.3.3",
-      "transparent": true,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      }
-    },
-    {
-      "id": 21,
-      "type": "timeseries",
-      "title": "Disk Used vs Free",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 36
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"}",
-          "legendFormat": "{{instance}} used",
-          "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        },
-        {
-          "editorMode": "code",
-          "expr": "hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}",
-          "legendFormat": "{{instance}} free",
-          "range": true,
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "insertNulls": false,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "axisCenteredZero": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Disk consumption and free space from Mongo hardware metrics."
-    },
-    {
-      "id": 22,
-      "type": "timeseries",
-      "title": "WiredTiger Cache Writes",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 36
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum by (instance) (irate(mongodb_wiredTiger_cache_bytes_written_from_cache{instance=~\"$instance\"}[$__rate_interval]))",
-          "legendFormat": "{{instance}}",
-          "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "Bps",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "insertNulls": false,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "axisCenteredZero": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Bytes per second written from the WiredTiger cache."
-    },
-    {
-      "id": 23,
-      "type": "timeseries",
-      "title": "Ticket Availability",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 36
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "mongodb_wiredTiger_concurrentTransactions_read_available{instance=~\"$instance\"}",
-          "legendFormat": "{{instance}} read",
-          "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        },
-        {
-          "editorMode": "code",
-          "expr": "mongodb_wiredTiger_concurrentTransactions_write_available{instance=~\"$instance\"}",
-          "legendFormat": "{{instance}} write",
-          "range": true,
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "insertNulls": false,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "axisCenteredZero": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Remaining concurrent read and write tickets in WiredTiger."
-    },
-    {
-      "id": 24,
-      "type": "timeseries",
-      "title": "Page Faults",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 44
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum by (instance) (irate(mongodb_extra_info_page_faults{instance=~\"$instance\"}[$__rate_interval]))",
-          "legendFormat": "{{instance}}",
-          "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "insertNulls": false,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "axisCenteredZero": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Page faults per second by member. Persistent spikes often point to memory pressure."
-    },
-    {
-      "id": 25,
+      "id": 794,
       "type": "timeseries",
       "title": "Disk I/O Weighted Time",
       "datasource": {
@@ -2037,54 +3518,44 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 44
+        "y": 60
       },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum by (instance) (irate(hardware_disk_metrics_weighted_time_io_milliseconds{instance=~\"$instance\"}[$__rate_interval]))",
-          "legendFormat": "{{instance}}",
-          "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
             "barAlignment": 0,
-            "lineWidth": 2,
+            "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "opacity",
-            "spanNulls": false,
-            "insertNulls": false,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
             },
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
-            "axisCenteredZero": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
-          },
-          "color": {
-            "mode": "palette-classic"
           },
           "thresholds": {
             "mode": "absolute",
@@ -2094,26 +3565,39 @@
                 "value": null
               }
             ]
-          }
+          },
+          "unitScale": true,
+          "unit": "ms"
         },
         "overrides": []
       },
       "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
         }
       },
-      "description": "Weighted disk I/O time trend from Mongo hardware metrics."
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(hardware_disk_metrics_weighted_time_io_milliseconds{instance=~\"$instance\"}[5m])) by (instance)",
+          "legendFormat": "{{instance}}",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "description": "Weighted disk I/O time by member."
     }
   ],
   "refresh": "30s",
@@ -2213,6 +3697,6 @@
   "timezone": "",
   "title": "MongoDB Overview",
   "uid": "mongodb-overview",
-  "version": 4,
+  "version": 5,
   "weekStart": ""
 }
