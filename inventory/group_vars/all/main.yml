@@ -162,7 +162,10 @@ database:
 
   # MongoDB-specific settings
   mongodb:
-    operator_namespace: "mongodb-system"
+    # Keep the operator in the same namespace as the MongoDB resources.
+    # MongoDB's docs require extra cross-namespace RBAC and service accounts
+    # when operator.watchNamespace differs from the operator namespace.
+    operator_namespace: "db"
     cluster_name: "app-mongo-rs"
     host: "app-mongo-rs-svc.db.svc.cluster.local"
     port: 27017

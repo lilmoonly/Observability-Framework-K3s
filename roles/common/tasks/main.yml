@@ -181,6 +181,18 @@
     - (database_mongo_members | int) < 3 or ((database_mongo_members | int) % 2) == 0
   run_once: true
 
+- name: Validate MongoDB operator namespace matches the database namespace
+  ansible.builtin.fail:
+    msg: >-
+      This framework currently supports MongoDB Controllers for Kubernetes only
+      when database.mongodb.operator_namespace matches database.namespace.
+      Cross-namespace watch mode needs extra ClusterRole, ClusterRoleBinding,
+      and ServiceAccount resources that are not implemented here.
+  when:
+    - database.type == 'mongodb'
+    - (database.mongodb.operator_namespace | default(database.namespace)) != database.namespace
+  run_once: true
+
 # ============================================================
 # 3. Kernel Parameters
 # ============================================================
