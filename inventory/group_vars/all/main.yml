@@ -166,7 +166,9 @@ database:
     # MongoDB's docs require extra cross-namespace RBAC and service accounts
     # when operator.watchNamespace differs from the operator namespace.
     # Leave operator_namespace unset to default it to database.namespace.
-    operator_pool: "monitoring"
+    # Run the operator on the database pool by default now that the
+    # reference lab DB nodes have 1 GiB RAM each.
+    operator_pool: "database"
     cluster_name: "app-mongo-rs"
     host: "app-mongo-rs-svc.database.svc.cluster.local"
     port: 27017

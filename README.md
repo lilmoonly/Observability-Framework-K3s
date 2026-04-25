@@ -141,7 +141,7 @@ Database availability and scaling are now configured explicitly:
 - `database.postgresql.instances` controls CNPG instance count
 - `database.mongodb.members` controls MongoDB replica-set member count
 - `database.namespace` is the backend namespace used by both PostgreSQL and MongoDB
-- `database.mongodb.operator_pool` controls where the MongoDB operator runs; the default lab keeps it off the DB nodes on the `monitoring` pool
+- `database.mongodb.operator_pool` controls where the MongoDB operator runs; the default lab now runs it on the `database` pool
 
 Important MongoDB note:
 
