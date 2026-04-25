@@ -165,7 +165,7 @@ database:
     # Keep the operator in the same namespace as the MongoDB resources.
     # MongoDB's docs require extra cross-namespace RBAC and service accounts
     # when operator.watchNamespace differs from the operator namespace.
-    operator_namespace: "{{ database.namespace }}"
+    # Leave operator_namespace unset to default it to database.namespace.
     operator_pool: "monitoring"
     cluster_name: "app-mongo-rs"
     host: "app-mongo-rs-svc.database.svc.cluster.local"

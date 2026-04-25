@@ -5,6 +5,11 @@
 # a lightweight, operator-managed community deployment.
 # ============================================================
 
+- name: Resolve MongoDB operator placement settings
+  ansible.builtin.set_fact:
+    mongodb_operator_namespace: "{{ database.mongodb.operator_namespace | default(database.namespace) }}"
+    mongodb_operator_pool: "{{ database.mongodb.operator_pool | default(database.pool) }}"
+
 - name: Create database namespace
   become: true
   delegate_to: k8s-ctrl
@@ -30,7 +35,7 @@
   register: legacy_mongodb_operator_release_checks
   changed_when: false
   failed_when: false
-  when: item != database.mongodb.operator_namespace
+  when: item != mongodb_operator_namespace
 
 - name: Uninstall legacy MongoDB operator releases
   become: true
@@ -65,7 +70,7 @@
       fi
     done
   changed_when: false
-  when: database.mongodb.operator_namespace not in ['mongodb-system', 'db']
+  when: mongodb_operator_namespace not in ['mongodb-system', 'db']
 
 - name: Install MongoDB Controllers for Kubernetes
   become: true
@@ -75,13 +80,13 @@
     name: mongodb-kubernetes-operator
     chart_ref: mongodb/mongodb-kubernetes
     chart_version: "{{ artifact_versions.charts.mongodb_kubernetes }}"
-    release_namespace: "{{ database.mongodb.operator_namespace }}"
+    release_namespace: "{{ mongodb_operator_namespace }}"
     create_namespace: true
     wait: yes
     values:
-      namespace: "{{ database.mongodb.operator_namespace }}"
+      namespace: "{{ mongodb_operator_namespace }}"
       operator:
-        namespace: "{{ database.mongodb.operator_namespace }}"
+        namespace: "{{ mongodb_operator_namespace }}"
         watchNamespace: "{{ database.namespace }}"
         watchedResources:
           - mongodb
@@ -95,7 +100,7 @@
   ansible.builtin.shell: |
     kubectl get deployments \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n {{ database.mongodb.operator_namespace }} \
+      -n {{ mongodb_operator_namespace }} \
       -o jsonpath='{.items[0].status.availableReplicas}'
   register: mongodb_operator_status
   until: mongodb_operator_status.stdout | default('0') | int >= 1
@@ -109,7 +114,7 @@
   ansible.builtin.shell: |
     kubectl get deployments \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n {{ database.mongodb.operator_namespace }} \
+      -n {{ mongodb_operator_namespace }} \
       -o jsonpath='{.items[0].metadata.name}'
   register: mongodb_operator_deployment
   changed_when: false
@@ -127,17 +132,17 @@
       kind: Deployment
       metadata:
         name: "{{ mongodb_operator_deployment.stdout }}"
-        namespace: "{{ database.mongodb.operator_namespace }}"
+        namespace: "{{ mongodb_operator_namespace }}"
       spec:
         template:
           spec:
             nodeSelector:
-              workload: "{{ cluster_topology.node_pools[database.mongodb.operator_pool | default(database.pool)].workload_label }}"
+              workload: "{{ cluster_topology.node_pools[mongodb_operator_pool].workload_label }}"
             tolerations:
               - key: "workload"
                 operator: "Equal"
-                value: "{{ cluster_topology.node_pools[database.mongodb.operator_pool | default(database.pool)].workload_label }}"
-                effect: "{{ cluster_topology.node_pools[database.mongodb.operator_pool | default(database.pool)].taints[0].effect }}"
+                value: "{{ cluster_topology.node_pools[mongodb_operator_pool].workload_label }}"
+                effect: "{{ cluster_topology.node_pools[mongodb_operator_pool].taints[0].effect }}"
 
 - name: Create MongoDB admin password secret
   become: true
