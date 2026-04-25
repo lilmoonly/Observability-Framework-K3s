@@ -173,6 +173,30 @@ database:
     members: 3
     admin_user: "mongo-admin"
     admin_password: "{{ vault_database_superuser_password }}"
+    # Lab-friendly defaults. Raise these in larger environments once the
+    # database nodes have more headroom available.
+    operator_resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "300m"
+        memory: "256Mi"
+    resources:
+      mongod:
+        requests:
+          cpu: "150m"
+          memory: "256Mi"
+        limits:
+          cpu: "500m"
+          memory: "768Mi"
+      agent:
+        requests:
+          cpu: "50m"
+          memory: "128Mi"
+        limits:
+          cpu: "250m"
+          memory: "256Mi"
 
 # ==========================================
 # 7. AI ANOMALY ENGINE

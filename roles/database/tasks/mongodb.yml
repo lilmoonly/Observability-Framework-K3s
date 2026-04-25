@@ -83,6 +83,8 @@
         watchedResources:
           - mongodb
           - mongodbusers
+          - mongodbcommunity
+        resources: "{{ database.mongodb.operator_resources }}"
 
 - name: Wait for MongoDB operator deployment to become available
   become: true
@@ -202,7 +204,7 @@
     kubectl get pods \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
       -n {{ database.namespace }} \
-      -l app={{ database.mongodb.cluster_name }}-svc \
+      -l observability.framework/mongodb-cluster={{ database.mongodb.cluster_name }} \
       -o jsonpath='{.items[*].metadata.name}'
   register: old_mongodb_pods
   until: old_mongodb_pods.stdout == ""
@@ -224,16 +226,94 @@
 - name: Wait for MongoDB replica set to report Running
   become: true
   delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl get mongodbcommunity {{ database.mongodb.cluster_name }} \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n {{ database.namespace }} \
-      -o jsonpath='{.status.phase}'
-  register: mongodb_phase
-  until: mongodb_phase.stdout == "Running"
-  retries: 50
-  delay: 15
-  changed_when: false
+  block:
+    - name: Wait for MongoDBCommunity phase=Running
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - wait
+          - --kubeconfig
+          - /etc/rancher/k3s/k3s.yaml
+          - --namespace
+          - "{{ database.namespace }}"
+          - --for=jsonpath={.status.phase}=Running
+          - --timeout=12m
+          - "mongodbcommunity/{{ database.mongodb.cluster_name }}"
+      changed_when: false
+  rescue:
+    - name: Capture MongoDBCommunity status snapshot
+      ansible.builtin.shell: |
+        kubectl get mongodbcommunity {{ database.mongodb.cluster_name }} \
+          --kubeconfig /etc/rancher/k3s/k3s.yaml \
+          -n {{ database.namespace }} \
+          -o jsonpath='phase={.status.phase}{"\n"}message={.status.message}{"\n"}members={.status.currentMongoDBMembers}{"\n"}'
+      register: mongodb_status_snapshot
+      changed_when: false
+      failed_when: false
+
+    - name: Show MongoDBCommunity status snapshot
+      ansible.builtin.debug:
+        var: mongodb_status_snapshot.stdout_lines
+
+    - name: Capture MongoDBCommunity description
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - describe
+          - mongodbcommunity
+          - "{{ database.mongodb.cluster_name }}"
+          - --kubeconfig
+          - /etc/rancher/k3s/k3s.yaml
+          - --namespace
+          - "{{ database.namespace }}"
+      register: mongodb_describe
+      changed_when: false
+      failed_when: false
+
+    - name: Show MongoDBCommunity description
+      ansible.builtin.debug:
+        var: mongodb_describe.stdout_lines
+
+    - name: Capture MongoDB namespace pod summary
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - pods
+          - --kubeconfig
+          - /etc/rancher/k3s/k3s.yaml
+          - --namespace
+          - "{{ database.namespace }}"
+          - -o
+          - wide
+      register: mongodb_namespace_pods
+      changed_when: false
+      failed_when: false
+
+    - name: Show MongoDB namespace pod summary
+      ansible.builtin.debug:
+        var: mongodb_namespace_pods.stdout_lines
+
+    - name: Capture recent MongoDB namespace events
+      ansible.builtin.shell: |
+        kubectl get events \
+          --kubeconfig /etc/rancher/k3s/k3s.yaml \
+          -n {{ database.namespace }} \
+          --sort-by=.lastTimestamp | tail -n 30
+      register: mongodb_recent_events
+      changed_when: false
+      failed_when: false
+
+    - name: Show recent MongoDB namespace events
+      ansible.builtin.debug:
+        var: mongodb_recent_events.stdout_lines
+
+    - name: Fail with MongoDB wait diagnostics
+      ansible.builtin.fail:
+        msg: >-
+          MongoDBCommunity {{ database.mongodb.cluster_name }} did not reach
+          phase=Running within 12 minutes. Review the status snapshot,
+          description, pod summary, and events printed above.
 
 - name: Wait for all MongoDB data members to be ready
   become: true
@@ -256,7 +336,7 @@
     kubectl get pods \
       --kubeconfig /etc/rancher/k3s/k3s.yaml \
       -n {{ database.namespace }} \
-      -l app={{ database.mongodb.cluster_name }}-svc \
+      -l observability.framework/mongodb-cluster={{ database.mongodb.cluster_name }} \
       -o wide
   register: mongodb_pods
   changed_when: false
