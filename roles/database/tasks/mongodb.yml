@@ -5,6 +5,15 @@
 # a lightweight, operator-managed community deployment.
 # ============================================================
 
+- name: Create database namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: "{{ database.namespace }}"
+    kind: Namespace
+    state: present
+
 - name: Install MongoDB Controllers for Kubernetes
   become: true
   delegate_to: k8s-ctrl
@@ -74,15 +83,6 @@
                 operator: "Equal"
                 value: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
                 effect: "{{ cluster_topology.node_pools[database.pool].taints[0].effect }}"
-
-- name: Create database namespace
-  become: true
-  delegate_to: k8s-ctrl
-  kubernetes.core.k8s:
-    kubeconfig: /etc/rancher/k3s/k3s.yaml
-    name: "{{ database.namespace }}"
-    kind: Namespace
-    state: present
 
 - name: Create MongoDB admin password secret
   become: true
