@@ -140,6 +140,8 @@ Database availability and scaling are now configured explicitly:
   - `none` disables anti-affinity spreading
 - `database.postgresql.instances` controls CNPG instance count
 - `database.mongodb.members` controls MongoDB replica-set member count
+- `database.namespace` is the backend namespace used by both PostgreSQL and MongoDB
+- `database.mongodb.operator_pool` controls where the MongoDB operator runs; the default lab keeps it off the DB nodes on the `monitoring` pool
 
 Important MongoDB note:
 

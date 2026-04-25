@@ -193,6 +193,16 @@
     - (database.mongodb.operator_namespace | default(database.namespace)) != database.namespace
   run_once: true
 
+- name: Validate MongoDB operator pool exists
+  ansible.builtin.fail:
+    msg: >-
+      MongoDB operator pool '{{ database.mongodb.operator_pool }}' is not
+      defined in cluster_topology.node_pools.
+  when:
+    - database.type == 'mongodb'
+    - (database.mongodb.operator_pool | default(database.pool)) not in cluster_topology.node_pools
+  run_once: true
+
 # ============================================================
 # 3. Kernel Parameters
 # ============================================================

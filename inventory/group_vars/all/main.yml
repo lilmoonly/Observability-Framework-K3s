@@ -133,7 +133,7 @@ database:
   #                  is not required
   #   - quorum_ha: lose-one-node failover should remain possible
   availability_goal: "quorum_ha"
-  namespace: "db"
+  namespace: "database"
   pool: "database"
   force_recreate: false
   storage_size: "2Gi"
@@ -156,7 +156,7 @@ database:
   cluster_name: "app-db-cluster"
   superuser_password: "{{ vault_database_superuser_password }}"
   port: 5432
-  host: "app-db-cluster-rw.db.svc.cluster.local"
+  host: "app-db-cluster-rw.database.svc.cluster.local"
   postgresql:
     instances: 2
 
@@ -165,9 +165,10 @@ database:
     # Keep the operator in the same namespace as the MongoDB resources.
     # MongoDB's docs require extra cross-namespace RBAC and service accounts
     # when operator.watchNamespace differs from the operator namespace.
-    operator_namespace: "db"
+    operator_namespace: "{{ database.namespace }}"
+    operator_pool: "monitoring"
     cluster_name: "app-mongo-rs"
-    host: "app-mongo-rs-svc.db.svc.cluster.local"
+    host: "app-mongo-rs-svc.database.svc.cluster.local"
     port: 27017
     version: "7.0.5"
     members: 3
@@ -177,23 +178,23 @@ database:
     # database nodes have more headroom available.
     operator_resources:
       requests:
-        cpu: "100m"
-        memory: "128Mi"
+        cpu: "50m"
+        memory: "96Mi"
       limits:
-        cpu: "300m"
-        memory: "256Mi"
+        cpu: "200m"
+        memory: "192Mi"
     resources:
       mongod:
         requests:
-          cpu: "150m"
-          memory: "256Mi"
+          cpu: "100m"
+          memory: "192Mi"
         limits:
           cpu: "500m"
           memory: "768Mi"
       agent:
         requests:
           cpu: "50m"
-          memory: "128Mi"
+          memory: "96Mi"
         limits:
           cpu: "250m"
           memory: "256Mi"

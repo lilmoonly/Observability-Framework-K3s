@@ -14,7 +14,7 @@
     kind: Namespace
     state: present
 
-- name: Check for legacy MongoDB operator release in mongodb-system
+- name: Check for legacy MongoDB operator releases
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.command:
@@ -23,13 +23,16 @@
       - status
       - mongodb-kubernetes-operator
       - -n
-      - mongodb-system
-  register: legacy_mongodb_operator_release
+      - "{{ item }}"
+  loop:
+    - mongodb-system
+    - db
+  register: legacy_mongodb_operator_release_checks
   changed_when: false
   failed_when: false
-  when: database.mongodb.operator_namespace != 'mongodb-system'
+  when: item != database.mongodb.operator_namespace
 
-- name: Uninstall legacy MongoDB operator release from mongodb-system
+- name: Uninstall legacy MongoDB operator releases
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.command:
@@ -38,12 +41,12 @@
       - uninstall
       - mongodb-kubernetes-operator
       - -n
-      - mongodb-system
+      - "{{ item.item }}"
+  loop: "{{ legacy_mongodb_operator_release_checks.results | default([]) }}"
   when:
-    - database.mongodb.operator_namespace != 'mongodb-system'
-    - legacy_mongodb_operator_release.rc == 0
+    - item.rc == 0
 
-- name: Remove legacy MongoDB operator cluster-scoped RBAC from mongodb-system
+- name: Remove legacy MongoDB operator cluster-scoped RBAC from older namespaces
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.shell: |
@@ -54,7 +57,7 @@
         --kubeconfig /etc/rancher/k3s/k3s.yaml \
         "$resource" \
         -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-namespace}' 2>/dev/null || true)"
-      if [ "$owner_namespace" = "mongodb-system" ]; then
+      if [ "$owner_namespace" = "mongodb-system" ] || [ "$owner_namespace" = "db" ]; then
         kubectl delete \
           --kubeconfig /etc/rancher/k3s/k3s.yaml \
           "$resource" \
@@ -62,7 +65,7 @@
       fi
     done
   changed_when: false
-  when: database.mongodb.operator_namespace != 'mongodb-system'
+  when: database.mongodb.operator_namespace not in ['mongodb-system', 'db']
 
 - name: Install MongoDB Controllers for Kubernetes
   become: true
@@ -111,7 +114,7 @@
   register: mongodb_operator_deployment
   changed_when: false
 
-- name: Pin MongoDB operator deployment to the database pool
+- name: Pin MongoDB operator deployment to the configured operator pool
   become: true
   delegate_to: k8s-ctrl
   kubernetes.core.k8s:
@@ -129,12 +132,12 @@
         template:
           spec:
             nodeSelector:
-              workload: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
+              workload: "{{ cluster_topology.node_pools[database.mongodb.operator_pool | default(database.pool)].workload_label }}"
             tolerations:
               - key: "workload"
                 operator: "Equal"
-                value: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
-                effect: "{{ cluster_topology.node_pools[database.pool].taints[0].effect }}"
+                value: "{{ cluster_topology.node_pools[database.mongodb.operator_pool | default(database.pool)].workload_label }}"
+                effect: "{{ cluster_topology.node_pools[database.mongodb.operator_pool | default(database.pool)].taints[0].effect }}"
 
 - name: Create MongoDB admin password secret
   become: true
