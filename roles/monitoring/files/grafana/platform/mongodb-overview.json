@@ -64,10 +64,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 1,
-        "w": 4,
         "x": 3,
-        "y": 0
+        "y": 0,
+        "w": 4,
+        "h": 1
       },
       "options": {
         "mode": "markdown",
@@ -89,10 +89,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 1,
-        "w": 12,
         "x": 7,
-        "y": 0
+        "y": 0,
+        "w": 11,
+        "h": 1
       },
       "options": {
         "mode": "markdown",
@@ -114,10 +114,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 1,
-        "w": 2,
-        "x": 19,
-        "y": 0
+        "x": 18,
+        "y": 0,
+        "w": 3,
+        "h": 1
       },
       "options": {
         "mode": "markdown",
@@ -139,10 +139,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 1,
-        "w": 3,
         "x": 21,
-        "y": 0
+        "y": 0,
+        "w": 3,
+        "h": 1
       },
       "options": {
         "mode": "markdown",
@@ -158,16 +158,16 @@
     {
       "id": 585,
       "type": "stat",
-      "title": "Replica Set",
+      "title": "Replica",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 2,
-        "w": 2,
         "x": 3,
-        "y": 1
+        "y": 1,
+        "w": 4,
+        "h": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -260,10 +260,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 2,
-        "w": 1,
-        "x": 5,
-        "y": 1
+        "x": 7,
+        "y": 4,
+        "w": 2,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -326,10 +326,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 2,
-        "w": 1,
-        "x": 6,
-        "y": 1
+        "x": 18,
+        "y": 5,
+        "w": 3,
+        "h": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -391,16 +391,16 @@
     {
       "id": 591,
       "type": "stat",
-      "title": "Ready Pods",
+      "title": "Ready",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 2,
-        "w": 4,
         "x": 3,
-        "y": 3
+        "y": 3,
+        "w": 4,
+        "h": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -467,10 +467,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 2,
-        "w": 1,
         "x": 3,
-        "y": 5
+        "y": 5,
+        "w": 2,
+        "h": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -537,10 +537,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 2,
-        "w": 1,
-        "x": 4,
-        "y": 5
+        "x": 5,
+        "y": 5,
+        "w": 2,
+        "h": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -741,16 +741,16 @@
     {
       "id": 338,
       "type": "stat",
-      "title": "Last member start",
+      "title": "Member Start",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 3,
-        "w": 2,
         "x": 7,
-        "y": 1
+        "y": 1,
+        "w": 3,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -810,10 +810,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 6,
-        "w": 2,
-        "x": 9,
-        "y": 1
+        "x": 10,
+        "y": 1,
+        "w": 3,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -866,17 +866,17 @@
     {
       "id": 344,
       "type": "gauge",
-      "title": "CPU Utilisation",
+      "title": "CPU Util",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "description": "CPU utilisation from requests for MongoDB pods.",
       "gridPos": {
-        "h": 4,
+        "x": 13,
+        "y": 1,
         "w": 2,
-        "x": 11,
-        "y": 1
+        "h": 4
       },
       "fieldConfig": {
         "defaults": {
@@ -954,17 +954,17 @@
     {
       "id": 348,
       "type": "gauge",
-      "title": "Memory Utilisation",
+      "title": "Memory Util",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "description": "Memory utilisation from requests for MongoDB pods.",
       "gridPos": {
-        "h": 4,
-        "w": 2,
-        "x": 13,
-        "y": 1
+        "x": 15,
+        "y": 1,
+        "w": 3,
+        "h": 4
       },
       "fieldConfig": {
         "defaults": {
@@ -1040,88 +1040,18 @@
       ]
     },
     {
-      "id": 465,
-      "type": "stat",
-      "title": "Primary count",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 2,
-        "x": 15,
-        "y": 1
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              },
-              {
-                "color": "orange",
-                "value": 2
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "editorMode": "code",
-          "expr": "count(max by (instance) (mongodb_info{process_type=\"mongod\",replica_state_name=~\"PRIMARY|Primary|primary\",instance=~\"$instance\"})) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "description": "Primary member count."
-    },
-    {
       "id": 467,
       "type": "stat",
-      "title": "Secondary count",
+      "title": "Secondary",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 3,
-        "w": 2,
-        "x": 17,
-        "y": 1
+        "x": 9,
+        "y": 4,
+        "w": 3,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -1182,16 +1112,16 @@
     {
       "id": 340,
       "type": "stat",
-      "title": "Operator start",
+      "title": "Oper Start",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 3,
-        "w": 2,
-        "x": 7,
-        "y": 4
+        "x": 21,
+        "y": 5,
+        "w": 3,
+        "h": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -1251,10 +1181,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 3,
-        "w": 2,
-        "x": 15,
-        "y": 4
+        "x": 12,
+        "y": 4,
+        "w": 3,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -1315,7 +1245,7 @@
     {
       "id": 468,
       "type": "stat",
-      "title": "Operator ready",
+      "title": "Oper Ready",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1381,17 +1311,17 @@
     {
       "id": 356,
       "type": "gauge",
-      "title": "Volume Space Usage",
+      "title": "Volume Usage",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "description": "Highest disk usage ratio across selected members.",
       "gridPos": {
-        "h": 4,
-        "w": 2,
-        "x": 19,
-        "y": 1
+        "x": 18,
+        "y": 1,
+        "w": 3,
+        "h": 4
       },
       "fieldConfig": {
         "defaults": {
@@ -1469,16 +1399,16 @@
     {
       "id": 358,
       "type": "stat",
-      "title": "Database Size",
+      "title": "DB Size",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 2,
-        "w": 2,
-        "x": 19,
-        "y": 5
+        "x": 15,
+        "y": 4,
+        "w": 3,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -1532,16 +1462,16 @@
     {
       "id": 360,
       "type": "stat",
-      "title": "Operator Ready",
+      "title": "Oper Ready",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 2,
-        "w": 3,
         "x": 21,
-        "y": 1
+        "y": 1,
+        "w": 3,
+        "h": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -1598,16 +1528,16 @@
     {
       "id": 362,
       "type": "stat",
-      "title": "Operator Restarts",
+      "title": "Oper Restarts",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 2,
-        "w": 3,
         "x": 21,
-        "y": 3
+        "y": 3,
+        "w": 3,
+        "h": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -1761,7 +1691,7 @@
     {
       "id": 61,
       "type": "table",
-      "title": "Replica Set Members",
+      "title": "Replica Members",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1907,7 +1837,7 @@
     {
       "id": 32,
       "type": "gauge",
-      "title": "CPU Utilisation",
+      "title": "CPU Util",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1995,7 +1925,7 @@
     {
       "id": 8,
       "type": "bargauge",
-      "title": "Disk Usage by Member",
+      "title": "Disk by Member",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -2074,7 +2004,7 @@
     {
       "id": 314,
       "type": "stat",
-      "title": "Last member start",
+      "title": "Member Start",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -2137,7 +2067,7 @@
     {
       "id": 42,
       "type": "stat",
-      "title": "Last operator start",
+      "title": "Oper Start",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -2270,7 +2200,7 @@
     {
       "id": 229,
       "type": "stat",
-      "title": "Ready Pods",
+      "title": "Ready",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -2340,7 +2270,7 @@
     {
       "id": 386,
       "type": "stat",
-      "title": "Operator Ready",
+      "title": "Oper Ready",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -2521,7 +2451,7 @@
     {
       "id": 275,
       "type": "timeseries",
-      "title": "Memory Usage (container memory working set)",
+      "title": "Memory Usage",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -2637,7 +2567,7 @@
     {
       "id": 58,
       "type": "timeseries",
-      "title": "Connections by Member",
+      "title": "Conn by Member",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -2729,7 +2659,7 @@
     {
       "id": 50,
       "type": "timeseries",
-      "title": "Operation Rates [5m]",
+      "title": "Ops [5m]",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -2870,7 +2800,7 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Network Throughput",
+      "title": "Network",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -2998,7 +2928,7 @@
     {
       "id": 18,
       "type": "timeseries",
-      "title": "Disk Used vs Free",
+      "title": "Disk Used/Free",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -3103,7 +3033,7 @@
     {
       "id": 37,
       "type": "timeseries",
-      "title": "WiredTiger Cache Writes",
+      "title": "WT Cache Writes",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -3196,7 +3126,7 @@
     {
       "id": 18,
       "type": "row",
-      "title": "Replication & Engine",
+      "title": "Replica & Engine",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -3219,7 +3149,7 @@
     {
       "id": 231,
       "type": "timeseries",
-      "title": "Ticket Availability",
+      "title": "Tickets",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -3439,7 +3369,7 @@
     {
       "id": 293,
       "type": "table",
-      "title": "Operator Control Plane",
+      "title": "Operator Pods",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -3509,7 +3439,7 @@
     {
       "id": 794,
       "type": "timeseries",
-      "title": "Disk I/O Weighted Time",
+      "title": "Disk I/O Time",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
