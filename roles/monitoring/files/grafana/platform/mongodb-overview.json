@@ -23,6 +23,32 @@
   "liveNow": false,
   "panels": [
     {
+      "id": 100,
+      "type": "text",
+      "title": "MongoDB Command Center",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### MongoDB Command Center\nReplica-set leadership, operator state, pod placement, and WiredTiger pressure in one view.",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        }
+      },
+      "pluginVersion": "10.3.3",
+      "transparent": true,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      }
+    },
+    {
       "id": 1,
       "type": "stat",
       "title": "Mongo Members",
@@ -34,7 +60,7 @@
         "h": 4,
         "w": 3,
         "x": 0,
-        "y": 0
+        "y": 1
       },
       "targets": [
         {
@@ -90,7 +116,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Primary Members",
+      "title": "Ready Mongo Pods",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -99,7 +125,76 @@
         "h": 4,
         "w": 3,
         "x": 3,
-        "y": 0
+        "y": 1
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(max by (pod) (kube_pod_status_ready{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\",condition=\"true\"})) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              },
+              {
+                "color": "green",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "description": "Ready MongoDB StatefulSet pods in the selected namespace."
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Primary Members",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 1
       },
       "targets": [
         {
@@ -157,7 +252,7 @@
       "description": "Primary count across the selected members. This query is tolerant to label casing."
     },
     {
-      "id": 3,
+      "id": 4,
       "type": "stat",
       "title": "Secondary Members",
       "datasource": {
@@ -167,8 +262,8 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 6,
-        "y": 0
+        "x": 9,
+        "y": 1
       },
       "targets": [
         {
@@ -226,7 +321,72 @@
       "description": "Secondary count across the selected members. This query is tolerant to label casing."
     },
     {
-      "id": 4,
+      "id": 5,
+      "type": "stat",
+      "title": "Operator Ready",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(kube_pod_status_ready{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\",condition=\"true\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "description": "Ready MongoDB Kubernetes operator pods."
+    },
+    {
+      "id": 6,
       "type": "stat",
       "title": "Connections",
       "datasource": {
@@ -236,8 +396,8 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 9,
-        "y": 0
+        "x": 15,
+        "y": 1
       },
       "targets": [
         {
@@ -295,128 +455,6 @@
       "description": "Current client connections across the selected members."
     },
     {
-      "id": 5,
-      "type": "stat",
-      "title": "Resident Memory",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 12,
-        "y": 0
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(mongodb_mem_resident{instance=~\"$instance\"}) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "decmbytes",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "description": "Total resident memory reported by the selected mongod members."
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "Disk Free",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 15,
-        "y": 0
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}) or vector(0)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "description": "Total free disk space visible to the selected members."
-    },
-    {
       "id": 7,
       "type": "stat",
       "title": "Read Tickets",
@@ -428,7 +466,7 @@
         "h": 4,
         "w": 3,
         "x": 18,
-        "y": 0
+        "y": 1
       },
       "targets": [
         {
@@ -497,7 +535,7 @@
         "h": 4,
         "w": 3,
         "x": 21,
-        "y": 0
+        "y": 1
       },
       "targets": [
         {
@@ -556,6 +594,292 @@
     },
     {
       "id": 9,
+      "type": "stat",
+      "title": "Resident Memory",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(mongodb_mem_resident{instance=~\"$instance\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "description": "Total resident memory reported by the selected mongod members."
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Disk Free",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 5
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "description": "Total free disk space visible to the selected members."
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Mongo Restarts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 5
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(kube_pod_container_status_restarts_total{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\",container=~\"mongod|mongodb-agent\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "description": "Total restart count across MongoDB member containers."
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Operator Restarts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 5
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(kube_pod_container_status_restarts_total{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\",container!=\"POD\"}) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "description": "Total restart count across MongoDB operator containers."
+    },
+    {
+      "id": 101,
+      "type": "text",
+      "title": "Control Plane & Topology",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Control Plane & Topology\nSee replica-set roles, pod placement across DB nodes, and which operator image is actually running.",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        }
+      },
+      "pluginVersion": "10.3.3",
+      "transparent": true,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      }
+    },
+    {
+      "id": 13,
       "type": "table",
       "title": "Replica Set Members",
       "datasource": {
@@ -566,7 +890,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 4
+        "y": 10
       },
       "targets": [
         {
@@ -629,7 +953,175 @@
       "description": "Replica-set membership, role, port, and MongoDB version for each selected member."
     },
     {
-      "id": 10,
+      "id": 14,
+      "type": "table",
+      "title": "Mongo Pod Placement",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 10
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max by (pod, node, host_ip, pod_ip) (kube_pod_info{namespace=~\"$kubeNamespace\",pod=~\"app-mongo-rs-[0-9]+\"})",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true
+            },
+            "indexByName": {
+              "pod": 0,
+              "node": 1,
+              "host_ip": 2,
+              "pod_ip": 3
+            },
+            "renameByName": {
+              "pod": "Pod",
+              "node": "Node",
+              "host_ip": "Host IP",
+              "pod_ip": "Pod IP"
+            }
+          }
+        }
+      ],
+      "description": "Kubernetes placement for each MongoDB member pod."
+    },
+    {
+      "id": 15,
+      "type": "table",
+      "title": "Operator Control Plane",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 10
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max by (pod, container, image) (kube_pod_container_info{namespace=~\"$kubeNamespace\",pod=~\"mongodb-kubernetes-operator-.+\",container!=\"POD\"})",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true
+            },
+            "indexByName": {
+              "pod": 0,
+              "container": 1,
+              "image": 2
+            },
+            "renameByName": {
+              "pod": "Pod",
+              "container": "Container",
+              "image": "Image"
+            }
+          }
+        }
+      ],
+      "description": "Active MongoDB operator container image and pod identity."
+    },
+    {
+      "id": 102,
+      "type": "text",
+      "title": "Traffic & Capacity",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Traffic & Capacity\nWorkload flow, replica-level pressure, and the fastest way to spot a node drifting away from the others.",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        }
+      },
+      "pluginVersion": "10.3.3",
+      "transparent": true,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      }
+    },
+    {
+      "id": 16,
       "type": "timeseries",
       "title": "Connections by Member",
       "datasource": {
@@ -639,8 +1131,8 @@
       "gridPos": {
         "h": 8,
         "w": 8,
-        "x": 8,
-        "y": 4
+        "x": 0,
+        "y": 19
       },
       "targets": [
         {
@@ -719,7 +1211,7 @@
       "description": "Current client connections split by Mongo member."
     },
     {
-      "id": 11,
+      "id": 17,
       "type": "timeseries",
       "title": "Network Throughput",
       "datasource": {
@@ -729,8 +1221,8 @@
       "gridPos": {
         "h": 8,
         "w": 8,
-        "x": 16,
-        "y": 4
+        "x": 8,
+        "y": 19
       },
       "targets": [
         {
@@ -820,7 +1312,78 @@
       "description": "Ingress and egress throughput per member."
     },
     {
-      "id": 12,
+      "id": 18,
+      "type": "bargauge",
+      "title": "Disk Utilization by Member",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 19
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} / clamp_min(hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} + hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}, 1)",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "minVizHeight": 10
+      },
+      "description": "Current disk usage percentage by member."
+    },
+    {
+      "id": 19,
       "type": "timeseries",
       "title": "Opcounters",
       "datasource": {
@@ -831,7 +1394,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 27
       },
       "targets": [
         {
@@ -954,7 +1517,7 @@
       "description": "Operation rates summed across the selected replica-set members."
     },
     {
-      "id": 13,
+      "id": 20,
       "type": "timeseries",
       "title": "Memory Footprint",
       "datasource": {
@@ -965,7 +1528,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 12
+        "y": 27
       },
       "targets": [
         {
@@ -1055,7 +1618,33 @@
       "description": "Resident and virtual memory reported by mongod."
     },
     {
-      "id": 14,
+      "id": 103,
+      "type": "text",
+      "title": "Storage Engine & I/O",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Storage Engine & I/O\nWiredTiger behavior, disk capacity, and kernel-level pressure that usually shows up before a user-visible incident.",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        }
+      },
+      "pluginVersion": "10.3.3",
+      "transparent": true,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      }
+    },
+    {
+      "id": 21,
       "type": "timeseries",
       "title": "Disk Used vs Free",
       "datasource": {
@@ -1064,9 +1653,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
-        "y": 20
+        "y": 36
       },
       "targets": [
         {
@@ -1156,78 +1745,7 @@
       "description": "Disk consumption and free space from Mongo hardware metrics."
     },
     {
-      "id": 15,
-      "type": "bargauge",
-      "title": "Disk Utilization by Member",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 20
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "100 * hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} / clamp_min(hardware_disk_metrics_disk_space_used_bytes{instance=~\"$instance\"} + hardware_disk_metrics_disk_space_free_bytes{instance=~\"$instance\"}, 1)",
-          "instant": true,
-          "range": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 70
-              },
-              {
-                "color": "red",
-                "value": 85
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "displayMode": "gradient",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showUnfilled": true,
-        "minVizWidth": 0,
-        "minVizHeight": 10
-      },
-      "description": "Current disk usage percentage by member."
-    },
-    {
-      "id": 16,
+      "id": 22,
       "type": "timeseries",
       "title": "WiredTiger Cache Writes",
       "datasource": {
@@ -1236,9 +1754,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 20
+        "w": 8,
+        "x": 8,
+        "y": 36
       },
       "targets": [
         {
@@ -1317,7 +1835,7 @@
       "description": "Bytes per second written from the WiredTiger cache."
     },
     {
-      "id": 17,
+      "id": 23,
       "type": "timeseries",
       "title": "Ticket Availability",
       "datasource": {
@@ -1326,9 +1844,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 28
+        "w": 8,
+        "x": 16,
+        "y": 36
       },
       "targets": [
         {
@@ -1418,7 +1936,7 @@
       "description": "Remaining concurrent read and write tickets in WiredTiger."
     },
     {
-      "id": 18,
+      "id": 24,
       "type": "timeseries",
       "title": "Page Faults",
       "datasource": {
@@ -1427,9 +1945,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 28
+        "w": 12,
+        "x": 0,
+        "y": 44
       },
       "targets": [
         {
@@ -1508,7 +2026,7 @@
       "description": "Page faults per second by member. Persistent spikes often point to memory pressure."
     },
     {
-      "id": 19,
+      "id": 25,
       "type": "timeseries",
       "title": "Disk I/O Weighted Time",
       "datasource": {
@@ -1517,9 +2035,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 28
+        "w": 12,
+        "x": 12,
+        "y": 44
       },
       "targets": [
         {
@@ -1630,6 +2148,35 @@
       {
         "current": {
           "selected": true,
+          "text": "database",
+          "value": "database"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(kube_pod_info{pod=~\"app-mongo-rs-[0-9]+|mongodb-kubernetes-operator-.+\"}, namespace)",
+        "description": "Kubernetes namespace where MongoDB member and operator pods run.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Namespace",
+        "multi": false,
+        "name": "kubeNamespace",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(kube_pod_info{pod=~\"app-mongo-rs-[0-9]+|mongodb-kubernetes-operator-.+\"}, namespace)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery-namespace"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
           "text": "All",
           "value": "$__all"
         },
@@ -1666,6 +2213,6 @@
   "timezone": "",
   "title": "MongoDB Overview",
   "uid": "mongodb-overview",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }
