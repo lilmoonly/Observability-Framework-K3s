@@ -1,0 +1,224 @@
+---
+# ============================================================
+# MongoDB backend via MongoDB Controllers for Kubernetes.
+# Uses a MongoDBCommunity replica set so the framework keeps
+# a lightweight, operator-managed community deployment.
+# ============================================================
+
+- name: Install MongoDB Controllers for Kubernetes
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: mongodb-kubernetes-operator
+    chart_ref: mongodb/mongodb-kubernetes
+    chart_version: "{{ artifact_versions.charts.mongodb_kubernetes }}"
+    release_namespace: "{{ database.mongodb.operator_namespace }}"
+    create_namespace: true
+    wait: yes
+    values:
+      namespace: "{{ database.mongodb.operator_namespace }}"
+      operator:
+        namespace: "{{ database.mongodb.operator_namespace }}"
+        watchNamespace: "{{ database.namespace }}"
+        watchedResources:
+          - mongodb
+          - mongodbusers
+
+- name: Wait for MongoDB operator deployment to become available
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get deployments \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ database.mongodb.operator_namespace }} \
+      -o jsonpath='{.items[0].status.availableReplicas}'
+  register: mongodb_operator_status
+  until: mongodb_operator_status.stdout | default('0') | int >= 1
+  retries: 30
+  delay: 10
+  changed_when: false
+
+- name: Look up MongoDB operator deployment name
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get deployments \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ database.mongodb.operator_namespace }} \
+      -o jsonpath='{.items[0].metadata.name}'
+  register: mongodb_operator_deployment
+  changed_when: false
+
+- name: Pin MongoDB operator deployment to the database pool
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    merge_type:
+      - merge
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: "{{ mongodb_operator_deployment.stdout }}"
+        namespace: "{{ database.mongodb.operator_namespace }}"
+      spec:
+        template:
+          spec:
+            nodeSelector:
+              workload: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
+            tolerations:
+              - key: "workload"
+                operator: "Equal"
+                value: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
+                effect: "{{ cluster_topology.node_pools[database.pool].taints[0].effect }}"
+
+- name: Create database namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: "{{ database.namespace }}"
+    kind: Namespace
+    state: present
+
+- name: Create MongoDB admin password secret
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: mongodb-admin-password
+        namespace: "{{ database.namespace }}"
+      type: Opaque
+      stringData:
+        password: "{{ database.mongodb.admin_password }}"
+  no_log: true
+
+- name: Create MongoDB application password secret
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: mongodb-app-password
+        namespace: "{{ database.namespace }}"
+      type: Opaque
+      stringData:
+        password: "{{ database.app_password }}"
+  no_log: true
+
+- name: Check if MongoDB replica set already exists
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get mongodbcommunity {{ database.mongodb.cluster_name }} \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ database.namespace }} \
+      -o jsonpath='{.metadata.name}' 2>/dev/null || echo "notfound"
+  register: mongodb_cluster_exists
+  changed_when: false
+
+- name: Delete existing MongoDB replica set for clean recreate
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: absent
+    definition:
+      apiVersion: mongodbcommunity.mongodb.com/v1
+      kind: MongoDBCommunity
+      metadata:
+        name: "{{ database.mongodb.cluster_name }}"
+        namespace: "{{ database.namespace }}"
+  when:
+    - mongodb_cluster_exists.stdout != "notfound"
+    - database.force_recreate | default(false) | bool
+
+- name: Wait for old MongoDB replica set pods to terminate
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ database.namespace }} \
+      -l app={{ database.mongodb.cluster_name }}-svc \
+      -o jsonpath='{.items[*].metadata.name}'
+  register: old_mongodb_pods
+  until: old_mongodb_pods.stdout == ""
+  retries: 20
+  delay: 10
+  changed_when: false
+  when:
+    - mongodb_cluster_exists.stdout != "notfound"
+    - database.force_recreate | default(false) | bool
+
+- name: Deploy MongoDBCommunity replica set
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'mongodb-community.yaml.j2') | from_yaml }}"
+
+- name: Wait for MongoDB replica set to report Running
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get mongodbcommunity {{ database.mongodb.cluster_name }} \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ database.namespace }} \
+      -o jsonpath='{.status.phase}'
+  register: mongodb_phase
+  until: mongodb_phase.stdout == "Running"
+  retries: 50
+  delay: 15
+  changed_when: false
+
+- name: Wait for all MongoDB data members to be ready
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get mongodbcommunity {{ database.mongodb.cluster_name }} \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ database.namespace }} \
+      -o jsonpath='{.status.currentMongoDBMembers}'
+  register: mongodb_members
+  until: mongodb_members.stdout | default('0') | int == database.mongodb.members | int
+  retries: 30
+  delay: 10
+  changed_when: false
+
+- name: Show MongoDB replica set pod summary
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ database.namespace }} \
+      -l app={{ database.mongodb.cluster_name }}-svc \
+      -o wide
+  register: mongodb_pods
+  changed_when: false
+
+- name: Print MongoDB replica set pod summary
+  ansible.builtin.debug:
+    var: mongodb_pods.stdout_lines
+
+- name: Show MongoDB service endpoint
+  ansible.builtin.debug:
+    msg: >-
+      MongoDB replica set is available at
+      {{ database.mongodb.host }}:{{ database.mongodb.port }}.
+      Availability goal is '{{ database.availability_goal }}' with
+      {{ database.mongodb.members }} member(s).

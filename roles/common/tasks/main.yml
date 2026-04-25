@@ -41,12 +41,12 @@
       min_length: 12
       forbidden_values:
         - "admin"
-    - label: PostgreSQL superuser password
+    - label: Database admin password
       variable: vault_database_superuser_password
       min_length: 12
       forbidden_values:
         - "SuperuserPassword123!"
-    - label: PostgreSQL application password
+    - label: Application database password
       variable: vault_database_app_password
       min_length: 12
       forbidden_values:
@@ -82,7 +82,7 @@
   loop:
     - workload: Forgejo and general application workloads
       pool: "{{ forgejo.pool }}"
-    - workload: CloudNativePG
+    - workload: database backend
       pool: "{{ database.pool }}"
     - workload: OpenSearch and logging
       pool: "{{ opensearch.pool }}"
@@ -93,6 +93,92 @@
   loop_control:
     label: "{{ item.pool }}"
   when: (groups[cluster_topology.pool_group_prefix ~ item.pool] | default([]) | length) == 0
+  run_once: true
+
+- name: Validate database availability goal value
+  ansible.builtin.fail:
+    msg: >-
+      Unsupported database.availability_goal='{{ database.availability_goal }}'.
+      Supported values are 'dev', 'replication', and 'quorum_ha'.
+  when: database.availability_goal not in ['dev', 'replication', 'quorum_ha']
+  run_once: true
+
+- name: Compute database pool capacity facts
+  ansible.builtin.set_fact:
+    database_pool_hosts_count: "{{ groups[cluster_topology.pool_group_prefix ~ database.pool] | default([]) | length }}"
+    database_pg_instances: "{{ database.postgresql.instances | default(1) | int }}"
+    database_mongo_members: "{{ database.mongodb.members | default(1) | int }}"
+  run_once: true
+
+- name: Validate PostgreSQL instance count
+  ansible.builtin.fail:
+    msg: >-
+      PostgreSQL requires at least 1 instance, but database.postgresql.instances
+      is set to {{ database_pg_instances }}.
+  when:
+    - database.type == 'postgresql'
+    - database_pg_instances < 1
+  run_once: true
+
+- name: Validate PostgreSQL spread capacity
+  ansible.builtin.fail:
+    msg: >-
+      PostgreSQL requests {{ database_pg_instances }} instances with
+      database.scheduling.spread_policy='{{ database.scheduling.spread_policy }}',
+      but pool '{{ database.pool }}' only has {{ database_pool_hosts_count }} node(s).
+      Add more database nodes, lower instance count, or relax spread_policy.
+  when:
+    - database.type == 'postgresql'
+    - database.scheduling.spread_policy == 'required'
+    - database_pg_instances > database_pool_hosts_count
+  run_once: true
+
+- name: Validate MongoDB member count
+  ansible.builtin.fail:
+    msg: >-
+      MongoDB requires at least 1 member, but database.mongodb.members is set to
+      {{ database_mongo_members }}.
+  when:
+    - database.type == 'mongodb'
+    - database_mongo_members < 1
+  run_once: true
+
+- name: Validate MongoDB spread capacity
+  ansible.builtin.fail:
+    msg: >-
+      MongoDB requests {{ database_mongo_members }} member(s) with
+      database.scheduling.spread_policy='{{ database.scheduling.spread_policy }}',
+      but pool '{{ database.pool }}' only has {{ database_pool_hosts_count }} node(s).
+      Add more database nodes, lower member count, or relax spread_policy.
+  when:
+    - database.type == 'mongodb'
+    - database.scheduling.spread_policy == 'required'
+    - database_mongo_members > database_pool_hosts_count
+  run_once: true
+
+- name: Validate MongoDB quorum HA requirements
+  ansible.builtin.fail:
+    msg: >-
+      MongoDB with database.availability_goal='quorum_ha' needs an odd number of
+      voting members and at least 3 data-bearing members. Current configuration
+      sets database.mongodb.members={{ database_mongo_members }}.
+  when:
+    - database.type == 'mongodb'
+    - database.availability_goal == 'quorum_ha'
+    - database_mongo_members < 3 or (database_mongo_members % 2) == 0
+  run_once: true
+
+- name: Warn when MongoDB replication mode does not provide automatic quorum failover
+  ansible.builtin.debug:
+    msg: >-
+      MongoDB is running in availability_goal='{{ database.availability_goal }}'
+      with {{ database_mongo_members }} member(s). Replication works, but losing
+      a member may leave the replica set without a writable primary. Use 3 or
+      more odd members for automatic quorum failover.
+  when:
+    - database.type == 'mongodb'
+    - database.availability_goal != 'quorum_ha'
+    - database_mongo_members < 3 or (database_mongo_members % 2) == 0
   run_once: true
 
 # ============================================================
@@ -259,6 +345,8 @@
       repo_url: https://prometheus-community.github.io/helm-charts
     - name: cnpg
       repo_url: https://cloudnative-pg.github.io/charts
+    - name: mongodb
+      repo_url: https://mongodb.github.io/helm-charts
     - name: fluent
       repo_url: https://fluent.github.io/helm-charts
   when: inventory_hostname in groups['master']

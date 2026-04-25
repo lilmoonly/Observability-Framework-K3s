@@ -1,0 +1,105 @@
+apiVersion: mongodbcommunity.mongodb.com/v1
+kind: MongoDBCommunity
+metadata:
+  name: {{ database.mongodb.cluster_name }}
+  namespace: {{ database.namespace }}
+spec:
+  members: {{ database.mongodb.members }}
+  type: ReplicaSet
+  version: "{{ database.mongodb.version }}"
+  persistent: true
+  security:
+    authentication:
+      modes:
+        - SCRAM
+  users:
+    - name: "{{ database.mongodb.admin_user }}"
+      db: admin
+      passwordSecretRef:
+        name: mongodb-admin-password
+      roles:
+        - name: clusterAdmin
+          db: admin
+        - name: userAdminAnyDatabase
+          db: admin
+        - name: readWriteAnyDatabase
+          db: admin
+      scramCredentialsSecretName: "{{ database.mongodb.cluster_name }}-admin-scram"
+    - name: "{{ database.app_user }}"
+      db: "{{ database.app_db_name }}"
+      passwordSecretRef:
+        name: mongodb-app-password
+      roles:
+        - name: readWrite
+          db: "{{ database.app_db_name }}"
+      scramCredentialsSecretName: "{{ database.mongodb.cluster_name }}-app-scram"
+  additionalMongodConfig:
+    storage.wiredTiger.engineConfig.journalCompressor: zlib
+  statefulSet:
+    spec:
+      template:
+        metadata:
+          labels:
+            observability.framework/mongodb-cluster: "{{ database.mongodb.cluster_name }}"
+        spec:
+          nodeSelector:
+            workload: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
+          tolerations:
+            - key: "workload"
+              operator: "Equal"
+              value: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
+              effect: "{{ cluster_topology.node_pools[database.pool].taints[0].effect }}"
+          affinity:
+            {% if database.scheduling.spread_policy == 'required' %}
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      observability.framework/mongodb-cluster: "{{ database.mongodb.cluster_name }}"
+                  topologyKey: "{{ database.scheduling.topology_key }}"
+            {% elif database.scheduling.spread_policy == 'preferred' %}
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchLabels:
+                        observability.framework/mongodb-cluster: "{{ database.mongodb.cluster_name }}"
+                    topologyKey: "{{ database.scheduling.topology_key }}"
+            {% endif %}
+          containers:
+            - name: mongod
+              resources:
+                requests:
+                  cpu: "250m"
+                  memory: "512Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "1Gi"
+            - name: mongodb-agent
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "250m"
+                  memory: "512Mi"
+      volumeClaimTemplates:
+        - metadata:
+            name: data-volume
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: "{{ database.storage_size }}"
+            storageClassName: "{{ storage.storage_class }}"
+        - metadata:
+            name: logs-volume
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: "1Gi"
+            storageClassName: "{{ storage.storage_class }}"

@@ -25,6 +25,7 @@ artifact_versions:
     fluent_bit: "0.54.0"
     kube_prometheus_stack: "80.13.3"
     cloudnative_pg: "0.26.1"
+    mongodb_kubernetes: "1.7.0"
     forgejo: "16.0.2"
 
 # This token is loaded from the encrypted secrets file.
@@ -64,7 +65,7 @@ cluster_topology:
           value: "general"
           effect: "NoSchedule"
     database:
-      description: "Stateful data services such as CloudNativePG"
+      description: "Stateful data services such as PostgreSQL or MongoDB"
       workload_label: "database"
       taints:
         - key: "workload"
@@ -118,22 +119,57 @@ monitoring:
   pool: "monitoring"
 
 # ==========================================
-# 6. DATABASE WORKER (CloudNativePG)
+# 6. DATABASE WORKER (CloudNativePG or MongoDB)
 # ==========================================
 database:
-  type: "postgresql"
-  cluster_name: "app-db-cluster"
-  instances: 1
-  storage_size: "2Gi"
+  # Supported values:
+  #   - postgresql
+  #   - mongodb
+  type: "mongodb"
+  # availability_goal controls how strictly the framework validates
+  # the selected backend topology:
+  #   - dev: single node/member is acceptable
+  #   - replication: replicated data is desired, but quorum failover
+  #                  is not required
+  #   - quorum_ha: lose-one-node failover should remain possible
+  availability_goal: "quorum_ha"
+  namespace: "db"
   pool: "database"
   force_recreate: false
-  # Superuser password for CNPG operator internal management
-  superuser_password: "{{ vault_database_superuser_password }}"
+  storage_size: "2Gi"
   app_db_name: "app"
   app_user: "appuser"
   app_password: "{{ vault_database_app_password }}"
+  scheduling:
+    # Spread policy options:
+    #   - required: every member/instance must land on a different node
+    #   - preferred: spread when possible, but allow co-location
+    #   - none: no anti-affinity spreading at all
+    spread_policy: "required"
+    # topology_key controls what "different node/location" means.
+    # Common values:
+    #   - kubernetes.io/hostname
+    #   - topology.kubernetes.io/zone
+    topology_key: "kubernetes.io/hostname"
+
+  # PostgreSQL-specific settings
+  cluster_name: "app-db-cluster"
+  superuser_password: "{{ vault_database_superuser_password }}"
   port: 5432
   host: "app-db-cluster-rw.db.svc.cluster.local"
+  postgresql:
+    instances: 2
+
+  # MongoDB-specific settings
+  mongodb:
+    operator_namespace: "mongodb-system"
+    cluster_name: "app-mongo-rs"
+    host: "app-mongo-rs-svc.db.svc.cluster.local"
+    port: 27017
+    version: "7.0.5"
+    members: 3
+    admin_user: "mongo-admin"
+    admin_password: "{{ vault_database_superuser_password }}"
 
 # ==========================================
 # 7. AI ANOMALY ENGINE
@@ -205,7 +241,6 @@ storage:
 # ==========================================
 replicas:
   opensearch: 1
-  postgres: 2   # 1 Primary + 1 Replica
 
 # ==========================================
 # 11. SERVICE PORTS

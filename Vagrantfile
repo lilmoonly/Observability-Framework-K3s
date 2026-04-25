@@ -1,9 +1,9 @@
 nodes = [
   { :name => "k8s-ctrl",     :ip => "192.168.56.10", :mem => 2048, :cpu => 2 },
   { :name => "app-node-1",   :ip => "192.168.56.11", :mem => 768,  :cpu => 1 },
-  { :name => "app-node-2",   :ip => "192.168.56.12", :mem => 768,  :cpu => 1 },
-  { :name => "db-node-1",    :ip => "192.168.56.13", :mem => 1024, :cpu => 1 },
-  { :name => "db-node-2",    :ip => "192.168.56.14", :mem => 1024, :cpu => 1 },
+  { :name => "db-node-1",    :ip => "192.168.56.13", :mem => 768,  :cpu => 1 },
+  { :name => "db-node-2",    :ip => "192.168.56.14", :mem => 768, :cpu => 1 },
+  { :name => "db-node-3",    :ip => "192.168.56.18", :mem => 768, :cpu => 1 },
   { :name => "logging-node", :ip => "192.168.56.15", :mem => 2048, :cpu => 2 },
   { :name => "monitor-node", :ip => "192.168.56.16", :mem => 2048, :cpu => 2 },
   { :name => "ai-node",      :ip => "192.168.56.17", :mem => 512,  :cpu => 1 }

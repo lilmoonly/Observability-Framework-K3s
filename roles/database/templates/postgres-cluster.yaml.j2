@@ -2,10 +2,10 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: {{ database.cluster_name }}
-  namespace: db
+  namespace: {{ database.namespace }}
 spec:
 
-  instances: {{ replicas.postgres }}
+  instances: {{ database.postgresql.instances }}
 
   # --------------------------------------------------------
   # PostgreSQL tuning for replication stability on slow VMs
@@ -65,9 +65,9 @@ spec:
   # run elsewhere if that pool is unavailable.
   # --------------------------------------------------------
   affinity:
-    enablePodAntiAffinity: true
-    topologyKey: "kubernetes.io/hostname"
-    podAntiAffinityType: "required"
+    enablePodAntiAffinity: {{ database.scheduling.spread_policy != 'none' }}
+    topologyKey: "{{ database.scheduling.topology_key }}"
+    podAntiAffinityType: "{{ 'required' if database.scheduling.spread_policy == 'required' else 'preferred' }}"
     nodeSelector:
       workload: "{{ cluster_topology.node_pools[database.pool].workload_label }}"
     tolerations:

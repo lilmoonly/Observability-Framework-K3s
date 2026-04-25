@@ -7,10 +7,10 @@
 #   1. common      — Prepare all nodes (tools, packages, config)
 #   2. k3s_master  — Bootstrap the K3s control plane
 #   3. k3s_worker  — Join workers + label nodes
-#   4. database    — CNPG operator + PostgreSQL cluster
+#   4. database    — CNPG + PostgreSQL or MongoDB operator + replica set
 #   5. logging     — OpenSearch + Fluent-bit
 #   6. monitoring  — Prometheus + Grafana
-#   7. ai_engine   — PyOD anomaly detection on the AI node
+#   7. ai_engine   — anomaly detection on the AI node
 #   8. ingress     — Traefik ingress rules for all services
 #   9. forgejo     — Forgejo Git server
 # ==============================================================
@@ -61,9 +61,10 @@
 # --------------------------------------------------------------
 # Phase 4 — Deploy database layer
 # Runs on master (delegates to k8s API).
-# Installs CNPG operator, creates PostgreSQL cluster,
-# verifies replication between primary and replica.
-# Must complete before any application role runs.
+# Installs the selected database backend:
+#   - CloudNativePG + PostgreSQL
+#   - MongoDB Controllers for Kubernetes + replica set
+# Must complete before any database-backed application role runs.
 # --------------------------------------------------------------
 - name: Phase 4 - Deploy Database Layer
   hosts: master
@@ -144,8 +145,8 @@
 
 # --------------------------------------------------------------
 # Phase 9 — Deploy Forgejo + create its Ingress
-# Forgejo role creates the namespace, deploys the app
-# and creates its own Ingress at the end.
+# Forgejo remains the PostgreSQL-backed example workload.
+# It is skipped automatically when database.type != postgresql.
 # --------------------------------------------------------------
 - name: Phase 9 - Deploy Forgejo
   hosts: master
@@ -154,4 +155,5 @@
     - phase9
     - forgejo
   roles:
-    - forgejo
+    - role: forgejo
+      when: database.type == 'postgresql'

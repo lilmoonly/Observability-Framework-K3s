@@ -1,13 +1,13 @@
 # AI-Powered K3s Observability Framework
 
-This repository provisions a reusable K3s observability framework with Ansible and Vagrant. The default lab profile is an 8-node reference environment with dedicated HA-ready app and database pools, while worker placement stays pool-based so the same roles can be reused across larger topologies without rewriting scheduling logic.
+This repository provisions a reusable K3s observability framework with Ansible and Vagrant. The default lab profile is an 8-node reference environment with a lightweight app pool and a 3-node database pool so the same roles can be reused across larger topologies without rewriting scheduling logic.
 
 The framework is opinionated about platform observability, but application roles can stay lightweight. Forgejo is included as an example workload, not as the core purpose of the project.
 
 ## What This Framework Deploys
 
 - A pool-based K3s topology for general, database, logging, monitoring, and AI workloads
-- CloudNativePG for PostgreSQL
+- CloudNativePG for PostgreSQL or MongoDB Controllers for Kubernetes for MongoDB Community replica sets
 - OpenSearch and OpenSearch Dashboards for logs and AI anomaly documents
 - Fluent Bit for cluster-wide log shipping
 - kube-prometheus-stack with Prometheus, Alertmanager, Grafana, kube-state-metrics, and node-exporter
@@ -21,9 +21,9 @@ The framework is opinionated about platform observability, but application roles
 | --- | --- | --- | --- |
 | 1 | `k8s-ctrl` | `192.168.56.10` | K3s control plane and Ansible control target |
 | 2 | `app-node-1` | `192.168.56.11` | `general` worker pool |
-| 3 | `app-node-2` | `192.168.56.12` | `general` worker pool |
-| 4 | `db-node-1` | `192.168.56.13` | `database` worker pool |
-| 5 | `db-node-2` | `192.168.56.14` | `database` worker pool |
+| 3 | `db-node-1` | `192.168.56.13` | `database` worker pool |
+| 4 | `db-node-2` | `192.168.56.14` | `database` worker pool |
+| 5 | `db-node-3` | `192.168.56.18` | `database` worker pool |
 | 6 | `logging-node` | `192.168.56.15` | `logging` worker pool |
 | 7 | `monitor-node` | `192.168.56.16` | `monitoring` worker pool |
 | 8 | `ai-node` | `192.168.56.17` | `ai` worker pool |
@@ -38,7 +38,7 @@ The framework now uses named worker pools instead of hardcoded node identities.
 - Workloads target pools like `forgejo.pool`, `database.pool`, `monitoring.pool`, `opensearch.pool`, and `ai_engine.pool`
 - Today the control plane is still single-node, but worker pools can now scale horizontally by adding more hosts to the corresponding `pool_*` groups
 - Smaller topologies can share infrastructure by pointing multiple workload settings at the same pool, for example `monitoring.pool: general` and `ai_engine.pool: general`
-- The default lab now uses two `general` nodes and two `database` nodes so application workloads and CloudNativePG have room for node-level HA without scaling monitoring, logging, or AI yet
+- The default lab now uses one `general` node and three `database` nodes so the lab stays lighter for example apps while both PostgreSQL and MongoDB can be exercised with quorum-style database layouts
 
 ## Stack
 
@@ -46,6 +46,7 @@ The framework now uses named worker pools instead of hardcoded node identities.
 - Ansible
 - Vagrant + VirtualBox
 - CloudNativePG
+- MongoDB Controllers for Kubernetes
 - OpenSearch
 - OpenSearch Dashboards
 - Fluent Bit
@@ -53,20 +54,20 @@ The framework now uses named worker pools instead of hardcoded node identities.
 - Grafana
 - Alertmanager
 - Traefik
-- Python + PyOD
+- Python + scikit-learn
 
 ## Repository Layout
 
 - [site.yml](site.yml) - master playbook with phase tags
 - [inventory/inventory.ini](inventory/inventory.ini) - node inventory
-- [inventory/examples/lab.inventory.ini](inventory/examples/lab.inventory.ini) - reference 8-node pool-based inventory
-- [inventory/examples/scaled.inventory.ini](inventory/examples/scaled.inventory.ini) - larger worker-pool example
+- [inventory/examples/lab.inventory.ini](inventory/examples/lab.inventory.ini) - reference 8-node pool-based inventory with 3 database nodes
+- [inventory/examples/scaled.inventory.ini](inventory/examples/scaled.inventory.ini) - larger worker-pool example with 3 database nodes for quorum-style MongoDB HA
 - [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) - framework-wide non-secret configuration
 - [inventory/group_vars/all/secrets.yml.example](inventory/group_vars/all/secrets.yml.example) - example secrets file for vault-managed values
 - [roles/common](roles/common) - base OS and tooling setup
 - [roles/k3s_master](roles/k3s_master) - control plane bootstrap and Traefik metrics
 - [roles/k3s_worker](roles/k3s_worker) - worker join, taints, and labels
-- [roles/database](roles/database) - CloudNativePG operator and PostgreSQL cluster
+- [roles/database](roles/database) - switchable PostgreSQL or MongoDB database backend
 - [roles/logging](roles/logging) - OpenSearch, OpenSearch Dashboards, Fluent Bit, OpenSearch exporter
 - [roles/monitoring](roles/monitoring) - kube-prometheus-stack and vendored dashboards
 - [roles/ai_engine](roles/ai_engine) - anomaly detector service, metrics, and AI dashboard
@@ -82,7 +83,7 @@ The full deployment is split into nine tagged phases in [site.yml](site.yml).
 | 1 | `phase1`, `common` | `common` | Base packages, kernel settings, Helm, networking fixes |
 | 2 | `phase2`, `k3s_master` | `k3s_master` | K3s control plane and Traefik metrics |
 | 3 | `phase3`, `k3s_worker` | `k3s_worker` | Worker join, node labels, taints |
-| 4 | `phase4`, `database` | `database` | CloudNativePG operator and PostgreSQL cluster |
+| 4 | `phase4`, `database` | `database` | CloudNativePG PostgreSQL or MongoDB operator-managed replica set |
 | 5 | `phase5`, `logging` | `logging` | OpenSearch, OpenSearch Dashboards, Fluent Bit, exporter |
 | 6 | `phase6`, `monitoring` | `monitoring` | Prometheus, Grafana, Alertmanager, vendored dashboards |
 | 7 | `phase7`, `ai_engine` | `ai_engine` | AI anomaly detector, ServiceMonitor, AI dashboard |
@@ -122,6 +123,31 @@ Important settings live under:
 
 The default inventory is [inventory/inventory.ini](inventory/inventory.ini). You can also copy one of the pool-based examples from [inventory/examples/lab.inventory.ini](inventory/examples/lab.inventory.ini) or [inventory/examples/scaled.inventory.ini](inventory/examples/scaled.inventory.ini) and adapt it to your environment.
 
+Database backend selection lives in `database.type`:
+
+- `postgresql` deploys CloudNativePG and keeps Forgejo as the example app
+- `mongodb` deploys a MongoDB Community replica set through MongoDB Controllers for Kubernetes and skips Forgejo automatically
+
+Database availability and scaling are now configured explicitly:
+
+- `database.availability_goal`
+  - `dev` allows single-node/member layouts
+  - `replication` allows data replication without requiring node-loss failover
+  - `quorum_ha` requires a topology that can keep service after losing one node
+- `database.scheduling.spread_policy`
+  - `required` means members must land on distinct nodes
+  - `preferred` means spreading is best-effort
+  - `none` disables anti-affinity spreading
+- `database.postgresql.instances` controls CNPG instance count
+- `database.mongodb.members` controls MongoDB replica-set member count
+
+Important MongoDB note:
+
+- if you want MongoDB to behave like a true HA database, use `database.availability_goal: quorum_ha`
+- the framework then expects at least 3 MongoDB members and enough database nodes to spread them
+- the default lab now includes 3 database nodes, which is enough for MongoDB quorum-style HA when `database.mongodb.members: 3`
+- for MongoDB quorum HA, use [inventory/examples/scaled.inventory.ini](inventory/examples/scaled.inventory.ini) or add a third database node to your own inventory
+
 ### 2a. Deterministic Artifact Pins
 
 Phase 3 packaging work now centralizes the main version pins in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) under `artifact_versions`.
@@ -130,7 +156,7 @@ This currently pins:
 
 - Helm CLI version
 - Python Kubernetes client version used by Ansible hosts
-- Helm chart versions for OpenSearch, OpenSearch Dashboards, Fluent Bit, kube-prometheus-stack, CloudNativePG, and Forgejo
+- Helm chart versions for OpenSearch, OpenSearch Dashboards, Fluent Bit, kube-prometheus-stack, CloudNativePG, MongoDB Controllers for Kubernetes, and Forgejo
 - The K3s binary version via `k3s_version`
 
 This means reruns no longer drift just because an upstream chart repository published a newer release between installs.
@@ -149,7 +175,7 @@ This file is intentionally ignored by git and should hold:
 - K3s cluster join token
 - OpenSearch admin password
 - Grafana admin password
-- PostgreSQL passwords
+- database passwords
 - Forgejo admin password
 
 The playbook now fails early if this file still contains placeholders or the old demo credentials.
@@ -219,6 +245,12 @@ Prometheus scrapes:
 - OpenSearch exporter metrics
 - Forgejo metrics
 
+MongoDB note:
+
+- MongoDB backend deployment is supported in Phase 4
+- MongoDB quorum HA expects 3 or more odd members on distinct database nodes
+- dedicated MongoDB metrics scraping and dashboards are not bundled yet in this repo version
+
 ### Grafana Dashboards
 
 Grafana is configured with vendored dashboard JSON files, so production deployments do not require outbound internet access.
@@ -266,7 +298,7 @@ What it does:
 - Queries Prometheus on a schedule
 - Builds a multivariate feature vector from recent cluster, namespace, pod, ingress, and control-plane metrics
 - Computes a rolling median baseline and residuals so gradual growth is less likely to be treated as an incident
-- Trains a PyOD Isolation Forest model on recent residual history
+- Trains a scikit-learn Isolation Forest model on recent residual history
 - Combines model output with rule-based checks for obvious incidents
 - Scores the newest time window against that learned baseline
 - Exposes its own Prometheus metrics for Grafana
