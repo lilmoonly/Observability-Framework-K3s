@@ -231,15 +231,17 @@
   become: true
   delegate_to: "{{ groups[cluster_topology.pool_group_prefix ~ database.pool] | first }}"
   ansible.builtin.shell: |
-    curl -sk https://{{ master_ip }}:6443/healthz
+    curl -sk -o /dev/null -w "%{http_code}" https://{{ master_ip }}:6443/healthz
   register: api_reach
   changed_when: false
-  failed_when: api_reach.rc != 0 or api_reach.stdout | trim != "ok"
+  failed_when: api_reach.rc != 0 or (api_reach.stdout | trim) not in ['200', '401', '403']
   run_once: true
 
 - name: Show API reachability from database pool
   ansible.builtin.debug:
-    msg: "{{ groups[cluster_topology.pool_group_prefix ~ database.pool] | first }} -> API server: {{ api_reach.stdout }}"
+    msg: >-
+      {{ groups[cluster_topology.pool_group_prefix ~ database.pool] | first }}
+      -> API server HTTP {{ api_reach.stdout | trim }}
   run_once: true
 
 # ============================================================
