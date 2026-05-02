@@ -289,6 +289,7 @@ Alert notifications:
 
 - Alertmanager notification routing is configured from the top-level `alerting` block in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml)
 - Email, Telegram, Slack, Webex, and PagerDuty notifications use the same formatted alert style with status/severity emoji, alert-type emoji, grouped alert count, Kubernetes labels, and a Prometheus query link when available
+- Grouped notifications show one shared summary/description plus a compact affected-target list, so repeated scrape-target alerts do not spam the same explanation over and over
 - Email, Telegram, Slack, Webex, and PagerDuty receivers are optional; PagerDuty defaults to critical alerts only
 - Non-secret settings such as SMTP host, sender, recipient, and routing intervals live in `alerting`
 - Sensitive values live in [inventory/group_vars/all/secrets.yml](inventory/group_vars/all/secrets.yml)
