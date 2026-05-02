@@ -51,12 +51,6 @@
       value: "{{ alerting.email.to | default('') }}"
       placeholder: "ops@example.com"
       must_contain: "@"
-    - label: Alerting Telegram chat ID
-      enabled: "{{ alerting.enabled | default(false) | bool and alerting.telegram.enabled | default(false) | bool }}"
-      value: "{{ alerting.telegram.chat_id | default('') }}"
-      placeholder: "replace-with-telegram-chat-id"
-      must_contain: ""
-      regex: "^-?[0-9]+$"
   loop_control:
     label: "{{ item.label }}"
   when:

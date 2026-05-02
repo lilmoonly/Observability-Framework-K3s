@@ -7,8 +7,8 @@ global:
   smtp_from: {{ alerting.email.from | quote }}
   smtp_require_tls: {{ alerting.email.require_tls | default(true) | bool | lower }}
 {% if alerting.email.auth_enabled | default(true) | bool %}
-  smtp_auth_username: {{ alerting.email.auth_username | quote }}
-  smtp_auth_password: {{ alerting.email.auth_password | quote }}
+  smtp_auth_username: {{ vars.vault_alertmanager_smtp_username | quote }}
+  smtp_auth_password: {{ vars.vault_alertmanager_smtp_password | quote }}
 {% endif %}
 {% endif %}
 
@@ -72,8 +72,8 @@ receivers:
 {% if telegram_enabled %}
   - name: "telegram"
     telegram_configs:
-      - bot_token: {{ alerting.telegram.bot_token | quote }}
-        chat_id: {{ alerting.telegram.chat_id }}
+      - bot_token: {{ vars.vault_alertmanager_telegram_bot_token | quote }}
+        chat_id: {{ vars.vault_alertmanager_telegram_chat_id | int }}
         parse_mode: "HTML"
         send_resolved: {{ alerting.telegram.send_resolved | default(true) | bool | lower }}
         message: |-

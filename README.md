@@ -288,17 +288,39 @@ The initial thresholds live under `monitoring.alerts` in [inventory/group_vars/a
 Alert notifications:
 
 - Alertmanager notification routing is configured from the top-level `alerting` block in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml)
-- Email and Telegram receivers are enabled by default
+- Email and Telegram receivers are optional and disabled by default
 - Non-secret settings such as SMTP host, sender, recipient, and routing intervals live in `alerting`
 - Sensitive values live in [inventory/group_vars/all/secrets.yml](inventory/group_vars/all/secrets.yml)
 
-Required secret values when both receivers are enabled:
+Required secret values when the matching receiver is enabled:
 
 ```yaml
 vault_alertmanager_smtp_username: "your-smtp-username"
 vault_alertmanager_smtp_password: "your-smtp-password-or-app-password"
 vault_alertmanager_telegram_bot_token: "123456789:telegram-bot-token"
 vault_alertmanager_telegram_chat_id: "-1001234567890"
+```
+
+Enable Telegram only:
+
+```yaml
+alerting:
+  enabled: true
+  email:
+    enabled: false
+  telegram:
+    enabled: true
+```
+
+Enable email only:
+
+```yaml
+alerting:
+  enabled: true
+  email:
+    enabled: true
+  telegram:
+    enabled: false
 ```
 
 Telegram setup:
