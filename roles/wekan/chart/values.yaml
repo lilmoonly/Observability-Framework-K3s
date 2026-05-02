@@ -19,6 +19,12 @@ existingSecret:
   name: wekan-mongodb-secret
   mongoUrlKey: MONGO_URL
 
+adminSecret:
+  name: wekan-admin-secret
+  usernameKey: username
+  emailKey: email
+  passwordKey: password
+
 env:
   rootUrl: http://wekan.local
   port: "8080"
@@ -26,8 +32,19 @@ env:
   mailUrl: "smtp://127.0.0.1:25/"
   mailFrom: "WeKan <noreply@wekan.local>"
   emailNotificationTimeout: "1000"
+  meteorReactivityOrder: "polling"
+  nodeOptions: "--max_old_space_size=512"
+  writablePath: "/data"
 
 resources: {}
+
+extraVolumes:
+  - name: wekan-data
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: wekan-data
+    mountPath: /data
 
 nodeSelector: {}
 tolerations: []

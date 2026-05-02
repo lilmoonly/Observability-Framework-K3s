@@ -277,6 +277,9 @@ wekan:
   mail_url: "smtp://127.0.0.1:25/"
   mail_from: "WeKan <noreply@wekan.local>"
   email_notification_timeout: "1000"
+  meteor_reactivity_order: "polling"
+  node_options: "--max_old_space_size=512"
+  writable_path: "/data"
   image:
     repository: "wekanteam/wekan"
     tag: "{{ artifact_versions.images.wekan }}"
@@ -285,10 +288,10 @@ wekan:
   resources:
     requests:
       cpu: "100m"
-      memory: "384Mi"
+      memory: "512Mi"
     limits:
       cpu: "500m"
-      memory: "1Gi"
+      memory: "1536Mi"
 
 # ==========================================
 # 9. PRODUCTION STORAGE SETTINGS

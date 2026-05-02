@@ -6,6 +6,8 @@ metadata:
     {{- include "wekan.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "wekan.selectorLabels" . | nindent 6 }}
@@ -52,11 +54,32 @@ spec:
               value: {{ .Values.env.mailFrom | quote }}
             - name: EMAIL_NOTIFICATION_TIMEOUT
               value: {{ .Values.env.emailNotificationTimeout | quote }}
+            - name: METEOR_REACTIVITY_ORDER
+              value: {{ .Values.env.meteorReactivityOrder | quote }}
+            - name: NODE_OPTIONS
+              value: {{ .Values.env.nodeOptions | quote }}
+            - name: WRITABLE_PATH
+              value: {{ .Values.env.writablePath | quote }}
+            - name: ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.adminSecret.name }}
+                  key: {{ .Values.adminSecret.usernameKey }}
+            - name: ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.adminSecret.name }}
+                  key: {{ .Values.adminSecret.emailKey }}
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.adminSecret.name }}
+                  key: {{ .Values.adminSecret.passwordKey }}
           startupProbe:
             tcpSocket:
               port: http
             periodSeconds: 10
-            failureThreshold: 90
+            failureThreshold: 180
           readinessProbe:
             tcpSocket:
               port: http
@@ -69,4 +92,12 @@ spec:
             periodSeconds: 20
             failureThreshold: 6
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+{{ toYaml .Values.resources | indent 12 }}
+          {{ with .Values.extraVolumeMounts }}
+          volumeMounts:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+      {{ with .Values.extraVolumes }}
+      volumes:
+{{ toYaml . | indent 8 }}
+      {{- end }}

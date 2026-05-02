@@ -65,6 +65,25 @@
           mongodb://{{ database.app_user | urlencode }}:{{ database.app_password | urlencode }}@{{ database.mongodb.host }}:{{ database.mongodb.port | int }}/{{ database.app_db_name }}?replicaSet={{ database.mongodb.cluster_name }}&authSource={{ database.app_db_name }}
   no_log: true
 
+- name: Create WeKan admin secret
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: wekan-admin-secret
+        namespace: "{{ wekan.namespace }}"
+      type: Opaque
+      stringData:
+        username: "{{ wekan.admin_username }}"
+        email: "{{ wekan.admin_email }}"
+        password: "{{ wekan.admin_password }}"
+  no_log: true
+
 - name: Stage WeKan Helm chart on the control-plane node
   become: true
   delegate_to: k8s-ctrl
@@ -104,10 +123,24 @@
         mailUrl: "{{ wekan.mail_url }}"
         mailFrom: "{{ wekan.mail_from }}"
         emailNotificationTimeout: "{{ wekan.email_notification_timeout | string }}"
+        meteorReactivityOrder: "{{ wekan.meteor_reactivity_order }}"
+        nodeOptions: "{{ wekan.node_options }}"
+        writablePath: "{{ wekan.writable_path }}"
       existingSecret:
         name: wekan-mongodb-secret
         mongoUrlKey: MONGO_URL
+      adminSecret:
+        name: wekan-admin-secret
+        usernameKey: username
+        emailKey: email
+        passwordKey: password
       resources: "{{ wekan.resources }}"
+      extraVolumes:
+        - name: wekan-data
+          emptyDir: {}
+      extraVolumeMounts:
+        - name: wekan-data
+          mountPath: "{{ wekan.writable_path }}"
       nodeSelector:
         workload: "{{ cluster_topology.node_pools[wekan.pool].workload_label }}"
       tolerations:
@@ -131,6 +164,52 @@
       - "{{ wekan.namespace }}"
       - --timeout=10m
   changed_when: false
+
+- name: Wait for WeKan pod to become Ready
+  become: true
+  delegate_to: k8s-ctrl
+  block:
+    - name: Wait for WeKan Ready condition
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - wait
+          - pod
+          - -n
+          - "{{ wekan.namespace }}"
+          - -l
+          - app.kubernetes.io/name=wekan,app.kubernetes.io/instance=wekan
+          - --for=condition=Ready
+          - --timeout=30m
+          - --kubeconfig
+          - /etc/rancher/k3s/k3s.yaml
+      changed_when: false
+  rescue:
+    - name: Capture WeKan pod diagnostics
+      ansible.builtin.shell: |
+        set +e
+        echo "== pods =="
+        kubectl get pods --kubeconfig /etc/rancher/k3s/k3s.yaml -n {{ wekan.namespace }} -o wide
+        echo
+        echo "== describe =="
+        kubectl describe pods --kubeconfig /etc/rancher/k3s/k3s.yaml -n {{ wekan.namespace }} -l app.kubernetes.io/name=wekan,app.kubernetes.io/instance=wekan
+        echo
+        echo "== logs =="
+        kubectl logs --kubeconfig /etc/rancher/k3s/k3s.yaml -n {{ wekan.namespace }} -l app.kubernetes.io/name=wekan,app.kubernetes.io/instance=wekan --tail=200
+        echo
+        echo "== previous logs =="
+        kubectl logs --kubeconfig /etc/rancher/k3s/k3s.yaml -n {{ wekan.namespace }} -l app.kubernetes.io/name=wekan,app.kubernetes.io/instance=wekan --previous --tail=200
+      register: wekan_ready_diagnostics
+      changed_when: false
+      failed_when: false
+
+    - name: Show WeKan readiness diagnostics
+      ansible.builtin.debug:
+        var: wekan_ready_diagnostics.stdout_lines
+
+    - name: Fail because WeKan did not become Ready
+      ansible.builtin.fail:
+        msg: "WeKan did not become Ready before admin bootstrap."
 
 - name: Look up WeKan service ClusterIP
   become: true
