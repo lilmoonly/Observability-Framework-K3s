@@ -119,6 +119,9 @@ monitoring:
   grafana_admin_password: "{{ vault_grafana_admin_password }}"
   prometheus_storage: "5Gi"
   pool: "monitoring"
+  # Keep Helm output hidden by default because the generated values include
+  # Grafana and Alertmanager secrets. Set to false only for one-off debugging.
+  helm_no_log: true
   alerts:
     enabled: true
     target_down_for: "10m"
@@ -152,11 +155,40 @@ alerting:
     to: "ops@example.com"
     require_tls: true
     auth_enabled: true
+    matchers:
+      - 'severity=~"warning|critical"'
   telegram:
     enabled: true
     send_resolved: true
     # Create a bot with BotFather, then store the token and chat ID
     # in inventory/group_vars/all/secrets.yml.
+    matchers:
+      - 'severity=~"warning|critical"'
+  slack:
+    enabled: false
+    send_resolved: true
+    channel: "#alerts"
+    # Uses a Slack incoming webhook URL stored in
+    # vault_alertmanager_slack_api_url.
+    matchers:
+      - 'severity=~"warning|critical"'
+  webex:
+    enabled: false
+    send_resolved: true
+    room_id: "replace-with-webex-room-id"
+    api_url: "https://webexapis.com/v1/messages"
+    # Uses a Webex bot token stored in
+    # vault_alertmanager_webex_bot_token.
+    matchers:
+      - 'severity=~"warning|critical"'
+  pagerduty:
+    enabled: false
+    send_resolved: true
+    # PagerDuty should usually page only critical alerts by default.
+    # Change to severity=~"warning|critical" if you really want
+    # warnings to create incidents too.
+    matchers:
+      - 'severity="critical"'
 
 # ==========================================
 # 6. DATABASE WORKER (CloudNativePG or MongoDB)

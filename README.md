@@ -288,8 +288,8 @@ The initial thresholds live under `monitoring.alerts` in [inventory/group_vars/a
 Alert notifications:
 
 - Alertmanager notification routing is configured from the top-level `alerting` block in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml)
-- Email and Telegram notifications use the same formatted alert style with status/severity emoji, alert-type emoji, grouped alert count, Kubernetes labels, and a Prometheus query link when available
-- Email and Telegram receivers are optional and disabled by default
+- Email, Telegram, Slack, Webex, and PagerDuty notifications use the same formatted alert style with status/severity emoji, alert-type emoji, grouped alert count, Kubernetes labels, and a Prometheus query link when available
+- Email, Telegram, Slack, Webex, and PagerDuty receivers are optional; PagerDuty defaults to critical alerts only
 - Non-secret settings such as SMTP host, sender, recipient, and routing intervals live in `alerting`
 - Sensitive values live in [inventory/group_vars/all/secrets.yml](inventory/group_vars/all/secrets.yml)
 
@@ -300,6 +300,9 @@ vault_alertmanager_smtp_username: "your-smtp-username"
 vault_alertmanager_smtp_password: "your-smtp-password-or-app-password"
 vault_alertmanager_telegram_bot_token: "123456789:telegram-bot-token"
 vault_alertmanager_telegram_chat_id: "-1001234567890"
+vault_alertmanager_slack_api_url: "https://hooks.slack.com/services/..."
+vault_alertmanager_webex_bot_token: "your-webex-bot-token"
+vault_alertmanager_pagerduty_routing_key: "your-pagerduty-events-api-v2-routing-key"
 ```
 
 Enable Telegram only:
@@ -324,6 +327,35 @@ alerting:
     enabled: false
 ```
 
+Enable Slack:
+
+```yaml
+alerting:
+  enabled: true
+  slack:
+    enabled: true
+    channel: "#alerts"
+```
+
+Enable Webex:
+
+```yaml
+alerting:
+  enabled: true
+  webex:
+    enabled: true
+    room_id: "your-webex-room-id"
+```
+
+Enable PagerDuty:
+
+```yaml
+alerting:
+  enabled: true
+  pagerduty:
+    enabled: true
+```
+
 Telegram setup:
 
 - create a bot with BotFather and put the token in `vault_alertmanager_telegram_bot_token`
@@ -335,6 +367,26 @@ Email setup:
 - set `alerting.email.smarthost` to `smtp-host:port`, for example `smtp.gmail.com:587`
 - set `alerting.email.from` and `alerting.email.to`
 - for Gmail, use an app password instead of your normal account password
+
+Slack setup:
+
+- create a Slack incoming webhook and store it as `vault_alertmanager_slack_api_url`
+- set `alerting.slack.channel` to the target channel
+
+Webex setup:
+
+- create a Webex bot and store its token as `vault_alertmanager_webex_bot_token`
+- add the bot to the target room and set `alerting.webex.room_id`
+
+PagerDuty setup:
+
+- create a PagerDuty Events API v2 integration and store the integration routing key as `vault_alertmanager_pagerduty_routing_key`
+- keep the default `severity="critical"` matcher unless you intentionally want warnings to page on-call
+
+Debug Helm failures:
+
+- monitoring Helm output is hidden by default because it can contain secrets
+- if the Helm task still fails and you need the real chart error, rerun once with `-e monitoring_helm_no_log=false`
 
 Verify alert rules:
 

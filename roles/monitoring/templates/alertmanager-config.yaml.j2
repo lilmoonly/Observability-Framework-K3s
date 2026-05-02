@@ -1,5 +1,9 @@
 {% set email_enabled = alerting.email.enabled | default(false) | bool %}
 {% set telegram_enabled = alerting.telegram.enabled | default(false) | bool %}
+{% set slack_enabled = alerting.slack.enabled | default(false) | bool %}
+{% set webex_enabled = alerting.webex.enabled | default(false) | bool %}
+{% set pagerduty_enabled = alerting.pagerduty.enabled | default(false) | bool %}
+{% set routed_receivers_enabled = email_enabled or telegram_enabled or slack_enabled or webex_enabled or pagerduty_enabled %}
 global:
   resolve_timeout: {{ alerting.resolve_timeout | default('5m') }}
 {% if email_enabled %}
@@ -23,18 +27,46 @@ route:
   group_wait: {{ alerting.route.group_wait | default('30s') }}
   group_interval: {{ alerting.route.group_interval | default('5m') }}
   repeat_interval: {{ alerting.route.repeat_interval | default('4h') }}
-{% if email_enabled or telegram_enabled %}
+{% if routed_receivers_enabled %}
   routes:
 {% if email_enabled %}
     - receiver: "email"
       matchers:
-        - severity=~"warning|critical"
+{% for matcher in alerting.email.matchers | default(['severity=~"warning|critical"']) %}
+        - {{ matcher | quote }}
+{% endfor %}
       continue: true
 {% endif %}
 {% if telegram_enabled %}
     - receiver: "telegram"
       matchers:
-        - severity=~"warning|critical"
+{% for matcher in alerting.telegram.matchers | default(['severity=~"warning|critical"']) %}
+        - {{ matcher | quote }}
+{% endfor %}
+      continue: true
+{% endif %}
+{% if slack_enabled %}
+    - receiver: "slack"
+      matchers:
+{% for matcher in alerting.slack.matchers | default(['severity=~"warning|critical"']) %}
+        - {{ matcher | quote }}
+{% endfor %}
+      continue: true
+{% endif %}
+{% if webex_enabled %}
+    - receiver: "webex"
+      matchers:
+{% for matcher in alerting.webex.matchers | default(['severity=~"warning|critical"']) %}
+        - {{ matcher | quote }}
+{% endfor %}
+      continue: true
+{% endif %}
+{% if pagerduty_enabled %}
+    - receiver: "pagerduty"
+      matchers:
+{% for matcher in alerting.pagerduty.matchers | default(['severity="critical"']) %}
+        - {{ matcher | quote }}
+{% endfor %}
       continue: true
 {% endif %}
 {% endif %}
@@ -117,6 +149,140 @@ receivers:
           {{ if .GeneratorURL }}<a href="{{ .GeneratorURL }}">Open in Prometheus</a>{{ end }}
 
           {{ end }}
+{% endraw %}
+{% endif %}
+{% if slack_enabled %}
+  - name: "slack"
+    slack_configs:
+      - api_url: {{ vars.vault_alertmanager_slack_api_url | quote }}
+        channel: {{ alerting.slack.channel | quote }}
+        send_resolved: {{ alerting.slack.send_resolved | default(true) | bool | lower }}
+        username: "Observability Framework"
+        icon_emoji: ":rotating_light:"
+        color: >-
+{% raw %}
+          {{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}danger{{ else if eq .CommonLabels.severity "warning" }}warning{{ else }}#439FE0{{ end }}{{ else }}good{{ end }}
+{% endraw %}
+        title: >-
+{% raw %}
+          {{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}🔴 FIRING CRITICAL{{ else if eq .CommonLabels.severity "warning" }}🟠 FIRING WARNING{{ else }}🔵 FIRING{{ end }}{{ else }}✅ RESOLVED{{ end }} | {{ .CommonLabels.alertname }}
+{% endraw %}
+        text: |-
+{% raw %}
+          {{ if match ".*(Primary|SplitBrain|Secondary|Replica|Replication).*" .CommonLabels.alertname }}🔁{{ else if match ".*(CrashLoop|Restart).*" .CommonLabels.alertname }}♻️{{ else if match ".*(Filesystem|Volume|PVC|Disk|Filling|Full).*" .CommonLabels.alertname }}💾{{ else if match ".*(Traefik|Ingress|5xx).*" .CommonLabels.alertname }}🌐{{ else if match ".*(Fluent|Log).*" .CommonLabels.alertname }}📜{{ else if match ".*OpenSearch.*" .CommonLabels.alertname }}🔎{{ else if match ".*(Mongo|Postgres|Database).*" .CommonLabels.alertname }}🗄️{{ else if match ".*(Node|Pod|Deployment|StatefulSet|Kubernetes).*" .CommonLabels.alertname }}☸️{{ else if match ".*(Target|Prometheus|Metrics|Collector).*" .CommonLabels.alertname }}🎯{{ else }}📣{{ end }} *{{ .CommonLabels.alertname }}*
+
+          *Severity:* `{{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}unknown{{ end }}`
+          *Category:* `{{ if .CommonLabels.category }}{{ .CommonLabels.category }}{{ else }}platform{{ end }}`
+          *Component:* `{{ if .CommonLabels.component }}{{ .CommonLabels.component }}{{ else }}kube-prometheus-stack{{ end }}`
+          *Grouped alerts:* `{{ len .Alerts }}`
+
+          {{ range .Alerts }}
+          *Summary:* {{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}No summary provided{{ end }}
+          *Description:* {{ if .Annotations.description }}{{ .Annotations.description }}{{ else }}No description provided{{ end }}
+          {{ if .Labels.namespace }}*Namespace:* `{{ .Labels.namespace }}`{{ end }}
+          {{ if .Labels.pod }}*Pod:* `{{ .Labels.pod }}`{{ end }}
+          {{ if .Labels.container }}*Container:* `{{ .Labels.container }}`{{ end }}
+          {{ if .Labels.node }}*Node:* `{{ .Labels.node }}`{{ end }}
+          {{ if .Labels.persistentvolumeclaim }}*PVC:* `{{ .Labels.persistentvolumeclaim }}`{{ end }}
+          {{ if .Labels.service }}*Service:* `{{ .Labels.service }}`{{ end }}
+          {{ if .Labels.job }}*Job:* `{{ .Labels.job }}`{{ end }}
+          {{ if .Labels.instance }}*Instance:* `{{ .Labels.instance }}`{{ end }}
+          {{ if .GeneratorURL }}<{{ .GeneratorURL }}|Open in Prometheus>{{ end }}
+
+          {{ end }}
+{% endraw %}
+{% endif %}
+{% if webex_enabled %}
+  - name: "webex"
+    webex_configs:
+      - api_url: {{ alerting.webex.api_url | default('https://webexapis.com/v1/messages') | quote }}
+        room_id: {{ alerting.webex.room_id | quote }}
+        send_resolved: {{ alerting.webex.send_resolved | default(true) | bool | lower }}
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: {{ vars.vault_alertmanager_webex_bot_token | quote }}
+        message: |-
+{% raw %}
+          {{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}🔴 FIRING CRITICAL{{ else if eq .CommonLabels.severity "warning" }}🟠 FIRING WARNING{{ else }}🔵 FIRING{{ end }}{{ else }}✅ RESOLVED{{ end }}
+          {{ if match ".*(Primary|SplitBrain|Secondary|Replica|Replication).*" .CommonLabels.alertname }}🔁{{ else if match ".*(CrashLoop|Restart).*" .CommonLabels.alertname }}♻️{{ else if match ".*(Filesystem|Volume|PVC|Disk|Filling|Full).*" .CommonLabels.alertname }}💾{{ else if match ".*(Traefik|Ingress|5xx).*" .CommonLabels.alertname }}🌐{{ else if match ".*(Fluent|Log).*" .CommonLabels.alertname }}📜{{ else if match ".*OpenSearch.*" .CommonLabels.alertname }}🔎{{ else if match ".*(Mongo|Postgres|Database).*" .CommonLabels.alertname }}🗄️{{ else if match ".*(Node|Pod|Deployment|StatefulSet|Kubernetes).*" .CommonLabels.alertname }}☸️{{ else if match ".*(Target|Prometheus|Metrics|Collector).*" .CommonLabels.alertname }}🎯{{ else }}📣{{ end }} **{{ .CommonLabels.alertname }}**
+
+          **Severity:** `{{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}unknown{{ end }}`
+          **Category:** `{{ if .CommonLabels.category }}{{ .CommonLabels.category }}{{ else }}platform{{ end }}`
+          **Component:** `{{ if .CommonLabels.component }}{{ .CommonLabels.component }}{{ else }}kube-prometheus-stack{{ end }}`
+          **Grouped alerts:** `{{ len .Alerts }}`
+
+          {{ range .Alerts }}
+          ---
+          **Summary:** {{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}No summary provided{{ end }}
+          **Description:** {{ if .Annotations.description }}{{ .Annotations.description }}{{ else }}No description provided{{ end }}
+          {{ if .Labels.namespace }}**Namespace:** `{{ .Labels.namespace }}`{{ end }}
+          {{ if .Labels.pod }}**Pod:** `{{ .Labels.pod }}`{{ end }}
+          {{ if .Labels.container }}**Container:** `{{ .Labels.container }}`{{ end }}
+          {{ if .Labels.node }}**Node:** `{{ .Labels.node }}`{{ end }}
+          {{ if .Labels.persistentvolumeclaim }}**PVC:** `{{ .Labels.persistentvolumeclaim }}`{{ end }}
+          {{ if .Labels.service }}**Service:** `{{ .Labels.service }}`{{ end }}
+          {{ if .Labels.job }}**Job:** `{{ .Labels.job }}`{{ end }}
+          {{ if .Labels.instance }}**Instance:** `{{ .Labels.instance }}`{{ end }}
+          {{ if .GeneratorURL }}[Open in Prometheus]({{ .GeneratorURL }}){{ end }}
+
+          {{ end }}
+{% endraw %}
+{% endif %}
+{% if pagerduty_enabled %}
+  - name: "pagerduty"
+    pagerduty_configs:
+      - routing_key: {{ vars.vault_alertmanager_pagerduty_routing_key | quote }}
+        send_resolved: {{ alerting.pagerduty.send_resolved | default(true) | bool | lower }}
+        client: "Observability Framework"
+        client_url: >-
+{% raw %}
+          {{ .ExternalURL }}
+{% endraw %}
+        description: >-
+{% raw %}
+          {{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}🔴 Critical{{ else if eq .CommonLabels.severity "warning" }}🟠 Warning{{ else }}🔵 Alert{{ end }}{{ else }}✅ Resolved{{ end }}: {{ .CommonLabels.alertname }}
+{% endraw %}
+        severity: >-
+{% raw %}
+          {{ if eq .CommonLabels.severity "critical" }}critical{{ else if eq .CommonLabels.severity "warning" }}warning{{ else }}info{{ end }}
+{% endraw %}
+        source: >-
+{% raw %}
+          {{ if .CommonLabels.namespace }}{{ .CommonLabels.namespace }}{{ else }}observability-framework{{ end }}
+{% endraw %}
+        component: >-
+{% raw %}
+          {{ if .CommonLabels.component }}{{ .CommonLabels.component }}{{ else }}kube-prometheus-stack{{ end }}
+{% endraw %}
+        group: >-
+{% raw %}
+          {{ if .CommonLabels.category }}{{ .CommonLabels.category }}{{ else }}platform{{ end }}
+{% endraw %}
+        class: >-
+{% raw %}
+          {{ .CommonLabels.alertname }}
+{% endraw %}
+        details:
+          alertname: >-
+{% raw %}
+            {{ .CommonLabels.alertname }}
+{% endraw %}
+          severity: >-
+{% raw %}
+            {{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}unknown{{ end }}
+{% endraw %}
+          category: >-
+{% raw %}
+            {{ if .CommonLabels.category }}{{ .CommonLabels.category }}{{ else }}platform{{ end }}
+{% endraw %}
+          component: >-
+{% raw %}
+            {{ if .CommonLabels.component }}{{ .CommonLabels.component }}{{ else }}kube-prometheus-stack{{ end }}
+{% endraw %}
+          grouped_alerts: >-
+{% raw %}
+            {{ len .Alerts }}
 {% endraw %}
 {% endif %}
 

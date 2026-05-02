@@ -51,6 +51,18 @@
       value: "{{ alerting.email.to | default('') }}"
       placeholder: "ops@example.com"
       must_contain: "@"
+    - label: Alerting Slack channel
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.slack.enabled | default(false) | bool }}"
+      value: "{{ alerting.slack.channel | default('') }}"
+      regex: '^#?[A-Za-z0-9._-]+$'
+    - label: Alerting Webex room ID
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.webex.enabled | default(false) | bool }}"
+      value: "{{ alerting.webex.room_id | default('') }}"
+      placeholder: "replace-with-webex-room-id"
+    - label: Alerting Webex API URL
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.webex.enabled | default(false) | bool }}"
+      value: "{{ alerting.webex.api_url | default('') }}"
+      must_contain: "https://"
   loop_control:
     label: "{{ item.label }}"
   when:
@@ -87,6 +99,18 @@
       variable: vault_alertmanager_telegram_chat_id
       enabled: "{{ alerting.enabled | default(false) | bool and alerting.telegram.enabled | default(false) | bool }}"
       min_length: 1
+    - label: Alertmanager Slack webhook URL
+      variable: vault_alertmanager_slack_api_url
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.slack.enabled | default(false) | bool }}"
+      min_length: 20
+    - label: Alertmanager Webex bot token
+      variable: vault_alertmanager_webex_bot_token
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.webex.enabled | default(false) | bool }}"
+      min_length: 20
+    - label: Alertmanager PagerDuty routing key
+      variable: vault_alertmanager_pagerduty_routing_key
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.pagerduty.enabled | default(false) | bool }}"
+      min_length: 10
   loop_control:
     label: "{{ item.label }}"
   when:
@@ -209,7 +233,7 @@
         tolerations:
           - operator: "Exists"
             effect:   "NoSchedule"
-  no_log: true
+  no_log: "{{ monitoring_helm_no_log | default(monitoring.helm_no_log | default(true)) | bool }}"
 
 # ============================================================
 # 2. Create Platform ServiceMonitors
