@@ -19,6 +19,9 @@ master_ip: "192.168.56.10"
 artifact_versions:
   helm: "v3.20.2"
   python_kubernetes: "31.0.0"
+  python_urllib3: "1.26.20"
+  python_cryptography: "43.0.3"
+  python_pyopenssl: "24.2.1"
   charts:
     opensearch: "2.36.0"
     opensearch_dashboards: "2.32.0"

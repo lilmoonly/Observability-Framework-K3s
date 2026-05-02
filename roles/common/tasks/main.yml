@@ -350,8 +350,25 @@
 - name: Ensure python3-kubernetes is installed via pip
   become: true
   ansible.builtin.pip:
-    name: "kubernetes=={{ artifact_versions.python_kubernetes }}"
+    name:
+      - "urllib3=={{ artifact_versions.python_urllib3 }}"
+      - "cryptography=={{ artifact_versions.python_cryptography }}"
+      - "pyOpenSSL=={{ artifact_versions.python_pyopenssl }}"
+      - "kubernetes=={{ artifact_versions.python_kubernetes }}"
     executable: pip3
+
+- name: Verify Python Kubernetes and OpenSSL imports
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - >-
+        import OpenSSL.SSL;
+        import urllib3.contrib.pyopenssl;
+        import kubernetes;
+        print("python-k8s-runtime-ok")
+  register: python_k8s_runtime_check
+  changed_when: false
 
 # ============================================================
 # 6. Network — Fix iptables FORWARD chain
