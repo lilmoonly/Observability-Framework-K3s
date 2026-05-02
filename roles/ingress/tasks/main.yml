@@ -5,6 +5,7 @@
 # that are deployed before Phase 8:
 #   - OpenSearch Dashboards (Phase 5)
 #   - Grafana               (Phase 6)
+#   - Prometheus            (Phase 6)
 #
 # NOTE: Forgejo and WeKan Ingress resources are created by
 # their app roles after their namespaces exist.
@@ -13,6 +14,7 @@
 #   192.168.56.10  forgejo.local
 #   192.168.56.10  wekan.local
 #   192.168.56.10  grafana.local
+#   192.168.56.10  prometheus.local
 #   192.168.56.10  opensearch.local
 # ============================================================
 
@@ -57,6 +59,14 @@
     dest: /tmp/grafana-ingress.yaml
     mode: '0644'
 
+- name: Render Prometheus Ingress template
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.copy:
+    content: "{{ lookup('template', 'prometheus-ingress.yaml.j2') }}"
+    dest: /tmp/prometheus-ingress.yaml
+    mode: '0644'
+
 # ============================================================
 # 3. Apply Ingress Resources
 # ============================================================
@@ -93,6 +103,22 @@
   ansible.builtin.debug:
     msg: "{{ grafana_ingress_result.stdout }}"
 
+# Exposes: http://prometheus.local
+- name: Apply Prometheus Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl apply \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -f /tmp/prometheus-ingress.yaml
+  register: prometheus_ingress_result
+  changed_when: "'created' in prometheus_ingress_result.stdout or
+                 'configured' in prometheus_ingress_result.stdout"
+
+- name: Show Prometheus Ingress apply result
+  ansible.builtin.debug:
+    msg: "{{ prometheus_ingress_result.stdout }}"
+
 # ============================================================
 # 4. Verify Ingress Resources Were Created
 # ============================================================
@@ -112,7 +138,7 @@
     var: ingress_summary.stdout_lines
 
 # ============================================================
-# 5. Verify Grafana and OpenSearch are Reachable
+# 5. Verify Grafana, Prometheus and OpenSearch are Reachable
 # ============================================================
 - name: Verify Grafana is reachable through Ingress
   become: true
@@ -132,6 +158,25 @@
 - name: Show Grafana HTTP response code
   ansible.builtin.debug:
     msg: "Grafana via Ingress → HTTP {{ grafana_http_check.stdout }}"
+
+- name: Verify Prometheus is reachable through Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    curl -sk \
+      -o /dev/null \
+      -w "%{http_code}" \
+      -H "Host: {{ ingress.prometheus_host }}" \
+      http://{{ master_ip }}/
+  register: prometheus_http_check
+  until: prometheus_http_check.stdout in ['200', '302']
+  retries: 20
+  delay: 10
+  changed_when: false
+
+- name: Show Prometheus HTTP response code
+  ansible.builtin.debug:
+    msg: "Prometheus via Ingress → HTTP {{ prometheus_http_check.stdout }}"
 
 - name: Verify OpenSearch Dashboards is reachable through Ingress
   become: true
@@ -164,3 +209,4 @@
   loop:
     - /tmp/opensearch-ingress.yaml
     - /tmp/grafana-ingress.yaml
+    - /tmp/prometheus-ingress.yaml

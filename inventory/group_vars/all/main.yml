@@ -118,6 +118,8 @@ monitoring:
   prometheus_retention: "3d"
   grafana_admin_password: "{{ vault_grafana_admin_password }}"
   prometheus_storage: "5Gi"
+  grafana_external_url: "http://{{ ingress.grafana_host }}"
+  prometheus_external_url: "http://{{ ingress.prometheus_host }}"
   pool: "monitoring"
   # Keep Helm output hidden by default because the generated values include
   # Grafana and Alertmanager secrets. Set to false only for one-off debugging.
@@ -393,10 +395,12 @@ ingress:
   forgejo_host:    "forgejo.local"
   wekan_host:      "wekan.local"
   grafana_host:    "grafana.local"
+  prometheus_host: "prometheus.local"
   opensearch_host: "opensearch.local"
   # Pre-cast port integers for Ingress port.number field
   # Kubernetes requires int32 — quoted Jinja2 returns string
   forgejo_port:    8080
   wekan_port:      8080
   grafana_port:    3000
+  prometheus_port: 9090
   opensearch_port: 5601

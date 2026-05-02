@@ -150,6 +150,7 @@
       prometheus:
         prometheusSpec:
           retention: "{{ monitoring.prometheus_retention }}"
+          externalUrl: "{{ monitoring.prometheus_external_url }}"
           serviceMonitorSelectorNilUsesHelmValues: false
           serviceMonitorNamespaceSelector: {}
           podMonitorSelectorNilUsesHelmValues: false
@@ -182,6 +183,9 @@
       grafana:
         adminPassword: "{{ monitoring.grafana_admin_password }}"
         defaultDashboardsEnabled: false
+        grafana.ini:
+          server:
+            root_url: "{{ monitoring.grafana_external_url }}"
         # ClusterIP — Ingress role handles external routing
         service:
           type: ClusterIP

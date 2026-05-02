@@ -89,7 +89,7 @@ The full deployment is split into ten tagged phases in [site.yml](site.yml).
 | 5 | `phase5`, `logging` | `logging` | OpenSearch, OpenSearch Dashboards, Fluent Bit, exporter |
 | 6 | `phase6`, `monitoring` | `monitoring` | Prometheus, Grafana, Alertmanager, vendored dashboards |
 | 7 | `phase7`, `ai_engine` | `ai_engine` | AI anomaly detector, ServiceMonitor, AI dashboard |
-| 8 | `phase8`, `ingress` | `ingress` | Grafana and OpenSearch ingress |
+| 8 | `phase8`, `ingress` | `ingress` | Grafana, Prometheus, and OpenSearch ingress |
 | 9 | `phase9`, `forgejo` | `forgejo` | PostgreSQL-backed example app deployment and ingress |
 | 10 | `phase10`, `wekan` | `wekan` | MongoDB-backed example app deployment and ingress |
 
@@ -224,17 +224,21 @@ Add these entries to your host machine `/etc/hosts`:
 192.168.56.10  forgejo.local
 192.168.56.10  wekan.local
 192.168.56.10  grafana.local
+192.168.56.10  prometheus.local
 192.168.56.10  opensearch.local
 ```
 
 Then use:
 
 - Grafana: [http://grafana.local](http://grafana.local)
+- Prometheus: [http://prometheus.local](http://prometheus.local)
 - OpenSearch Dashboards: [http://opensearch.local](http://opensearch.local)
 - Forgejo: [http://forgejo.local](http://forgejo.local)
 - WeKan: [http://wekan.local](http://wekan.local)
 
 For WeKan, log in with `wekan.admin_username` and the password from `vault_wekan_admin_password`.
+
+Prometheus ingress is intended for lab/local access so alert links can open directly. Protect it with authentication, IP allowlists, or a private VPN before exposing it outside your trusted network.
 
 ## Observability Coverage
 
@@ -288,7 +292,9 @@ The initial thresholds live under `monitoring.alerts` in [inventory/group_vars/a
 Alert notifications:
 
 - Alertmanager notification routing is configured from the top-level `alerting` block in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml)
-- Email, Telegram, Slack, Webex, and PagerDuty notifications use the same formatted alert style with status/severity emoji, alert-type emoji, grouped alert count, Kubernetes labels, and a Prometheus query link when available
+- Email, Telegram, Slack, Webex, and PagerDuty notifications use the same formatted alert style with status/severity emoji, alert-type emoji, grouped alert count, Kubernetes labels, a primary Grafana link, and a secondary Prometheus debug link when available
+- Grafana alert links use `monitoring.grafana_external_url`, which defaults to `http://grafana.local`
+- Prometheus debug links use `monitoring.prometheus_external_url`, which defaults to `http://prometheus.local`
 - Grouped notifications show one shared summary/description plus a compact affected-target list, so repeated scrape-target alerts do not spam the same explanation over and over
 - Email, Telegram, Slack, Webex, and PagerDuty receivers are optional; PagerDuty defaults to critical alerts only
 - Non-secret settings such as SMTP host, sender, recipient, and routing intervals live in `alerting`

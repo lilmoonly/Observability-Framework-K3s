@@ -93,7 +93,7 @@ receivers:
 {% endraw %}
         html: |-
 {% raw %}
-          {{ if eq .Status "firing" }}
+          {{ $grafanaURL := "{% endraw %}{{ monitoring.grafana_external_url }}{% raw %}" }}{{ if eq .Status "firing" }}
             {{ if eq .CommonLabels.severity "critical" }}🔴 <b>FIRING CRITICAL</b>{{ else if eq .CommonLabels.severity "warning" }}🟠 <b>FIRING WARNING</b>{{ else }}🔵 <b>FIRING</b>{{ end }}
           {{ else }}
             ✅ <b>RESOLVED</b>
@@ -115,7 +115,7 @@ receivers:
           ----------------------------------------<br/>
           <b>Targets:</b><br/>
           {{ range .Alerts }}
-          • {{ if .Labels.node }}node=<code>{{ .Labels.node }}</code> {{ end }}{{ if .Labels.namespace }}ns=<code>{{ .Labels.namespace }}</code> {{ end }}{{ if .Labels.pod }}pod=<code>{{ .Labels.pod }}</code> {{ end }}{{ if .Labels.container }}container=<code>{{ .Labels.container }}</code> {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=<code>{{ .Labels.persistentvolumeclaim }}</code> {{ end }}{{ if .Labels.service }}svc=<code>{{ .Labels.service }}</code> {{ end }}{{ if .Labels.job }}job=<code>{{ .Labels.job }}</code> {{ end }}{{ if .Labels.endpoint }}endpoint=<code>{{ .Labels.endpoint }}</code> {{ end }}{{ if .Labels.instance }}instance=<code>{{ .Labels.instance }}</code> {{ end }}{{ if .GeneratorURL }}<a href="{{ .GeneratorURL }}">query</a>{{ end }}<br/>
+          • {{ if .Labels.node }}node=<code>{{ .Labels.node }}</code> {{ end }}{{ if .Labels.namespace }}ns=<code>{{ .Labels.namespace }}</code> {{ end }}{{ if .Labels.pod }}pod=<code>{{ .Labels.pod }}</code> {{ end }}{{ if .Labels.container }}container=<code>{{ .Labels.container }}</code> {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=<code>{{ .Labels.persistentvolumeclaim }}</code> {{ end }}{{ if .Labels.service }}svc=<code>{{ .Labels.service }}</code> {{ end }}{{ if .Labels.job }}job=<code>{{ .Labels.job }}</code> {{ end }}{{ if .Labels.endpoint }}endpoint=<code>{{ .Labels.endpoint }}</code> {{ end }}{{ if .Labels.instance }}instance=<code>{{ .Labels.instance }}</code> {{ end }}links=<a href="{{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}">Grafana</a>{{ if .GeneratorURL }} <a href="{{ .GeneratorURL }}">Prometheus</a>{{ end }}<br/>
           {{ end }}
 {% endraw %}
 {% endif %}
@@ -128,7 +128,7 @@ receivers:
         send_resolved: {{ alerting.telegram.send_resolved | default(true) | bool | lower }}
         message: |-
 {% raw %}
-          {{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}🔴 <b>FIRING CRITICAL</b>{{ else if eq .CommonLabels.severity "warning" }}🟠 <b>FIRING WARNING</b>{{ else }}🔵 <b>FIRING</b>{{ end }}{{ else }}✅ <b>RESOLVED</b>{{ end }}
+          {{ $grafanaURL := "{% endraw %}{{ monitoring.grafana_external_url }}{% raw %}" }}{{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}🔴 <b>FIRING CRITICAL</b>{{ else if eq .CommonLabels.severity "warning" }}🟠 <b>FIRING WARNING</b>{{ else }}🔵 <b>FIRING</b>{{ end }}{{ else }}✅ <b>RESOLVED</b>{{ end }}
           {{ if match ".*(Primary|SplitBrain|Secondary|Replica|Replication).*" .CommonLabels.alertname }}🔁{{ else if match ".*(CrashLoop|Restart).*" .CommonLabels.alertname }}♻️{{ else if match ".*(Filesystem|Volume|PVC|Disk|Filling|Full).*" .CommonLabels.alertname }}💾{{ else if match ".*(Traefik|Ingress|5xx).*" .CommonLabels.alertname }}🌐{{ else if match ".*(Fluent|Log).*" .CommonLabels.alertname }}📜{{ else if match ".*OpenSearch.*" .CommonLabels.alertname }}🔎{{ else if match ".*(Mongo|Postgres|Database).*" .CommonLabels.alertname }}🗄️{{ else if match ".*(Node|Pod|Deployment|StatefulSet|Kubernetes).*" .CommonLabels.alertname }}☸️{{ else if match ".*(Target|Prometheus|Metrics|Collector).*" .CommonLabels.alertname }}🎯{{ else }}📣{{ end }} <b>{{ .CommonLabels.alertname }}</b>
           ----------------------------------------
           <b>Severity:</b> <code>{{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}unknown{{ end }}</code>
@@ -144,7 +144,7 @@ receivers:
           ----------------------------------------
           <b>Targets:</b>
           {{ range .Alerts }}
-          • {{ if .Labels.node }}node=<code>{{ .Labels.node }}</code> {{ end }}{{ if .Labels.namespace }}ns=<code>{{ .Labels.namespace }}</code> {{ end }}{{ if .Labels.pod }}pod=<code>{{ .Labels.pod }}</code> {{ end }}{{ if .Labels.container }}container=<code>{{ .Labels.container }}</code> {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=<code>{{ .Labels.persistentvolumeclaim }}</code> {{ end }}{{ if .Labels.service }}svc=<code>{{ .Labels.service }}</code> {{ end }}{{ if .Labels.job }}job=<code>{{ .Labels.job }}</code> {{ end }}{{ if .Labels.endpoint }}endpoint=<code>{{ .Labels.endpoint }}</code> {{ end }}{{ if .Labels.instance }}instance=<code>{{ .Labels.instance }}</code> {{ end }}{{ if .GeneratorURL }}<a href="{{ .GeneratorURL }}">query</a>{{ end }}
+          • {{ if .Labels.node }}node=<code>{{ .Labels.node }}</code> {{ end }}{{ if .Labels.namespace }}ns=<code>{{ .Labels.namespace }}</code> {{ end }}{{ if .Labels.pod }}pod=<code>{{ .Labels.pod }}</code> {{ end }}{{ if .Labels.container }}container=<code>{{ .Labels.container }}</code> {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=<code>{{ .Labels.persistentvolumeclaim }}</code> {{ end }}{{ if .Labels.service }}svc=<code>{{ .Labels.service }}</code> {{ end }}{{ if .Labels.job }}job=<code>{{ .Labels.job }}</code> {{ end }}{{ if .Labels.endpoint }}endpoint=<code>{{ .Labels.endpoint }}</code> {{ end }}{{ if .Labels.instance }}instance=<code>{{ .Labels.instance }}</code> {{ end }}links=<a href="{{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}">Grafana</a>{{ if .GeneratorURL }} <a href="{{ .GeneratorURL }}">Prometheus</a>{{ end }}
           {{ end }}
 {% endraw %}
 {% endif %}
@@ -166,7 +166,7 @@ receivers:
 {% endraw %}
         text: |-
 {% raw %}
-          {{ if match ".*(Primary|SplitBrain|Secondary|Replica|Replication).*" .CommonLabels.alertname }}🔁{{ else if match ".*(CrashLoop|Restart).*" .CommonLabels.alertname }}♻️{{ else if match ".*(Filesystem|Volume|PVC|Disk|Filling|Full).*" .CommonLabels.alertname }}💾{{ else if match ".*(Traefik|Ingress|5xx).*" .CommonLabels.alertname }}🌐{{ else if match ".*(Fluent|Log).*" .CommonLabels.alertname }}📜{{ else if match ".*OpenSearch.*" .CommonLabels.alertname }}🔎{{ else if match ".*(Mongo|Postgres|Database).*" .CommonLabels.alertname }}🗄️{{ else if match ".*(Node|Pod|Deployment|StatefulSet|Kubernetes).*" .CommonLabels.alertname }}☸️{{ else if match ".*(Target|Prometheus|Metrics|Collector).*" .CommonLabels.alertname }}🎯{{ else }}📣{{ end }} *{{ .CommonLabels.alertname }}*
+          {{ $grafanaURL := "{% endraw %}{{ monitoring.grafana_external_url }}{% raw %}" }}{{ if match ".*(Primary|SplitBrain|Secondary|Replica|Replication).*" .CommonLabels.alertname }}🔁{{ else if match ".*(CrashLoop|Restart).*" .CommonLabels.alertname }}♻️{{ else if match ".*(Filesystem|Volume|PVC|Disk|Filling|Full).*" .CommonLabels.alertname }}💾{{ else if match ".*(Traefik|Ingress|5xx).*" .CommonLabels.alertname }}🌐{{ else if match ".*(Fluent|Log).*" .CommonLabels.alertname }}📜{{ else if match ".*OpenSearch.*" .CommonLabels.alertname }}🔎{{ else if match ".*(Mongo|Postgres|Database).*" .CommonLabels.alertname }}🗄️{{ else if match ".*(Node|Pod|Deployment|StatefulSet|Kubernetes).*" .CommonLabels.alertname }}☸️{{ else if match ".*(Target|Prometheus|Metrics|Collector).*" .CommonLabels.alertname }}🎯{{ else }}📣{{ end }} *{{ .CommonLabels.alertname }}*
           ----------------------------------------
           *Severity:* `{{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}unknown{{ end }}`
           *Category:* `{{ if .CommonLabels.category }}{{ .CommonLabels.category }}{{ else }}platform{{ end }}`
@@ -181,7 +181,7 @@ receivers:
           ----------------------------------------
           *Targets:*
           {{ range .Alerts }}
-          • {{ if .Labels.node }}node=`{{ .Labels.node }}` {{ end }}{{ if .Labels.namespace }}ns=`{{ .Labels.namespace }}` {{ end }}{{ if .Labels.pod }}pod=`{{ .Labels.pod }}` {{ end }}{{ if .Labels.container }}container=`{{ .Labels.container }}` {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=`{{ .Labels.persistentvolumeclaim }}` {{ end }}{{ if .Labels.service }}svc=`{{ .Labels.service }}` {{ end }}{{ if .Labels.job }}job=`{{ .Labels.job }}` {{ end }}{{ if .Labels.endpoint }}endpoint=`{{ .Labels.endpoint }}` {{ end }}{{ if .Labels.instance }}instance=`{{ .Labels.instance }}` {{ end }}{{ if .GeneratorURL }}<{{ .GeneratorURL }}|query>{{ end }}
+          • {{ if .Labels.node }}node=`{{ .Labels.node }}` {{ end }}{{ if .Labels.namespace }}ns=`{{ .Labels.namespace }}` {{ end }}{{ if .Labels.pod }}pod=`{{ .Labels.pod }}` {{ end }}{{ if .Labels.container }}container=`{{ .Labels.container }}` {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=`{{ .Labels.persistentvolumeclaim }}` {{ end }}{{ if .Labels.service }}svc=`{{ .Labels.service }}` {{ end }}{{ if .Labels.job }}job=`{{ .Labels.job }}` {{ end }}{{ if .Labels.endpoint }}endpoint=`{{ .Labels.endpoint }}` {{ end }}{{ if .Labels.instance }}instance=`{{ .Labels.instance }}` {{ end }}links=<{{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}|Grafana>{{ if .GeneratorURL }} <{{ .GeneratorURL }}|Prometheus>{{ end }}
           {{ end }}
 {% endraw %}
 {% endif %}
@@ -197,7 +197,7 @@ receivers:
             credentials: {{ vars.vault_alertmanager_webex_bot_token | quote }}
         message: |-
 {% raw %}
-          {{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}🔴 FIRING CRITICAL{{ else if eq .CommonLabels.severity "warning" }}🟠 FIRING WARNING{{ else }}🔵 FIRING{{ end }}{{ else }}✅ RESOLVED{{ end }}
+          {{ $grafanaURL := "{% endraw %}{{ monitoring.grafana_external_url }}{% raw %}" }}{{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}🔴 FIRING CRITICAL{{ else if eq .CommonLabels.severity "warning" }}🟠 FIRING WARNING{{ else }}🔵 FIRING{{ end }}{{ else }}✅ RESOLVED{{ end }}
           {{ if match ".*(Primary|SplitBrain|Secondary|Replica|Replication).*" .CommonLabels.alertname }}🔁{{ else if match ".*(CrashLoop|Restart).*" .CommonLabels.alertname }}♻️{{ else if match ".*(Filesystem|Volume|PVC|Disk|Filling|Full).*" .CommonLabels.alertname }}💾{{ else if match ".*(Traefik|Ingress|5xx).*" .CommonLabels.alertname }}🌐{{ else if match ".*(Fluent|Log).*" .CommonLabels.alertname }}📜{{ else if match ".*OpenSearch.*" .CommonLabels.alertname }}🔎{{ else if match ".*(Mongo|Postgres|Database).*" .CommonLabels.alertname }}🗄️{{ else if match ".*(Node|Pod|Deployment|StatefulSet|Kubernetes).*" .CommonLabels.alertname }}☸️{{ else if match ".*(Target|Prometheus|Metrics|Collector).*" .CommonLabels.alertname }}🎯{{ else }}📣{{ end }} **{{ .CommonLabels.alertname }}**
           ----------------------------------------
           **Severity:** `{{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}unknown{{ end }}`
@@ -213,7 +213,7 @@ receivers:
           ----------------------------------------
           **Targets:**
           {{ range .Alerts }}
-          - {{ if .Labels.node }}node=`{{ .Labels.node }}` {{ end }}{{ if .Labels.namespace }}ns=`{{ .Labels.namespace }}` {{ end }}{{ if .Labels.pod }}pod=`{{ .Labels.pod }}` {{ end }}{{ if .Labels.container }}container=`{{ .Labels.container }}` {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=`{{ .Labels.persistentvolumeclaim }}` {{ end }}{{ if .Labels.service }}svc=`{{ .Labels.service }}` {{ end }}{{ if .Labels.job }}job=`{{ .Labels.job }}` {{ end }}{{ if .Labels.endpoint }}endpoint=`{{ .Labels.endpoint }}` {{ end }}{{ if .Labels.instance }}instance=`{{ .Labels.instance }}` {{ end }}{{ if .GeneratorURL }}[query]({{ .GeneratorURL }}){{ end }}
+          - {{ if .Labels.node }}node=`{{ .Labels.node }}` {{ end }}{{ if .Labels.namespace }}ns=`{{ .Labels.namespace }}` {{ end }}{{ if .Labels.pod }}pod=`{{ .Labels.pod }}` {{ end }}{{ if .Labels.container }}container=`{{ .Labels.container }}` {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=`{{ .Labels.persistentvolumeclaim }}` {{ end }}{{ if .Labels.service }}svc=`{{ .Labels.service }}` {{ end }}{{ if .Labels.job }}job=`{{ .Labels.job }}` {{ end }}{{ if .Labels.endpoint }}endpoint=`{{ .Labels.endpoint }}` {{ end }}{{ if .Labels.instance }}instance=`{{ .Labels.instance }}` {{ end }}links=[Grafana]({{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}){{ if .GeneratorURL }} [Prometheus]({{ .GeneratorURL }}){{ end }}
           {{ end }}
 {% endraw %}
 {% endif %}
@@ -225,7 +225,7 @@ receivers:
         client: "Observability Framework"
         client_url: >-
 {% raw %}
-          {{ .ExternalURL }}
+          {{ $grafanaURL := "{% endraw %}{{ monitoring.grafana_external_url }}{% raw %}" }}{{ $grafanaURL }}/alerting/list?search={{ .CommonLabels.alertname }}
 {% endraw %}
         description: >-
 {% raw %}
