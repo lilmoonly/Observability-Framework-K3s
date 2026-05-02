@@ -377,6 +377,157 @@
       - "JSON register: {{ wekan_admin_register_json.stdout | default('skipped') }}"
       - "Form register: {{ wekan_admin_register_form.stdout | default('skipped') }}"
 
+- name: Generate bcrypt hash for configured WeKan admin password
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    wekan_pod="$(kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ wekan.namespace }} \
+      -l app.kubernetes.io/name=wekan,app.kubernetes.io/instance=wekan \
+      -o jsonpath='{.items[0].metadata.name}')"
+    kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ wekan.namespace }} \
+      "$wekan_pod" \
+      -c wekan \
+      -- node -e '
+        const candidates = [
+          "bcrypt",
+          "bcryptjs",
+          "/build/node_modules/bcrypt",
+          "/build/node_modules/bcryptjs",
+          "/build/programs/server/node_modules/bcrypt",
+          "/build/programs/server/node_modules/bcryptjs",
+          "/build/programs/server/npm/node_modules/bcrypt",
+          "/build/programs/server/npm/node_modules/bcryptjs",
+          "/build/programs/server/npm/node_modules/meteor/npm-bcrypt/node_modules/bcrypt",
+          "/build/programs/server/npm/node_modules/meteor/npm-bcrypt/node_modules/bcryptjs",
+          "/build/programs/server/npm/node_modules/meteor/accounts-password/node_modules/bcrypt",
+          "/build/programs/server/npm/node_modules/meteor/accounts-password/node_modules/bcryptjs",
+          "/app/bundle/programs/server/npm/node_modules/bcrypt",
+          "/app/bundle/programs/server/npm/node_modules/bcryptjs"
+        ];
+        let bcrypt;
+        for (const candidate of candidates) {
+          try {
+            bcrypt = require(candidate);
+            break;
+          } catch (error) {}
+        }
+        if (!bcrypt || typeof bcrypt.hashSync !== "function") {
+          console.error("bcrypt module is not available in the WeKan container");
+          process.exit(1);
+        }
+        if (!process.env.ADMIN_PASSWORD) {
+          console.error("ADMIN_PASSWORD is not available in the WeKan container");
+          process.exit(1);
+        }
+        const crypto = require("crypto");
+        const passwordDigest = crypto
+          .createHash("sha256")
+          .update(process.env.ADMIN_PASSWORD)
+          .digest("hex");
+        console.log(bcrypt.hashSync(passwordDigest, 10));
+      '
+  register: wekan_admin_password_bcrypt
+  changed_when: false
+  no_log: true
+
+- name: Write WeKan admin Mongo seed script
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.copy:
+    dest: "{{ wekan_bootstrap_tmp.path }}/seed-admin.js"
+    mode: '0600'
+    content: |
+      const username = {{ wekan.admin_username | to_json }};
+      const email = {{ wekan.admin_email | to_json }};
+      const passwordHash = {{ (wekan_admin_password_bcrypt.stdout | trim) | to_json }};
+      const now = new Date();
+
+      function randomId(length = 17) {
+        const alphabet = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz";
+        let value = "";
+        for (let i = 0; i < length; i += 1) {
+          value += alphabet[Math.floor(Math.random() * alphabet.length)];
+        }
+        return value;
+      }
+
+      const selector = { $or: [{ username }, { "emails.address": email }] };
+      const userFields = {
+        username,
+        emails: [{ address: email, verified: true }],
+        services: {
+          password: { bcrypt: passwordHash },
+          resume: { loginTokens: [] }
+        },
+        profile: {
+          fullname: username,
+          initials: username.substring(0, 2).toUpperCase(),
+          boardView: "board-view-swimlanes"
+        },
+        isAdmin: true,
+        createdThroughApi: true,
+        loginDisabled: false,
+        authenticationMethod: "password",
+        sessionData: {},
+        modifiedAt: now
+      };
+
+      const existing = db.users.findOne(selector);
+      if (existing) {
+        db.users.updateOne({ _id: existing._id }, { $set: userFields });
+        print("admin_seed=updated");
+      } else {
+        db.users.insertOne({ _id: randomId(), createdAt: now, ...userFields });
+        print("admin_seed=inserted");
+      }
+      print("admin_user_count=" + db.users.countDocuments(selector));
+  no_log: true
+
+- name: Seed configured WeKan admin account directly in MongoDB
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    mongo_url="$(kubectl get secret wekan-mongodb-secret \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ wekan.namespace }} \
+      -o jsonpath='{.data.MONGO_URL}' | base64 -d)"
+    kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -i \
+      -n {{ database.namespace }} \
+      {{ database.mongodb.cluster_name }}-0 \
+      -c mongod \
+      -- mongosh "$mongo_url" --quiet < {{ wekan_bootstrap_tmp.path }}/seed-admin.js
+  register: wekan_admin_seed
+  changed_when: "'admin_seed=inserted' in (wekan_admin_seed.stdout | default(''))"
+  no_log: true
+
+- name: Verify configured WeKan admin seed result
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    mongo_url="$(kubectl get secret wekan-mongodb-secret \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ wekan.namespace }} \
+      -o jsonpath='{.data.MONGO_URL}' | base64 -d)"
+    kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ database.namespace }} \
+      {{ database.mongodb.cluster_name }}-0 \
+      -c mongod \
+      -- mongosh "$mongo_url" --quiet --eval \
+      'const username = {{ wekan.admin_username | to_json }}; const email = {{ wekan.admin_email | to_json }}; print("admin_user_count=" + db.users.countDocuments({ $or: [{ username: username }, { "emails.address": email }] }));'
+  register: wekan_admin_seed_check
+  changed_when: false
+
+- name: Show sanitized WeKan admin seed status
+  ansible.builtin.debug:
+    msg: "{{ wekan_admin_seed_check.stdout }}"
+
 - name: Wait for configured WeKan admin user record to exist
   become: true
   delegate_to: k8s-ctrl
