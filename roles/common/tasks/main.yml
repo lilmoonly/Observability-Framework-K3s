@@ -70,6 +70,26 @@
         - "admin"
         - "password"
         - "wekan"
+    - label: Alertmanager SMTP username
+      variable: vault_alertmanager_smtp_username
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.email.enabled | default(false) | bool and alerting.email.auth_enabled | default(true) | bool }}"
+      min_length: 1
+      forbidden_values: []
+    - label: Alertmanager SMTP password
+      variable: vault_alertmanager_smtp_password
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.email.enabled | default(false) | bool and alerting.email.auth_enabled | default(true) | bool }}"
+      min_length: 1
+      forbidden_values: []
+    - label: Alertmanager Telegram bot token
+      variable: vault_alertmanager_telegram_bot_token
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.telegram.enabled | default(false) | bool }}"
+      min_length: 20
+      forbidden_values: []
+    - label: Alertmanager Telegram chat ID
+      variable: vault_alertmanager_telegram_chat_id
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.telegram.enabled | default(false) | bool }}"
+      min_length: 1
+      forbidden_values: []
   loop_control:
     label: "{{ item.label }}"
   when:

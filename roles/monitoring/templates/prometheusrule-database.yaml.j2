@@ -1,0 +1,206 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: observability-framework-database-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+    app.kubernetes.io/name: observability-framework-alerts
+    app.kubernetes.io/part-of: observability-framework
+spec:
+  groups:
+    - name: observability-framework.database
+      rules:
+{% if database.type == 'mongodb' %}
+{% if database.mongodb.metrics.enabled | default(true) | bool %}
+        - alert: FrameworkMongoDBMetricsMissing
+          expr: absent(mongodb_info{process_type="mongod"})
+          for: 10m
+          labels:
+            severity: critical
+            category: database
+            component: mongodb
+          annotations:
+            summary: "MongoDB metrics are missing"
+            description: "Prometheus is not receiving mongodb_info from the MongoDB replica set. Check the MongoDB metrics ServiceMonitor and metrics endpoint auth."
+
+        - alert: FrameworkMongoDBMemberPodNotReady
+          expr: |
+            sum(kube_pod_status_ready{namespace="{{ database.namespace }}",pod=~"{{ database.mongodb.cluster_name }}-[0-9]+",condition="true"})
+            < {{ database.mongodb.members | int }}
+          for: 5m
+          labels:
+            severity: critical
+            category: database
+            component: mongodb
+          annotations:
+            summary: "Not all MongoDB member pods are ready"
+            description: "The MongoDB replica set has fewer ready member pods than configured members."
+
+        - alert: FrameworkMongoDBPrimaryMissingOrSplitBrain
+          expr: |
+            count(max by (instance) (mongodb_info{process_type="mongod",replica_state_name=~"PRIMARY|Primary|primary"})) != 1
+          for: 2m
+          labels:
+            severity: critical
+            category: database
+            component: mongodb
+          annotations:
+            summary: "MongoDB primary count is invalid"
+            description: "The MongoDB replica set should have exactly one primary. Check replica set election state immediately."
+
+{% if database.mongodb.members | int > 1 %}
+        - alert: FrameworkMongoDBSecondaryMissing
+          expr: |
+            count(max by (instance) (mongodb_info{process_type="mongod",replica_state_name=~"SECONDARY|Secondary|secondary"}))
+            < {{ (database.mongodb.members | int) - 1 }}
+          for: 5m
+          labels:
+            severity: warning
+            category: database
+            component: mongodb
+          annotations:
+            summary: "MongoDB secondary members are missing"
+            description: "MongoDB has fewer SECONDARY members than expected for the configured replica-set size."
+
+{% endif %}
+{% endif %}
+        - alert: FrameworkMongoDBOperatorDown
+          expr: sum(kube_pod_status_ready{namespace="{{ database.mongodb.operator_namespace | default(database.namespace) }}",pod=~"mongodb-kubernetes-operator-.+",condition="true"}) < 1
+          for: 5m
+          labels:
+            severity: critical
+            category: database
+            component: mongodb-operator
+          annotations:
+            summary: "MongoDB operator is not ready"
+            description: "The MongoDB Kubernetes operator is not reporting a ready pod in the database namespace."
+
+        - alert: FrameworkMongoDBMemberRestarting
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="{{ database.namespace }}",pod=~"{{ database.mongodb.cluster_name }}-[0-9]+",container=~"mongod|mongodb-agent"}[15m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            category: database
+            component: mongodb
+          annotations:
+            summary: "A MongoDB member container restarted"
+            description: "A mongod or mongodb-agent container restarted in the last 15 minutes."
+{% elif database.type == 'postgresql' %}
+        - alert: FrameworkPostgresMetricsMissing
+          expr: absent(cnpg_collector_up{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"})
+          for: 10m
+          labels:
+            severity: critical
+            category: database
+            component: postgresql
+          annotations:
+            summary: "PostgreSQL metrics are missing"
+            description: "Prometheus is not receiving CloudNativePG exporter metrics for the configured PostgreSQL cluster."
+
+        - alert: FrameworkPostgresCollectorDown
+          expr: cnpg_collector_up{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            category: database
+            component: postgresql
+          annotations:
+            summary: "CloudNativePG collector is down"
+            description: "A PostgreSQL instance exporter collector is not healthy."
+
+        - alert: FrameworkPostgresInstanceNotReady
+          expr: |
+            sum(kube_pod_container_status_ready{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+",container="postgres",condition="true"})
+            < {{ database.postgresql.instances | int }}
+          for: 5m
+          labels:
+            severity: critical
+            category: database
+            component: postgresql
+          annotations:
+            summary: "Not all PostgreSQL instances are ready"
+            description: "The CloudNativePG cluster has fewer ready postgres containers than configured instances."
+
+{% if database.postgresql.instances | int > 1 %}
+        - alert: FrameworkPostgresStreamingReplicaMissing
+          expr: |
+            max(cnpg_pg_replication_streaming_replicas{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"})
+            < {{ (database.postgresql.instances | int) - 1 }}
+          for: 5m
+          labels:
+            severity: critical
+            category: database
+            component: postgresql
+          annotations:
+            summary: "PostgreSQL streaming replica is missing"
+            description: "CloudNativePG reports fewer streaming replicas than expected for the configured instance count."
+
+        - alert: FrameworkPostgresReplicationLagHigh
+          expr: |
+            max(cnpg_pg_replication_lag{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"}) > {{ monitoring.alerts.postgres_replication_lag_warning_seconds }}
+            or
+            max(cnpg_pg_stat_replication_replay_lag_seconds{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"}) > {{ monitoring.alerts.postgres_replication_lag_warning_seconds }}
+          for: 5m
+          labels:
+            severity: warning
+            category: database
+            component: postgresql
+          annotations:
+            summary: "PostgreSQL replication lag is high"
+            description: "CloudNativePG replication lag has crossed the warning threshold."
+
+        - alert: FrameworkPostgresReplicationLagCritical
+          expr: |
+            max(cnpg_pg_replication_lag{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"}) > {{ monitoring.alerts.postgres_replication_lag_critical_seconds }}
+            or
+            max(cnpg_pg_stat_replication_replay_lag_seconds{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"}) > {{ monitoring.alerts.postgres_replication_lag_critical_seconds }}
+          for: 5m
+          labels:
+            severity: critical
+            category: database
+            component: postgresql
+          annotations:
+            summary: "PostgreSQL replication lag is critical"
+            description: "CloudNativePG replication lag has crossed the critical threshold."
+
+{% endif %}
+        - alert: FrameworkPostgresCollectorError
+          expr: max(cnpg_collector_last_collection_error{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"}) > 0
+          for: 5m
+          labels:
+            severity: warning
+            category: database
+            component: postgresql
+          annotations:
+            summary: "CloudNativePG collector reports collection errors"
+            description: "The PostgreSQL metrics collector is reporting errors."
+
+        - alert: FrameworkPostgresLongTransaction
+          expr: max(cnpg_backends_max_tx_duration_seconds{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"}) > {{ monitoring.alerts.postgres_long_transaction_seconds }}
+          for: 10m
+          labels:
+            severity: warning
+            category: database
+            component: postgresql
+          annotations:
+            summary: "PostgreSQL has a long-running transaction"
+            description: "A PostgreSQL backend transaction has exceeded the configured duration threshold."
+
+        - alert: FrameworkPostgresConnectionsHigh
+          expr: |
+            max(
+              sum by (pod) (cnpg_backends_total{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"})
+              /
+              sum by (pod) (cnpg_pg_settings_setting{name="max_connections",namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"})
+            ) > {{ monitoring.alerts.postgres_connections_warning_ratio }}
+          for: 10m
+          labels:
+            severity: warning
+            category: database
+            component: postgresql
+          annotations:
+            summary: "PostgreSQL connection usage is high"
+            description: "PostgreSQL connection usage has crossed the configured warning ratio."
+{% endif %}

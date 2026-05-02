@@ -1,0 +1,218 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: observability-framework-platform-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+    app.kubernetes.io/name: observability-framework-alerts
+    app.kubernetes.io/part-of: observability-framework
+spec:
+  groups:
+    - name: observability-framework.platform
+      rules:
+        - alert: FrameworkTargetDown
+          expr: up == 0
+          for: {{ monitoring.alerts.target_down_for }}
+          labels:
+            severity: warning
+            category: platform
+            component: prometheus
+          annotations:
+            summary: "A Prometheus scrape target is down"
+            description: "Prometheus has not been able to scrape one target for {{ monitoring.alerts.target_down_for }}. Check the target namespace, pod, ServiceMonitor, and network path."
+
+        - alert: FrameworkNodeNotReady
+          expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            category: platform
+            component: kubernetes
+          annotations:
+            summary: "A Kubernetes node is not Ready"
+            description: "A node has reported Ready=false for more than 5 minutes. Check kubelet, container runtime, node resources, and network reachability."
+
+        - alert: FrameworkNodePressure
+          expr: kube_node_status_condition{condition=~"MemoryPressure|DiskPressure|PIDPressure",status="true"} == 1
+          for: 5m
+          labels:
+            severity: warning
+            category: platform
+            component: kubernetes
+          annotations:
+            summary: "A Kubernetes node is under pressure"
+            description: "A node is reporting MemoryPressure, DiskPressure, or PIDPressure. Check node capacity, evictions, logs, and disk usage."
+
+        - alert: FrameworkNodeFilesystemFilling
+          expr: |
+            100 * (1 - (
+              node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|fuse.*",mountpoint!~"/run.*|/var/lib/kubelet/pods.*"}
+              /
+              node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|fuse.*",mountpoint!~"/run.*|/var/lib/kubelet/pods.*"}
+            )) > {{ monitoring.alerts.node_filesystem_warning_pct }}
+          for: 15m
+          labels:
+            severity: warning
+            category: platform
+            component: node
+          annotations:
+            summary: "A node filesystem is filling"
+            description: "A node filesystem has crossed {{ monitoring.alerts.node_filesystem_warning_pct }}% usage for 15 minutes."
+
+        - alert: FrameworkDeploymentUnavailable
+          expr: kube_deployment_status_replicas_unavailable > 0
+          for: 10m
+          labels:
+            severity: warning
+            category: platform
+            component: kubernetes
+          annotations:
+            summary: "A Deployment has unavailable replicas"
+            description: "One or more Deployment replicas have been unavailable for more than 10 minutes."
+
+        - alert: FrameworkStatefulSetUnavailable
+          expr: (kube_statefulset_replicas - kube_statefulset_status_replicas_ready) > 0
+          for: 10m
+          labels:
+            severity: warning
+            category: platform
+            component: kubernetes
+          annotations:
+            summary: "A StatefulSet has unavailable replicas"
+            description: "One or more StatefulSet replicas have been unavailable for more than 10 minutes."
+
+        - alert: FrameworkPodCrashLooping
+          expr: max_over_time(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}[5m]) == 1
+          for: 5m
+          labels:
+            severity: warning
+            category: platform
+            component: kubernetes
+          annotations:
+            summary: "A pod container is crash-looping"
+            description: "A container has been in CrashLoopBackOff during the last 5 minutes."
+
+        - alert: FrameworkPodRestartStorm
+          expr: increase(kube_pod_container_status_restarts_total{container!="POD"}[{{ monitoring.alerts.pod_restart_window }}]) > {{ monitoring.alerts.pod_restart_warning_count }}
+          for: 5m
+          labels:
+            severity: warning
+            category: platform
+            component: kubernetes
+          annotations:
+            summary: "A pod container is restarting frequently"
+            description: "A container restarted more than {{ monitoring.alerts.pod_restart_warning_count }} times in {{ monitoring.alerts.pod_restart_window }}."
+
+        - alert: FrameworkPodPendingTooLong
+          expr: kube_pod_status_phase{phase="Pending"} == 1
+          for: {{ monitoring.alerts.pod_pending_for }}
+          labels:
+            severity: warning
+            category: platform
+            component: kubernetes
+          annotations:
+            summary: "A pod has been Pending too long"
+            description: "A pod has stayed Pending for {{ monitoring.alerts.pod_pending_for }}. Check node selectors, taints, resource requests, PVCs, and image pulls."
+
+        - alert: FrameworkPersistentVolumeClaimFilling
+          expr: |
+            100 * (
+              1 - kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes
+            ) > {{ monitoring.alerts.pvc_warning_pct }}
+          for: 15m
+          labels:
+            severity: warning
+            category: platform
+            component: storage
+          annotations:
+            summary: "A PVC is filling"
+            description: "A PersistentVolumeClaim has crossed {{ monitoring.alerts.pvc_warning_pct }}% usage for 15 minutes."
+
+        - alert: FrameworkPersistentVolumeClaimAlmostFull
+          expr: |
+            100 * (
+              1 - kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes
+            ) > {{ monitoring.alerts.pvc_critical_pct }}
+          for: 5m
+          labels:
+            severity: critical
+            category: platform
+            component: storage
+          annotations:
+            summary: "A PVC is almost full"
+            description: "A PersistentVolumeClaim has crossed {{ monitoring.alerts.pvc_critical_pct }}% usage for 5 minutes."
+
+        - alert: FrameworkTraefikHigh5xxRate
+          expr: |
+            (
+              sum(rate(traefik_service_requests_total{protocol="http",code=~"5.."}[5m]))
+              /
+              clamp_min(sum(rate(traefik_service_requests_total{protocol="http"}[5m])), 1)
+            ) > {{ monitoring.alerts.traefik_5xx_warning_ratio }}
+          for: 10m
+          labels:
+            severity: warning
+            category: platform
+            component: ingress
+          annotations:
+            summary: "Traefik is serving elevated 5xx responses"
+            description: "Traefik 5xx responses are above the configured ratio for 10 minutes. Check backend pods, services, and ingress routing."
+
+        - alert: FrameworkFluentBitOutputErrors
+          expr: sum(increase(fluentbit_output_errors_total[10m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            category: platform
+            component: logging
+          annotations:
+            summary: "Fluent Bit output errors detected"
+            description: "Fluent Bit reported output errors while shipping logs. Check OpenSearch reachability and Fluent Bit logs."
+
+        - alert: FrameworkFluentBitFailedRetries
+          expr: sum(increase(fluentbit_output_retries_failed_total[10m])) > 0
+          for: 5m
+          labels:
+            severity: critical
+            category: platform
+            component: logging
+          annotations:
+            summary: "Fluent Bit failed log delivery retries"
+            description: "Fluent Bit exhausted retry attempts. Logs may be dropped until the output path is healthy."
+
+        - alert: FrameworkOpenSearchClusterYellow
+          expr: max(elasticsearch_cluster_health_status{color="yellow"}) == 1
+          for: 10m
+          labels:
+            severity: warning
+            category: platform
+            component: opensearch
+          annotations:
+            summary: "OpenSearch cluster health is yellow"
+            description: "OpenSearch reports yellow health. Check shard allocation and disk pressure."
+
+        - alert: FrameworkOpenSearchClusterRed
+          expr: max(elasticsearch_cluster_health_status{color="red"}) == 1
+          for: 5m
+          labels:
+            severity: critical
+            category: platform
+            component: opensearch
+          annotations:
+            summary: "OpenSearch cluster health is red"
+            description: "OpenSearch reports red health. Search/indexing may be degraded or unavailable."
+
+        - alert: FrameworkOpenSearchDataDiskFilling
+          expr: |
+            100 * (
+              1 - elasticsearch_filesystem_data_available_bytes / elasticsearch_filesystem_data_size_bytes
+            ) > {{ monitoring.alerts.opensearch_disk_warning_pct }}
+          for: 15m
+          labels:
+            severity: warning
+            category: platform
+            component: opensearch
+          annotations:
+            summary: "OpenSearch data disk is filling"
+            description: "OpenSearch data filesystem usage crossed {{ monitoring.alerts.opensearch_disk_warning_pct }}% for 15 minutes."

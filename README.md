@@ -185,6 +185,7 @@ This file is intentionally ignored by git and should hold:
 - database passwords
 - Forgejo admin password
 - WeKan admin password when `database.type: mongodb`
+- Alertmanager SMTP credentials and Telegram bot credentials when alert notifications are enabled
 
 The playbook now fails early if this file still contains placeholders or the old demo credentials.
 
@@ -258,12 +259,68 @@ Prometheus scrapes:
 - OpenSearch exporter metrics
 - Forgejo metrics
 
+Example app note:
+
+- Forgejo and WeKan prove that the selected database backend is usable by a real application
+- they are intentionally not treated as first-class framework observability targets
+- WeKan does not ship a custom dashboard or alert pack; MongoDB, Kubernetes workload, ingress, and storage alerts cover the reusable platform concerns
+
 MongoDB note:
 
 - MongoDB backend deployment is supported in Phase 4
 - MongoDB quorum HA expects 3 or more odd members on distinct database nodes
 - MongoDB metrics are exposed through the MongoDB Prometheus endpoint and scraped by Prometheus via a ServiceMonitor
 - a vendored MongoDB Grafana dashboard is bundled in the `Platform Services` folder, so production does not need outbound internet access
+
+### Alerting
+
+The monitoring role installs framework-level `PrometheusRule` packs after kube-prometheus-stack has created the required CRDs.
+
+Alert groups:
+
+- `observability-framework.platform` covers Prometheus target health, Kubernetes nodes, Deployments, StatefulSets, pods, PVC capacity, Traefik 5xx rate, Fluent Bit delivery errors, and OpenSearch health/disk usage
+- `observability-framework.database` renders backend-specific rules for the selected `database.type`
+- PostgreSQL rules cover CNPG collector health, instance readiness, streaming replica count, replication lag, collection errors, long transactions, and connection pressure
+- MongoDB rules cover metrics presence, member pod readiness, primary count, secondary count, operator readiness, and member restarts
+
+The initial thresholds live under `monitoring.alerts` in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml). This keeps the alert pack reusable across lab and larger topologies without tying it to Forgejo or WeKan.
+
+Alert notifications:
+
+- Alertmanager notification routing is configured from the top-level `alerting` block in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml)
+- Email and Telegram receivers are enabled by default
+- Non-secret settings such as SMTP host, sender, recipient, and routing intervals live in `alerting`
+- Sensitive values live in [inventory/group_vars/all/secrets.yml](inventory/group_vars/all/secrets.yml)
+
+Required secret values when both receivers are enabled:
+
+```yaml
+vault_alertmanager_smtp_username: "your-smtp-username"
+vault_alertmanager_smtp_password: "your-smtp-password-or-app-password"
+vault_alertmanager_telegram_bot_token: "123456789:telegram-bot-token"
+vault_alertmanager_telegram_chat_id: "-1001234567890"
+```
+
+Telegram setup:
+
+- create a bot with BotFather and put the token in `vault_alertmanager_telegram_bot_token`
+- add the bot to your target chat or group
+- use the chat ID as `vault_alertmanager_telegram_chat_id`
+
+Email setup:
+
+- set `alerting.email.smarthost` to `smtp-host:port`, for example `smtp.gmail.com:587`
+- set `alerting.email.from` and `alerting.email.to`
+- for Gmail, use an app password instead of your normal account password
+
+Verify alert rules:
+
+```bash
+kubectl get prometheusrule -n monitoring
+kubectl get prometheusrule observability-framework-platform-alerts -n monitoring -o yaml
+kubectl get prometheusrule observability-framework-database-alerts -n monitoring -o yaml
+kubectl get secret alertmanager-prometheus-kube-prometheus-alertmanager -n monitoring -o jsonpath='{.data.alertmanager\\.yaml}' | base64 -d
+```
 
 ### Grafana Dashboards
 
@@ -296,6 +353,7 @@ Application dashboards:
 
 - A custom `AI Anomaly Overview` dashboard is provisioned by the AI role
 - Forgejo metrics are scraped, but no bundled Forgejo dashboard is shipped because Forgejo is only an example workload in this framework
+- WeKan is included only as a MongoDB-backed example application, so no bundled WeKan dashboard is shipped
 
 ## AI Engine
 

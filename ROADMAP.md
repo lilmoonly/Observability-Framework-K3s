@@ -11,13 +11,14 @@ The framework already provides:
 - phased Ansible deployment for K3s, database, logging, monitoring, AI anomaly detection, ingress, and an example application
 - vendored Grafana dashboards for offline-safe provisioning
 - metrics scraping for Kubernetes, Traefik, CloudNativePG, Fluent Bit, OpenSearch exporter, Forgejo, and the AI engine
+- a base PrometheusRule pack for platform, logging, ingress, storage, PostgreSQL, and MongoDB health
 - an AI dashboard that explains detector health, contributors, rule checks, and recent anomaly outcomes
 
 What still keeps it in "advanced lab" territory rather than "production framework":
 
 - live internet/bootstrap dependencies
 - some soft readiness gates and best-effort checks
-- no bundled alert/rule pack
+- basic Alertmanager routing and SLO coverage
 - no CI or automated smoke validation
 
 ## Milestone Plan
@@ -125,7 +126,7 @@ What still keeps it in "advanced lab" territory rather than "production framewor
 
 ### Scope
 
-- add `PrometheusRule` packs for Kubernetes, CNPG, OpenSearch, Traefik, Fluent Bit, and AI engine
+- add `PrometheusRule` packs for Kubernetes, CNPG, MongoDB, OpenSearch, Traefik, Fluent Bit, and AI engine
 - define baseline Alertmanager routing
 - add a small recording-rule layer for high-value queries
 - define initial SLO-style golden signals for generic services
@@ -188,9 +189,9 @@ What still keeps it in "advanced lab" territory rather than "production framewor
 
 ## Next Sprint
 
-With `v1.1` and `v1.2` completed, the next sprint should focus on the remaining `v1.3` packaging work:
+With the first reusable alert pack in place, the next sprint should continue production hardening without making the example apps part of the core framework:
 
-1. Keep all core tool and chart versions pinned from shared config.
-2. Finish replacing the remaining live bootstrap dependencies with mirrored or vendored artifacts.
-3. Move the new `ai-engine` image flow from local build/import into a CI-produced artifact pipeline.
-4. Add an offline-friendly artifact strategy for production mirrors or vendored bundles.
+1. Add baseline Alertmanager routing and receiver configuration.
+2. Add recording rules for high-value platform and database queries.
+3. Define generic service SLOs that can apply to future real workloads.
+4. Continue replacing live bootstrap dependencies with mirrored or vendored artifacts.

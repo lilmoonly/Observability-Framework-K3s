@@ -119,6 +119,48 @@ monitoring:
   grafana_admin_password: "{{ vault_grafana_admin_password }}"
   prometheus_storage: "5Gi"
   pool: "monitoring"
+  alerts:
+    enabled: true
+    target_down_for: "10m"
+    pod_pending_for: "15m"
+    pod_restart_window: "15m"
+    pod_restart_warning_count: 5
+    node_filesystem_warning_pct: 85
+    pvc_warning_pct: 85
+    pvc_critical_pct: 95
+    traefik_5xx_warning_ratio: 0.05
+    opensearch_disk_warning_pct: 85
+    postgres_replication_lag_warning_seconds: 60
+    postgres_replication_lag_critical_seconds: 300
+    postgres_long_transaction_seconds: 900
+    postgres_connections_warning_ratio: 0.80
+
+alerting:
+  enabled: true
+  resolve_timeout: "5m"
+  route:
+    group_wait: "30s"
+    group_interval: "5m"
+    repeat_interval: "4h"
+  email:
+    enabled: true
+    send_resolved: true
+    # Format: "smtp-host:port". For Gmail, use "smtp.gmail.com:587"
+    # with an app password in vault_alertmanager_smtp_password.
+    smarthost: "smtp.example.com:587"
+    from: "alerts@example.com"
+    to: "ops@example.com"
+    require_tls: true
+    auth_enabled: true
+    auth_username: "{{ vault_alertmanager_smtp_username }}"
+    auth_password: "{{ vault_alertmanager_smtp_password }}"
+  telegram:
+    enabled: true
+    send_resolved: true
+    # Create a bot with BotFather, then store the token and chat ID
+    # in inventory/group_vars/all/secrets.yml.
+    bot_token: "{{ vault_alertmanager_telegram_bot_token }}"
+    chat_id: "{{ vault_alertmanager_telegram_chat_id }}"
 
 # ==========================================
 # 6. DATABASE WORKER (CloudNativePG or MongoDB)

@@ -19,6 +19,87 @@
 # ============================================================
 # 1. Deploy kube-prometheus-stack
 # ============================================================
+- name: Validate Alertmanager notification configuration
+  ansible.builtin.fail:
+    msg: >-
+      {{ item.label }} is not configured. Update alerting settings in
+      inventory/group_vars/all/main.yml and secrets in
+      inventory/group_vars/all/secrets.yml before deploying monitoring.
+  vars:
+    value: "{{ item.value | default('') | string | trim }}"
+    invalid_value: >-
+      {{
+        value | length == 0
+        or (item.placeholder | default('') | length > 0 and value == item.placeholder)
+        or (item.must_contain | default('') | length > 0 and item.must_contain not in value)
+        or (item.regex | default('') | length > 0 and not (value is match(item.regex)))
+        or (value is match('^replace-with-'))
+      }}
+  loop:
+    - label: Alerting email SMTP smarthost
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.email.enabled | default(false) | bool }}"
+      value: "{{ alerting.email.smarthost | default('') }}"
+      placeholder: "smtp.example.com:587"
+      must_contain: ":"
+    - label: Alerting email sender
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.email.enabled | default(false) | bool }}"
+      value: "{{ alerting.email.from | default('') }}"
+      placeholder: "alerts@example.com"
+      must_contain: "@"
+    - label: Alerting email recipient
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.email.enabled | default(false) | bool }}"
+      value: "{{ alerting.email.to | default('') }}"
+      placeholder: "ops@example.com"
+      must_contain: "@"
+    - label: Alerting Telegram chat ID
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.telegram.enabled | default(false) | bool }}"
+      value: "{{ alerting.telegram.chat_id | default('') }}"
+      placeholder: "replace-with-telegram-chat-id"
+      must_contain: ""
+      regex: "^-?[0-9]+$"
+  loop_control:
+    label: "{{ item.label }}"
+  when:
+    - item.enabled | bool
+    - invalid_value | bool
+  run_once: true
+
+- name: Validate Alertmanager notification secrets
+  ansible.builtin.fail:
+    msg: >-
+      {{ item.label }} is missing, too short, or still using a placeholder value.
+      Set it in inventory/group_vars/all/secrets.yml before deploying monitoring.
+  vars:
+    secret_value: "{{ vars[item.variable] | default('') | string | trim }}"
+    secret_is_invalid: >-
+      {{
+        (secret_value | length < item.min_length)
+        or (secret_value is match('^replace-with-'))
+      }}
+  loop:
+    - label: Alertmanager SMTP username
+      variable: vault_alertmanager_smtp_username
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.email.enabled | default(false) | bool and alerting.email.auth_enabled | default(true) | bool }}"
+      min_length: 1
+    - label: Alertmanager SMTP password
+      variable: vault_alertmanager_smtp_password
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.email.enabled | default(false) | bool and alerting.email.auth_enabled | default(true) | bool }}"
+      min_length: 1
+    - label: Alertmanager Telegram bot token
+      variable: vault_alertmanager_telegram_bot_token
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.telegram.enabled | default(false) | bool }}"
+      min_length: 20
+    - label: Alertmanager Telegram chat ID
+      variable: vault_alertmanager_telegram_chat_id
+      enabled: "{{ alerting.enabled | default(false) | bool and alerting.telegram.enabled | default(false) | bool }}"
+      min_length: 1
+  loop_control:
+    label: "{{ item.label }}"
+  when:
+    - item.enabled | bool
+    - secret_is_invalid | bool
+  run_once: true
+
 - name: Deploy kube-prometheus-stack via Helm
   become: true
   delegate_to: k8s-ctrl
@@ -55,6 +136,7 @@
               value:    "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
               effect:   "{{ cluster_topology.node_pools[monitoring.pool].taints[0].effect }}"
       alertmanager:
+        config: "{{ (lookup('template', 'alertmanager-config.yaml.j2') | from_yaml) if alerting.enabled | default(false) | bool else {'global': {'resolve_timeout': '5m'}, 'route': {'receiver': 'null'}, 'receivers': [{'name': 'null'}]} }}"
         alertmanagerSpec:
           nodeSelector:
             workload: "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
@@ -159,7 +241,31 @@
     definition: "{{ lookup('template', role_path + '/../database/templates/mongodb-servicemonitor.yaml.j2') | from_yaml }}"
 
 # ============================================================
-# 3. Wait for Prometheus to Be Ready
+# 3. Create Framework Alert Rules
+# PrometheusRule CRDs are installed by kube-prometheus-stack.
+# The release label keeps the rules selected by the Prometheus
+# instance created by this Helm release.
+# ============================================================
+- name: Create framework platform PrometheusRule alerts
+  become: true
+  delegate_to: k8s-ctrl
+  when: monitoring.alerts.enabled | default(true) | bool
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'prometheusrule-platform.yaml.j2') | from_yaml }}"
+
+- name: Create framework database PrometheusRule alerts
+  become: true
+  delegate_to: k8s-ctrl
+  when: monitoring.alerts.enabled | default(true) | bool
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'prometheusrule-database.yaml.j2') | from_yaml }}"
+
+# ============================================================
+# 4. Wait for Prometheus to Be Ready
 # ============================================================
 - name: Wait for Prometheus pod to be ready
   become: true
@@ -177,7 +283,7 @@
   changed_when: false
 
 # ============================================================
-# 4. Wait for Grafana to Be Ready
+# 5. Wait for Grafana to Be Ready
 # ============================================================
 - name: Wait for Grafana pod to be ready
   become: true
@@ -211,7 +317,7 @@
     definition: "{{ lookup('template', 'grafana-platform-dashboards-configmap.yaml.j2') | from_yaml }}"
 
 # ============================================================
-# 5. Wait for Alertmanager to Be Ready
+# 6. Wait for Alertmanager to Be Ready
 # ============================================================
 - name: Wait for Alertmanager pod to be ready
   become: true
@@ -229,7 +335,7 @@
   changed_when: false
 
 # ============================================================
-# 6. Verify Prometheus is Scraping Targets
+# 7. Verify Prometheus is Scraping Targets
 # FIX: Write python script to temp file to avoid shell
 # collapsing multiline code into a single broken line.
 # ============================================================
@@ -268,7 +374,7 @@
     msg: "{{ prometheus_targets.stdout }}"
 
 # ============================================================
-# 7. Show Monitoring Stack Pod Summary
+# 8. Show Monitoring Stack Pod Summary
 # Final confirmation before handing off to Phase 7.
 # Shows all pods in monitoring namespace with their
 # node placement so you can verify pinning worked.

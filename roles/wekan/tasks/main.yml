@@ -2,6 +2,9 @@
 # ============================================================
 # ROLE: wekan
 # Deploys WeKan as the MongoDB-backed example application.
+# It intentionally stays app-light: the reusable observability
+# value comes from MongoDB, Kubernetes, ingress, storage and
+# logging alerts/dashboards rather than WeKan-specific panels.
 #
 # Depends on:
 #   - database   (MongoDBCommunity replica set must be healthy)

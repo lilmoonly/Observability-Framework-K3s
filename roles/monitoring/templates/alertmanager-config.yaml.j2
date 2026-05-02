@@ -1,0 +1,108 @@
+{% set email_enabled = alerting.email.enabled | default(false) | bool %}
+{% set telegram_enabled = alerting.telegram.enabled | default(false) | bool %}
+global:
+  resolve_timeout: {{ alerting.resolve_timeout | default('5m') }}
+{% if email_enabled %}
+  smtp_smarthost: {{ alerting.email.smarthost | quote }}
+  smtp_from: {{ alerting.email.from | quote }}
+  smtp_require_tls: {{ alerting.email.require_tls | default(true) | bool | lower }}
+{% if alerting.email.auth_enabled | default(true) | bool %}
+  smtp_auth_username: {{ alerting.email.auth_username | quote }}
+  smtp_auth_password: {{ alerting.email.auth_password | quote }}
+{% endif %}
+{% endif %}
+
+route:
+  receiver: "null"
+  group_by:
+    - alertname
+    - category
+    - component
+    - severity
+    - namespace
+  group_wait: {{ alerting.route.group_wait | default('30s') }}
+  group_interval: {{ alerting.route.group_interval | default('5m') }}
+  repeat_interval: {{ alerting.route.repeat_interval | default('4h') }}
+{% if email_enabled or telegram_enabled %}
+  routes:
+{% if email_enabled %}
+    - receiver: "email"
+      matchers:
+        - severity=~"warning|critical"
+      continue: true
+{% endif %}
+{% if telegram_enabled %}
+    - receiver: "telegram"
+      matchers:
+        - severity=~"warning|critical"
+      continue: true
+{% endif %}
+{% endif %}
+
+receivers:
+  - name: "null"
+{% if email_enabled %}
+  - name: "email"
+    email_configs:
+      - to: {{ alerting.email.to | quote }}
+        from: {{ alerting.email.from | quote }}
+        send_resolved: {{ alerting.email.send_resolved | default(true) | bool | lower }}
+        headers:
+          subject: >-
+{% raw %}
+            [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}
+{% endraw %}
+        html: |-
+{% raw %}
+          <b>{{ .Status | toUpper }}</b>: {{ .CommonLabels.alertname }}<br/>
+          <b>Severity:</b> {{ .CommonLabels.severity }}<br/>
+          <b>Category:</b> {{ .CommonLabels.category }}<br/>
+          <b>Component:</b> {{ .CommonLabels.component }}<br/>
+          <br/>
+          {{ range .Alerts }}
+          <b>{{ .Annotations.summary }}</b><br/>
+          {{ .Annotations.description }}<br/>
+          {{ if .Labels.namespace }}Namespace: {{ .Labels.namespace }}<br/>{{ end }}
+          {{ if .Labels.pod }}Pod: {{ .Labels.pod }}<br/>{{ end }}
+          {{ if .Labels.node }}Node: {{ .Labels.node }}<br/>{{ end }}
+          <br/>
+          {{ end }}
+{% endraw %}
+{% endif %}
+{% if telegram_enabled %}
+  - name: "telegram"
+    telegram_configs:
+      - bot_token: {{ alerting.telegram.bot_token | quote }}
+        chat_id: {{ alerting.telegram.chat_id }}
+        parse_mode: "HTML"
+        send_resolved: {{ alerting.telegram.send_resolved | default(true) | bool | lower }}
+        message: |-
+{% raw %}
+          {{ if eq .Status "firing" }}<b>FIRING</b>{{ else }}<b>RESOLVED</b>{{ end }}: {{ .CommonLabels.alertname }}
+          Severity: {{ .CommonLabels.severity }}
+          Category: {{ .CommonLabels.category }}
+          Component: {{ .CommonLabels.component }}
+
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ if .Labels.namespace }}Namespace: {{ .Labels.namespace }}{{ end }}
+          {{ if .Labels.pod }}Pod: {{ .Labels.pod }}{{ end }}
+          {{ if .Labels.node }}Node: {{ .Labels.node }}{{ end }}
+
+          {{ end }}
+{% endraw %}
+{% endif %}
+
+inhibit_rules:
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal:
+      - alertname
+      - namespace
+      - pod
+      - node
+      - persistentvolumeclaim
+      - component
