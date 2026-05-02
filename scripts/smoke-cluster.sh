@@ -9,6 +9,7 @@ SMOKE_SSH_HOST="${SMOKE_SSH_HOST:-}"
 SMOKE_SSH_USER="${SMOKE_SSH_USER:-vagrant}"
 SMOKE_SSH_PORT="${SMOKE_SSH_PORT:-}"
 SMOKE_SSH_KEY="${SMOKE_SSH_KEY:-}"
+SMOKE_SSH_STRICT_HOST_KEY_CHECKING="${SMOKE_SSH_STRICT_HOST_KEY_CHECKING:-false}"
 SMOKE_REMOTE_KUBECTL="${SMOKE_REMOTE_KUBECTL:-sudo k3s kubectl}"
 SMOKE_REMOTE_KUBECONFIG="${SMOKE_REMOTE_KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-300s}"
@@ -109,6 +110,13 @@ configure_kubectl() {
 
   kubectl_mode="ssh"
   ssh_args=(-o BatchMode=yes -o ConnectTimeout=10)
+  if [ "$SMOKE_SSH_STRICT_HOST_KEY_CHECKING" != "true" ]; then
+    ssh_args+=(
+      -o StrictHostKeyChecking=no
+      -o UserKnownHostsFile=/dev/null
+      -o GlobalKnownHostsFile=/dev/null
+    )
+  fi
   if [ -n "$SMOKE_SSH_PORT" ]; then
     ssh_args+=(-p "$SMOKE_SSH_PORT")
   fi

@@ -587,6 +587,9 @@ SMOKE_KUBECTL_MODE=ssh scripts/smoke-cluster.sh
 # Override the SSH target or user if your inventory is different.
 SMOKE_SSH_HOST=192.168.56.10 SMOKE_SSH_USER=vagrant scripts/smoke-cluster.sh
 
+# Re-enable strict SSH host-key checking outside disposable Vagrant labs.
+SMOKE_SSH_STRICT_HOST_KEY_CHECKING=true scripts/smoke-cluster.sh
+
 # Skip HTTP ingress checks if the script cannot reach 192.168.56.10.
 SMOKE_CHECK_INGRESS=false scripts/smoke-cluster.sh
 
