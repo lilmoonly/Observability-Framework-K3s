@@ -249,7 +249,7 @@
       -l observability.framework/mongodb-cluster={{ database.mongodb.cluster_name }} \
       -o jsonpath='{.items[*].metadata.name}'
   register: old_mongodb_pods
-  until: old_mongodb_pods.stdout == ""
+  until: old_mongodb_pods.stdout | trim | length == 0
   retries: 20
   delay: 10
   changed_when: false

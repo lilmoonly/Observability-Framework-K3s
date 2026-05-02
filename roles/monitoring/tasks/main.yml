@@ -85,11 +85,21 @@
   loop:
     - label: Alertmanager SMTP username
       variable: vault_alertmanager_smtp_username
-      enabled: "{{ alerting.enabled | default(false) | bool and alerting.email.enabled | default(false) | bool and alerting.email.auth_enabled | default(true) | bool }}"
+      enabled: >-
+        {{
+          alerting.enabled | default(false) | bool
+          and alerting.email.enabled | default(false) | bool
+          and alerting.email.auth_enabled | default(true) | bool
+        }}
       min_length: 1
     - label: Alertmanager SMTP password
       variable: vault_alertmanager_smtp_password
-      enabled: "{{ alerting.enabled | default(false) | bool and alerting.email.enabled | default(false) | bool and alerting.email.auth_enabled | default(true) | bool }}"
+      enabled: >-
+        {{
+          alerting.enabled | default(false) | bool
+          and alerting.email.enabled | default(false) | bool
+          and alerting.email.auth_enabled | default(true) | bool
+        }}
       min_length: 1
     - label: Alertmanager Telegram bot token
       variable: vault_alertmanager_telegram_bot_token
@@ -171,7 +181,16 @@
               value:    "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"
               effect:   "{{ cluster_topology.node_pools[monitoring.pool].taints[0].effect }}"
       alertmanager:
-        config: "{{ (lookup('template', 'alertmanager-config.yaml.j2') | from_yaml) if alerting.enabled | default(false) | bool else {'global': {'resolve_timeout': '5m'}, 'route': {'receiver': 'null'}, 'receivers': [{'name': 'null'}]} }}"
+        config: >-
+          {{
+            (lookup('template', 'alertmanager-config.yaml.j2') | from_yaml)
+            if alerting.enabled | default(false) | bool
+            else {
+              'global': {'resolve_timeout': '5m'},
+              'route': {'receiver': 'null'},
+              'receivers': [{'name': 'null'}]
+            }
+          }}
         alertmanagerSpec:
           nodeSelector:
             workload: "{{ cluster_topology.node_pools[monitoring.pool].workload_label }}"

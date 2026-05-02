@@ -72,12 +72,22 @@
         - "wekan"
     - label: Alertmanager SMTP username
       variable: vault_alertmanager_smtp_username
-      enabled: "{{ alerting.enabled | default(false) | bool and alerting.email.enabled | default(false) | bool and alerting.email.auth_enabled | default(true) | bool }}"
+      enabled: >-
+        {{
+          alerting.enabled | default(false) | bool
+          and alerting.email.enabled | default(false) | bool
+          and alerting.email.auth_enabled | default(true) | bool
+        }}
       min_length: 1
       forbidden_values: []
     - label: Alertmanager SMTP password
       variable: vault_alertmanager_smtp_password
-      enabled: "{{ alerting.enabled | default(false) | bool and alerting.email.enabled | default(false) | bool and alerting.email.auth_enabled | default(true) | bool }}"
+      enabled: >-
+        {{
+          alerting.enabled | default(false) | bool
+          and alerting.email.enabled | default(false) | bool
+          and alerting.email.auth_enabled | default(true) | bool
+        }}
       min_length: 1
       forbidden_values: []
     - label: Alertmanager Telegram bot token
@@ -121,7 +131,14 @@
       Host {{ inventory_hostname }} uses node_pool='{{ resolved_node_pool }}',
       but that pool is not defined in cluster_topology.node_pools.
   vars:
-    resolved_node_pool: "{{ hostvars[inventory_hostname].node_pool | default(hostvars[inventory_hostname].role | default(cluster_topology.default_worker_pool)) }}"
+    resolved_node_pool: >-
+      {{
+        hostvars[inventory_hostname].node_pool
+        | default(
+            hostvars[inventory_hostname].role
+            | default(cluster_topology.default_worker_pool)
+          )
+      }}
   when: resolved_node_pool not in cluster_topology.node_pools
 
 - name: Validate required workload pools exist in inventory

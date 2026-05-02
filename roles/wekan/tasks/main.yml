@@ -65,7 +65,22 @@
       type: Opaque
       stringData:
         MONGO_URL: >-
-          mongodb://{{ database.app_user | urlencode }}:{{ database.app_password | urlencode }}@{{ database.mongodb.host }}:{{ database.mongodb.port | int }}/{{ database.app_db_name }}?replicaSet={{ database.mongodb.cluster_name }}&authSource={{ database.app_db_name }}
+          {{
+            'mongodb://'
+            ~ (database.app_user | urlencode)
+            ~ ':'
+            ~ (database.app_password | urlencode)
+            ~ '@'
+            ~ database.mongodb.host
+            ~ ':'
+            ~ (database.mongodb.port | int)
+            ~ '/'
+            ~ database.app_db_name
+            ~ '?replicaSet='
+            ~ database.mongodb.cluster_name
+            ~ '&authSource='
+            ~ database.app_db_name
+          }}
   no_log: true
 
 - name: Create WeKan admin secret
@@ -201,7 +216,12 @@
         kubectl logs --kubeconfig /etc/rancher/k3s/k3s.yaml -n {{ wekan.namespace }} -l app.kubernetes.io/name=wekan,app.kubernetes.io/instance=wekan --tail=200
         echo
         echo "== previous logs =="
-        kubectl logs --kubeconfig /etc/rancher/k3s/k3s.yaml -n {{ wekan.namespace }} -l app.kubernetes.io/name=wekan,app.kubernetes.io/instance=wekan --previous --tail=200
+        kubectl logs \
+          --kubeconfig /etc/rancher/k3s/k3s.yaml \
+          -n {{ wekan.namespace }} \
+          -l app.kubernetes.io/name=wekan,app.kubernetes.io/instance=wekan \
+          --previous \
+          --tail=200
       register: wekan_ready_diagnostics
       changed_when: false
       failed_when: false
@@ -523,7 +543,16 @@
       {{ database.mongodb.cluster_name }}-0 \
       -c mongod \
       -- mongosh "$mongo_url" --quiet --eval \
-      'const username = {{ wekan.admin_username | to_json }}; const email = {{ wekan.admin_email | to_json }}; print("admin_user_count=" + db.users.countDocuments({ $or: [{ username: username }, { "emails.address": email }] }));'
+      '
+      const username = {{ wekan.admin_username | to_json }};
+      const email = {{ wekan.admin_email | to_json }};
+      print(
+        "admin_user_count="
+        + db.users.countDocuments({
+          $or: [{ username: username }, { "emails.address": email }]
+        })
+      );
+      '
   register: wekan_admin_seed_check
   changed_when: false
 
@@ -584,7 +613,15 @@
         {{ database.mongodb.cluster_name }}-0 \
         -c mongod \
         -- mongosh "$mongo_url" --quiet --eval \
-        'const username = {{ wekan.admin_username | to_json }}; const email = {{ wekan.admin_email | to_json }}; print(db.users.countDocuments({ $or: [{ username: username }, { "emails.address": email }] }));' 2>/dev/null)"
+        '
+        const username = {{ wekan.admin_username | to_json }};
+        const email = {{ wekan.admin_email | to_json }};
+        print(
+          db.users.countDocuments({
+            $or: [{ username: username }, { "emails.address": email }]
+          })
+        );
+        ' 2>/dev/null)"
       query_rc=$?
       user_count="$(printf '%s\n' "$raw_count" | tail -n 1 | tr -dc '0-9')"
 
@@ -593,12 +630,16 @@
         exit 0
       fi
 
-      printf 'attempt=%s login_json=%s login_form=%s register_json=%s register_form=%s mongo_query_rc=%s admin_user_count=%s\n' "$attempt" "$login_json_code" "$login_form_code" "$register_json_code" "$register_form_code" "$query_rc" "${user_count:-0}"
+      printf 'attempt=%s login_json=%s login_form=%s register_json=%s ' "$attempt" "$login_json_code" "$login_form_code" "$register_json_code"
+      printf 'register_form=%s mongo_query_rc=%s admin_user_count=%s\n' "$register_form_code" "$query_rc" "${user_count:-0}"
       sleep 5
     done
 
     echo "WeKan admin user was not found in MongoDB after registration attempts."
-    echo "Registration status: initial_login={{ wekan_admin_login_initial.stdout | default('not-run') }}, json_register={{ wekan_admin_register_json.stdout | default('skipped') }}, form_register={{ wekan_admin_register_form.stdout | default('skipped') }}"
+    printf 'Registration status: initial_login=%s, json_register=%s, form_register=%s\n' \
+      "{{ wekan_admin_login_initial.stdout | default('not-run') }}" \
+      "{{ wekan_admin_register_json.stdout | default('skipped') }}" \
+      "{{ wekan_admin_register_form.stdout | default('skipped') }}"
     exit 1
   register: wekan_admin_user_count
   changed_when: false
@@ -617,7 +658,15 @@
       {{ database.mongodb.cluster_name }}-0 \
       -c mongod \
       -- mongosh "$mongo_url" --quiet --eval \
-      'const username = {{ wekan.admin_username | to_json }}; const email = {{ wekan.admin_email | to_json }}; const result = db.users.updateOne({ $or: [{ username: username }, { "emails.address": email }] }, { $set: { isAdmin: true } }); print("matched=" + result.matchedCount + " modified=" + result.modifiedCount);'
+      '
+      const username = {{ wekan.admin_username | to_json }};
+      const email = {{ wekan.admin_email | to_json }};
+      const result = db.users.updateOne(
+        { $or: [{ username: username }, { "emails.address": email }] },
+        { $set: { isAdmin: true } }
+      );
+      print("matched=" + result.matchedCount + " modified=" + result.modifiedCount);
+      '
   register: wekan_admin_update
   changed_when: false
 

@@ -234,7 +234,7 @@
       traefik-metrics \
       -o jsonpath='{.subsets[*].addresses[*].ip}'
   register: traefik_metrics_endpoints
-  until: traefik_metrics_endpoints.stdout != ""
+  until: traefik_metrics_endpoints.stdout | trim | length > 0
   retries: 30
   delay: 10
   changed_when: false

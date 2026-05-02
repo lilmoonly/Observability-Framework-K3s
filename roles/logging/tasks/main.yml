@@ -202,7 +202,12 @@
       - "admin:{{ opensearch.admin_password }}"
       - "https://{{ opensearch_service_ip.stdout }}:9200/_cluster/health"
   register: opensearch_health
-  until: opensearch_health.rc == 0 and ('\"status\":\"green\"' in (opensearch_health.stdout | replace(' ', '')) or '\"status\":\"yellow\"' in (opensearch_health.stdout | replace(' ', '')))
+  until: >-
+    opensearch_health.rc == 0
+    and (
+      '\"status\":\"green\"' in (opensearch_health.stdout | replace(' ', ''))
+      or '\"status\":\"yellow\"' in (opensearch_health.stdout | replace(' ', ''))
+    )
   retries: 20
   delay: 15
   changed_when: false
@@ -236,7 +241,7 @@
       fluent-bit-metrics \
       -o jsonpath='{.subsets[*].addresses[*].ip}'
   register: fluent_bit_metrics_endpoints
-  until: fluent_bit_metrics_endpoints.stdout != ""
+  until: fluent_bit_metrics_endpoints.stdout | trim | length > 0
   retries: 30
   delay: 10
   changed_when: false

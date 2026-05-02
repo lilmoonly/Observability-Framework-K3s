@@ -39,7 +39,11 @@
       - { scope: "logging", name: "fluent-bit", namespace: "opensearch" }
       - { scope: "logging", name: "opensearch-dashboards", namespace: "opensearch" }
       - { scope: "logging", name: "opensearch", namespace: "opensearch" }
-      - { scope: "database", name: "mongodb-kubernetes-operator", namespace: "{{ database.mongodb.operator_namespace | default(database.namespace | default('database')) }}" }
+      - scope: "database"
+        name: "mongodb-kubernetes-operator"
+        namespace: >-
+          {{ database.mongodb.operator_namespace
+          | default(database.namespace | default('database')) }}
       - { scope: "database", name: "mongodb-kubernetes-operator", namespace: "mongodb-system" }
       - { scope: "database", name: "mongodb-kubernetes-operator", namespace: "db" }
       - { scope: "database", name: "cnpg-operator", namespace: "cnpg-system" }
@@ -54,8 +58,14 @@
       - { scope: "monitoring", resource: "prometheusrule", name: "observability-framework-database-alerts", namespace: "monitoring" }
       - { scope: "monitoring", resource: "prometheusrule", name: "observability-framework-recording-rules", namespace: "monitoring" }
       - { scope: "monitoring", resource: "prometheusrule", name: "observability-framework-slo-alerts", namespace: "monitoring" }
-      - { scope: "database", resource: "mongodbcommunity", name: "{{ database.mongodb.cluster_name | default('app-mongo-rs') }}", namespace: "{{ database.namespace | default('database') }}" }
-      - { scope: "database", resource: "cluster.postgresql.cnpg.io", name: "{{ database.cluster_name | default('app-db-cluster') }}", namespace: "{{ database.namespace | default('database') }}" }
+      - scope: "database"
+        resource: "mongodbcommunity"
+        name: "{{ database.mongodb.cluster_name | default('app-mongo-rs') }}"
+        namespace: "{{ database.namespace | default('database') }}"
+      - scope: "database"
+        resource: "cluster.postgresql.cnpg.io"
+        name: "{{ database.cluster_name | default('app-db-cluster') }}"
+        namespace: "{{ database.namespace | default('database') }}"
     cleanup_namespaces:
       - { scope: "apps", name: "{{ wekan.namespace | default('wekan') }}" }
       - { scope: "apps", name: "forgejo" }
@@ -122,7 +132,7 @@
         label: "{{ item.item.namespace }}/{{ item.item.name }}"
       changed_when: true
       when:
-        - item.skipped | default(false) | bool == false
+        - not (item.skipped | default(false) | bool)
         - item.rc == 0
 
     - name: Delete selected Kubernetes resources

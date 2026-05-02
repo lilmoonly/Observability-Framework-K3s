@@ -42,6 +42,43 @@ require_command() {
   command -v "$1" >/dev/null 2>&1
 }
 
+detect_yaml_parser() {
+  if require_command python3 && python3 -c 'import yaml' >/dev/null 2>&1; then
+    YAML_PARSER="python"
+    return 0
+  fi
+
+  if require_command ruby && ruby -e 'require "yaml"' >/dev/null 2>&1; then
+    YAML_PARSER="ruby"
+    return 0
+  fi
+
+  YAML_PARSER=""
+  return 1
+}
+
+parse_yaml_file() {
+  local file="$1"
+
+  case "$YAML_PARSER" in
+    python)
+      python3 - "$file" <<'PY'
+import sys
+import yaml
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    list(yaml.safe_load_all(fh))
+PY
+      ;;
+    ruby)
+      ruby -e 'require "yaml"; YAML.load_stream(File.read(ARGV[0]))' "$file"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 write_dummy_vars() {
   cat > "$TMP_DIR/dummy-vars.yml" <<'YAML'
 ---
@@ -87,8 +124,8 @@ YAML
 }
 
 validate_yaml_files() {
-  if ! require_command ruby; then
-    warn "ruby is not installed; skipping YAML parser check"
+  if ! detect_yaml_parser; then
+    warn "python3 with PyYAML or ruby is not installed; skipping YAML parser check"
     return 0
   fi
 
@@ -106,7 +143,7 @@ validate_yaml_files() {
   fi
 
   while IFS= read -r file; do
-    if ! ruby -e 'require "yaml"; YAML.load_stream(File.read(ARGV[0]))' "$file"; then
+    if ! parse_yaml_file "$file"; then
       printf 'Invalid YAML: %s\n' "$file" >&2
       return 1
     fi
@@ -162,13 +199,13 @@ render_template() {
 }
 
 validate_rendered_yaml() {
-  if ! require_command ruby; then
-    warn "ruby is not installed; skipping rendered YAML parser check"
+  if ! detect_yaml_parser; then
+    warn "python3 with PyYAML or ruby is not installed; skipping rendered YAML parser check"
     return 0
   fi
 
   while IFS= read -r file; do
-    ruby -e 'require "yaml"; YAML.load_stream(File.read(ARGV[0]))' "$file" || return 1
+    parse_yaml_file "$file" || return 1
   done <<EOF
 $(find "$TMP_DIR/rendered" -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
 EOF

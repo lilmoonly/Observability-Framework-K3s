@@ -124,7 +124,7 @@
       -l cnpg.io/cluster={{ database.cluster_name }} \
       -o jsonpath='{.items[*].metadata.name}'
   register: old_pods
-  until: old_pods.stdout == ""
+  until: old_pods.stdout | trim | length == 0
   retries: 20
   delay: 10
   changed_when: false

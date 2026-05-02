@@ -98,7 +98,14 @@
 # ============================================================
 - name: Resolve worker pool name for this node
   ansible.builtin.set_fact:
-    worker_pool_name: "{{ hostvars[inventory_hostname].node_pool | default(hostvars[inventory_hostname].role | default(cluster_topology.default_worker_pool)) }}"
+    worker_pool_name: >-
+      {{
+        hostvars[inventory_hostname].node_pool
+        | default(
+            hostvars[inventory_hostname].role
+            | default(cluster_topology.default_worker_pool)
+          )
+      }}
 
 - name: Resolve worker pool configuration for this node
   ansible.builtin.set_fact:
@@ -176,9 +183,24 @@
 
 - name: Build worker taint plan from pool definitions
   ansible.builtin.set_fact:
-    worker_taint_plan: "{{ (worker_taint_plan | default([])) + [{'hostname': item, 'pool': resolved_pool, 'taints': cluster_topology.node_pools[resolved_pool].taints | default([])}] }}"
+    worker_taint_plan: >-
+      {{
+        (worker_taint_plan | default([]))
+        + [{
+          'hostname': item,
+          'pool': resolved_pool,
+          'taints': cluster_topology.node_pools[resolved_pool].taints | default([])
+        }]
+      }}
   vars:
-    resolved_pool: "{{ hostvars[item].node_pool | default(hostvars[item].role | default(cluster_topology.default_worker_pool)) }}"
+    resolved_pool: >-
+      {{
+        hostvars[item].node_pool
+        | default(
+            hostvars[item].role
+            | default(cluster_topology.default_worker_pool)
+          )
+      }}
   loop: "{{ groups['workers'] }}"
   run_once: true
 
