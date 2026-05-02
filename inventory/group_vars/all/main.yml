@@ -124,6 +124,16 @@ monitoring:
   # Keep Helm output hidden by default because the generated values include
   # Grafana and Alertmanager secrets. Set to false only for one-off debugging.
   helm_no_log: true
+  recording_rules:
+    enabled: true
+  slo:
+    enabled: true
+    window: "5m"
+    min_request_rate: 0.01
+    http_5xx_warning_ratio: 0.05
+    http_latency_p95_warning_seconds: 2
+    deployment_availability_warning_ratio: 0.90
+    statefulset_availability_warning_ratio: 0.90
   alerts:
     enabled: true
     target_down_for: "10m"
@@ -319,6 +329,16 @@ ai_engine:
     ingress_5xx_rate: 0.10
   severity_thresholds:
     critical_score: 0.97
+  alerts:
+    enabled: true
+    metrics_missing_for: "10m"
+    not_ready_for: "15m"
+    stale_success_for: "20m"
+    stale_success_seconds: 1800
+    warning_severity_for: "10m"
+    critical_severity_for: "5m"
+    run_failure_window: "30m"
+    run_failure_count: 3
   resources:
     requests:
       cpu: "100m"

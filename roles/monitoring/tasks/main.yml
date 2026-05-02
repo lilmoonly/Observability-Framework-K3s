@@ -284,6 +284,15 @@
 # The release label keeps the rules selected by the Prometheus
 # instance created by this Helm release.
 # ============================================================
+- name: Create framework recording PrometheusRule rules
+  become: true
+  delegate_to: k8s-ctrl
+  when: monitoring.recording_rules.enabled | default(true) | bool
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'prometheusrule-recording.yaml.j2') | from_yaml }}"
+
 - name: Create framework platform PrometheusRule alerts
   become: true
   delegate_to: k8s-ctrl
@@ -301,6 +310,17 @@
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
     definition: "{{ lookup('template', 'prometheusrule-database.yaml.j2') | from_yaml }}"
+
+- name: Create framework SLO PrometheusRule alerts
+  become: true
+  delegate_to: k8s-ctrl
+  when:
+    - monitoring.alerts.enabled | default(true) | bool
+    - monitoring.slo.enabled | default(true) | bool
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'prometheusrule-slo.yaml.j2') | from_yaml }}"
 
 # ============================================================
 # 4. Wait for Prometheus to Be Ready

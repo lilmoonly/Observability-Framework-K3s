@@ -23,6 +23,7 @@ spec:
           annotations:
             summary: "MongoDB metrics are missing"
             description: "Prometheus is not receiving mongodb_info from the MongoDB replica set. Check the MongoDB metrics ServiceMonitor and metrics endpoint auth."
+            runbook_hint: "Check the MongoDB metrics ServiceMonitor, app-mongo-rs-svc endpoints, metrics secret, and whether the mongod sidecar exposes port {{ database.mongodb.metrics.port }}."
 
         - alert: FrameworkMongoDBMemberPodNotReady
           expr: |
@@ -36,6 +37,7 @@ spec:
           annotations:
             summary: "Not all MongoDB member pods are ready"
             description: "The MongoDB replica set has fewer ready member pods than configured members."
+            runbook_hint: "Describe the MongoDBCommunity resource and member pods, then check scheduling, PVCs, readiness probe events, and mongodb-agent logs."
 
         - alert: FrameworkMongoDBPrimaryMissingOrSplitBrain
           expr: |
@@ -48,6 +50,7 @@ spec:
           annotations:
             summary: "MongoDB primary count is invalid"
             description: "The MongoDB replica set should have exactly one primary. Check replica set election state immediately."
+            runbook_hint: "Connect with mongosh and run rs.status(); check member reachability, clock skew, quorum, and whether a DB node is down."
 
 {% if database.mongodb.members | int > 1 %}
         - alert: FrameworkMongoDBSecondaryMissing
@@ -62,6 +65,7 @@ spec:
           annotations:
             summary: "MongoDB secondary members are missing"
             description: "MongoDB has fewer SECONDARY members than expected for the configured replica-set size."
+            runbook_hint: "Check rs.status(), pod readiness, member placement across database nodes, and whether a secondary is STARTUP2, RECOVERING, or unreachable."
 
 {% endif %}
 {% endif %}
@@ -75,6 +79,7 @@ spec:
           annotations:
             summary: "MongoDB operator is not ready"
             description: "The MongoDB Kubernetes operator is not reporting a ready pod in the database namespace."
+            runbook_hint: "Check the operator deployment in {{ database.mongodb.operator_namespace | default(database.namespace) }}, RBAC ownership, namespace, and operator pod logs."
 
         - alert: FrameworkMongoDBMemberRestarting
           expr: |
@@ -87,6 +92,7 @@ spec:
           annotations:
             summary: "A MongoDB member container restarted"
             description: "A mongod or mongodb-agent container restarted in the last 15 minutes."
+            runbook_hint: "Check previous logs for mongod and mongodb-agent, then inspect OOMKilled events, readiness failures, disk pressure, and election activity."
 {% elif database.type == 'postgresql' %}
         - alert: FrameworkPostgresMetricsMissing
           expr: absent(cnpg_collector_up{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"})
@@ -98,6 +104,7 @@ spec:
           annotations:
             summary: "PostgreSQL metrics are missing"
             description: "Prometheus is not receiving CloudNativePG exporter metrics for the configured PostgreSQL cluster."
+            runbook_hint: "Check the CNPG cluster pods, ServiceMonitor discovery, Prometheus targets, and whether cnpg_collector_up exists for the database namespace."
 
         - alert: FrameworkPostgresCollectorDown
           expr: cnpg_collector_up{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"} == 0
@@ -109,6 +116,7 @@ spec:
           annotations:
             summary: "CloudNativePG collector is down"
             description: "A PostgreSQL instance exporter collector is not healthy."
+            runbook_hint: "Inspect the affected CNPG pod logs and exporter metrics endpoint; collector failures often point to pod health or database connectivity."
 
         - alert: FrameworkPostgresInstanceNotReady
           expr: |
@@ -122,6 +130,7 @@ spec:
           annotations:
             summary: "Not all PostgreSQL instances are ready"
             description: "The CloudNativePG cluster has fewer ready postgres containers than configured instances."
+            runbook_hint: "Describe the CNPG Cluster and pods, then check PVC binding, scheduling, postgres container logs, and operator events."
 
 {% if database.postgresql.instances | int > 1 %}
         - alert: FrameworkPostgresStreamingReplicaMissing
@@ -136,6 +145,7 @@ spec:
           annotations:
             summary: "PostgreSQL streaming replica is missing"
             description: "CloudNativePG reports fewer streaming replicas than expected for the configured instance count."
+            runbook_hint: "Check CNPG cluster status, replica pod readiness, replication slots, and whether a database node or PVC is unavailable."
 
         - alert: FrameworkPostgresReplicationLagHigh
           expr: |
@@ -150,6 +160,7 @@ spec:
           annotations:
             summary: "PostgreSQL replication lag is high"
             description: "CloudNativePG replication lag has crossed the warning threshold."
+            runbook_hint: "If critical lag is also firing, handle that first; otherwise check replica CPU/disk, network, long transactions, and WAL retention pressure."
 
         - alert: FrameworkPostgresReplicationLagCritical
           expr: |
@@ -164,6 +175,7 @@ spec:
           annotations:
             summary: "PostgreSQL replication lag is critical"
             description: "CloudNativePG replication lag has crossed the critical threshold."
+            runbook_hint: "Treat failover safety as degraded: check primary WAL generation, replica replay, node pressure, network, and long-running transactions."
 
 {% endif %}
         - alert: FrameworkPostgresCollectorError
@@ -176,6 +188,7 @@ spec:
           annotations:
             summary: "CloudNativePG collector reports collection errors"
             description: "The PostgreSQL metrics collector is reporting errors."
+            runbook_hint: "Check CNPG pod logs and collector error metrics; verify the database accepts local exporter queries."
 
         - alert: FrameworkPostgresLongTransaction
           expr: max(cnpg_backends_max_tx_duration_seconds{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"}) > {{ monitoring.alerts.postgres_long_transaction_seconds }}
@@ -187,6 +200,7 @@ spec:
           annotations:
             summary: "PostgreSQL has a long-running transaction"
             description: "A PostgreSQL backend transaction has exceeded the configured duration threshold."
+            runbook_hint: "Use pg_stat_activity on the primary to identify the session before terminating anything; long transactions can block vacuum and replication."
 
         - alert: FrameworkPostgresConnectionsHigh
           expr: |
@@ -203,4 +217,5 @@ spec:
           annotations:
             summary: "PostgreSQL connection usage is high"
             description: "PostgreSQL connection usage has crossed the configured warning ratio."
+            runbook_hint: "Check active sessions, application pool sizing, idle-in-transaction sessions, and whether max_connections is appropriate for node memory."
 {% endif %}

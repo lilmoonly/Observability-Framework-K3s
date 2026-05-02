@@ -21,6 +21,7 @@ spec:
           annotations:
             summary: "A Prometheus scrape target is down"
             description: "Prometheus has not been able to scrape one target for {{ monitoring.alerts.target_down_for }}. Check the target namespace, pod, ServiceMonitor, and network path."
+            runbook_hint: "If this target belongs to a NotReady or powered-off node, fix or remove the node first; the node-level alert suppresses this symptom alert."
 
         - alert: FrameworkNodeNotReady
           expr: kube_node_status_condition{condition="Ready",status="true"} == 0
@@ -32,6 +33,7 @@ spec:
           annotations:
             summary: "A Kubernetes node is not Ready"
             description: "A node has reported Ready=false for more than 5 minutes. Check kubelet, container runtime, node resources, and network reachability."
+            runbook_hint: "Start with kubectl get nodes -o wide, then check kubelet status, VM power state, node IP reachability, disk, memory, and container runtime."
 
         - alert: FrameworkNodePressure
           expr: kube_node_status_condition{condition=~"MemoryPressure|DiskPressure|PIDPressure",status="true"} == 1
@@ -43,6 +45,7 @@ spec:
           annotations:
             summary: "A Kubernetes node is under pressure"
             description: "A node is reporting MemoryPressure, DiskPressure, or PIDPressure. Check node capacity, evictions, logs, and disk usage."
+            runbook_hint: "Check kubectl describe node, free memory, df -h, journalctl -u k3s-agent, and recent eviction events."
 
         - alert: FrameworkNodeFilesystemFilling
           expr: |
@@ -59,6 +62,7 @@ spec:
           annotations:
             summary: "A node filesystem is filling"
             description: "A node filesystem has crossed {{ monitoring.alerts.node_filesystem_warning_pct }}% usage for 15 minutes."
+            runbook_hint: "Check df -h on the node, container image/cache growth, log volume growth, and local-path PV usage before expanding disk."
 
         - alert: FrameworkDeploymentUnavailable
           expr: kube_deployment_status_replicas_unavailable > 0
@@ -70,6 +74,7 @@ spec:
           annotations:
             summary: "A Deployment has unavailable replicas"
             description: "One or more Deployment replicas have been unavailable for more than 10 minutes."
+            runbook_hint: "Check kubectl describe deployment and related pods for image pulls, probes, scheduling, config, and secret errors."
 
         - alert: FrameworkStatefulSetUnavailable
           expr: (kube_statefulset_replicas - kube_statefulset_status_replicas_ready) > 0
@@ -81,6 +86,7 @@ spec:
           annotations:
             summary: "A StatefulSet has unavailable replicas"
             description: "One or more StatefulSet replicas have been unavailable for more than 10 minutes."
+            runbook_hint: "Check StatefulSet pods in ordinal order, PVC binding, scheduling constraints, and container readiness logs."
 
         - alert: FrameworkPodCrashLooping
           expr: max_over_time(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}[5m]) == 1
@@ -92,6 +98,7 @@ spec:
           annotations:
             summary: "A pod container is crash-looping"
             description: "A container has been in CrashLoopBackOff during the last 5 minutes."
+            runbook_hint: "Check previous container logs with kubectl logs --previous, then validate config, secrets, probes, and dependency connectivity."
 
         - alert: FrameworkPodRestartStorm
           expr: increase(kube_pod_container_status_restarts_total{container!="POD"}[{{ monitoring.alerts.pod_restart_window }}]) > {{ monitoring.alerts.pod_restart_warning_count }}
@@ -103,6 +110,7 @@ spec:
           annotations:
             summary: "A pod container is restarting frequently"
             description: "A container restarted more than {{ monitoring.alerts.pod_restart_warning_count }} times in {{ monitoring.alerts.pod_restart_window }}."
+            runbook_hint: "If CrashLoopBackOff is also firing, investigate that first; otherwise inspect OOMKilled events, probes, and application logs."
 
         - alert: FrameworkPodPendingTooLong
           expr: kube_pod_status_phase{phase="Pending"} == 1
@@ -114,6 +122,7 @@ spec:
           annotations:
             summary: "A pod has been Pending too long"
             description: "A pod has stayed Pending for {{ monitoring.alerts.pod_pending_for }}. Check node selectors, taints, resource requests, PVCs, and image pulls."
+            runbook_hint: "Describe the pod and look for FailedScheduling, PVC binding, taint/toleration, node affinity, and insufficient CPU or memory messages."
 
         - alert: FrameworkPersistentVolumeClaimFilling
           expr: |
@@ -128,6 +137,7 @@ spec:
           annotations:
             summary: "A PVC is filling"
             description: "A PersistentVolumeClaim has crossed {{ monitoring.alerts.pvc_warning_pct }}% usage for 15 minutes."
+            runbook_hint: "If the critical PVC alert is firing too, handle that first; otherwise plan cleanup, retention changes, or volume expansion."
 
         - alert: FrameworkPersistentVolumeClaimAlmostFull
           expr: |
@@ -142,6 +152,7 @@ spec:
           annotations:
             summary: "A PVC is almost full"
             description: "A PersistentVolumeClaim has crossed {{ monitoring.alerts.pvc_critical_pct }}% usage for 5 minutes."
+            runbook_hint: "Act before writes fail: clean safe data, reduce retention, or expand the PVC/storage class if supported."
 
         - alert: FrameworkTraefikHigh5xxRate
           expr: |
@@ -158,6 +169,7 @@ spec:
           annotations:
             summary: "Traefik is serving elevated 5xx responses"
             description: "Traefik 5xx responses are above the configured ratio for 10 minutes. Check backend pods, services, and ingress routing."
+            runbook_hint: "Check the affected ingress/service, backend pod readiness, recent deploys, and Traefik access logs for the failing route."
 
         - alert: FrameworkFluentBitOutputErrors
           expr: sum(increase(fluentbit_output_errors_total[10m])) > 0
@@ -169,6 +181,7 @@ spec:
           annotations:
             summary: "Fluent Bit output errors detected"
             description: "Fluent Bit reported output errors while shipping logs. Check OpenSearch reachability and Fluent Bit logs."
+            runbook_hint: "If failed retries are also firing, focus on OpenSearch availability/auth first; otherwise inspect Fluent Bit output errors and network path."
 
         - alert: FrameworkFluentBitFailedRetries
           expr: sum(increase(fluentbit_output_retries_failed_total[10m])) > 0
@@ -180,6 +193,7 @@ spec:
           annotations:
             summary: "Fluent Bit failed log delivery retries"
             description: "Fluent Bit exhausted retry attempts. Logs may be dropped until the output path is healthy."
+            runbook_hint: "Check OpenSearch health, service DNS, credentials, Fluent Bit output config, and whether the logging node has enough CPU/memory."
 
         - alert: FrameworkOpenSearchClusterYellow
           expr: max(elasticsearch_cluster_health_status{color="yellow"}) == 1
@@ -191,6 +205,7 @@ spec:
           annotations:
             summary: "OpenSearch cluster health is yellow"
             description: "OpenSearch reports yellow health. Check shard allocation and disk pressure."
+            runbook_hint: "Check shard allocation, disk watermarks, single-node replica expectations, and OpenSearch pod logs."
 
         - alert: FrameworkOpenSearchClusterRed
           expr: max(elasticsearch_cluster_health_status{color="red"}) == 1
@@ -202,6 +217,7 @@ spec:
           annotations:
             summary: "OpenSearch cluster health is red"
             description: "OpenSearch reports red health. Search/indexing may be degraded or unavailable."
+            runbook_hint: "Prioritize this over yellow health: check unassigned primary shards, disk pressure, JVM memory, and OpenSearch pod events."
 
         - alert: FrameworkOpenSearchDataDiskFilling
           expr: |
@@ -216,3 +232,4 @@ spec:
           annotations:
             summary: "OpenSearch data disk is filling"
             description: "OpenSearch data filesystem usage crossed {{ monitoring.alerts.opensearch_disk_warning_pct }}% for 15 minutes."
+            runbook_hint: "Review index retention, delete old indices safely, and expand the logging volume before OpenSearch hits disk watermarks."

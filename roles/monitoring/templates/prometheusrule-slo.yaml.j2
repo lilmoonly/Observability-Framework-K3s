@@ -1,0 +1,72 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: observability-framework-slo-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+    app.kubernetes.io/name: observability-framework-slo-alerts
+    app.kubernetes.io/part-of: observability-framework
+spec:
+  groups:
+    - name: observability-framework.slo
+      rules:
+        - alert: FrameworkServiceHighErrorRate
+          expr: |
+            framework:traefik_http_5xx:ratio5m > {{ monitoring.slo.http_5xx_warning_ratio }}
+            and on(service)
+            framework:traefik_http_requests:rate5m > {{ monitoring.slo.min_request_rate }}
+          for: 10m
+          labels:
+            severity: warning
+            category: slo
+            component: service
+          annotations:
+            summary: "A service is serving too many HTTP 5xx responses"
+            description: "A Traefik-routed service has crossed the generic {{ (monitoring.slo.http_5xx_warning_ratio | float * 100) | round(2) }}% 5xx warning threshold for 10 minutes."
+            runbook_hint: "Open Grafana for the affected service, then check backend pod readiness, recent deployments, logs, and upstream dependency health."
+
+        - alert: FrameworkServiceHighLatency
+          expr: |
+            framework:traefik_http_request_duration:p95_5m > {{ monitoring.slo.http_latency_p95_warning_seconds }}
+            and on(service)
+            framework:traefik_http_requests:rate5m > {{ monitoring.slo.min_request_rate }}
+          for: 10m
+          labels:
+            severity: warning
+            category: slo
+            component: service
+          annotations:
+            summary: "A service has elevated p95 latency"
+            description: "A Traefik-routed service has p95 latency above {{ monitoring.slo.http_latency_p95_warning_seconds }}s for 10 minutes."
+            runbook_hint: "Check request volume, backend pod CPU/memory, database latency, external dependencies, and recent application changes."
+
+        - alert: FrameworkDeploymentAvailabilitySLOBreach
+          expr: |
+            framework:kube_deployment_available:ratio < {{ monitoring.slo.deployment_availability_warning_ratio }}
+            and on(namespace, deployment)
+            kube_deployment_spec_replicas > 0
+          for: 10m
+          labels:
+            severity: warning
+            category: slo
+            component: kubernetes
+          annotations:
+            summary: "A Deployment availability ratio is below target"
+            description: "A Deployment has fewer available replicas than the generic availability target for 10 minutes."
+            runbook_hint: "Check unavailable pods, rollout status, image pulls, probes, scheduling constraints, and resource pressure."
+
+        - alert: FrameworkStatefulSetAvailabilitySLOBreach
+          expr: |
+            framework:kube_statefulset_ready:ratio < {{ monitoring.slo.statefulset_availability_warning_ratio }}
+            and on(namespace, statefulset)
+            kube_statefulset_replicas > 0
+          for: 10m
+          labels:
+            severity: warning
+            category: slo
+            component: kubernetes
+          annotations:
+            summary: "A StatefulSet readiness ratio is below target"
+            description: "A StatefulSet has fewer ready replicas than the generic availability target for 10 minutes."
+            runbook_hint: "Check member pods in ordinal order, PVC health, node placement, readiness probes, and operator events for stateful workloads."

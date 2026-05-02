@@ -1,0 +1,94 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: observability-framework-ai-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+    app.kubernetes.io/name: observability-framework-ai-alerts
+    app.kubernetes.io/part-of: observability-framework
+spec:
+  groups:
+    - name: observability-framework.ai-engine
+      rules:
+        - alert: FrameworkAIEngineMetricsMissing
+          expr: absent(ai_anomaly_ready{namespace="{{ ai_engine.namespace }}"})
+          for: {{ ai_engine.alerts.metrics_missing_for }}
+          labels:
+            severity: critical
+            category: ai
+            component: ai-engine
+          annotations:
+            summary: "AI anomaly engine metrics are missing"
+            description: "Prometheus has not received AI anomaly engine metrics for {{ ai_engine.alerts.metrics_missing_for }}."
+            runbook_hint: "Check the AI engine pod, ServiceMonitor, service endpoints, Prometheus targets, and whether the metrics endpoint responds on port {{ ai_engine.port }}."
+
+        - alert: FrameworkAIEngineNotReady
+          expr: max(ai_anomaly_ready{namespace="{{ ai_engine.namespace }}"}) == 0
+          for: {{ ai_engine.alerts.not_ready_for }}
+          labels:
+            severity: warning
+            category: ai
+            component: ai-engine
+          annotations:
+            summary: "AI anomaly engine is not ready"
+            description: "The anomaly detector does not yet have enough aligned samples or cannot evaluate the configured feature set."
+            runbook_hint: "Check available and required sample metrics, Prometheus query health, training window settings, and AI engine logs."
+
+        - alert: FrameworkAIEngineRunFailures
+          expr: |
+            increase(ai_anomaly_run_failures_total{namespace="{{ ai_engine.namespace }}"}[{{ ai_engine.alerts.run_failure_window }}])
+            >= {{ ai_engine.alerts.run_failure_count }}
+          for: 5m
+          labels:
+            severity: warning
+            category: ai
+            component: ai-engine
+          annotations:
+            summary: "AI anomaly engine runs are failing"
+            description: "The anomaly detector failed at least {{ ai_engine.alerts.run_failure_count }} times in {{ ai_engine.alerts.run_failure_window }}."
+            runbook_hint: "Check AI engine logs, Prometheus API reachability, OpenSearch reachability, and whether queries return enough samples."
+
+        - alert: FrameworkAIEngineNoRecentSuccess
+          expr: |
+            (
+              time() - max(ai_anomaly_last_success_timestamp_seconds{namespace="{{ ai_engine.namespace }}"})
+            ) > {{ ai_engine.alerts.stale_success_seconds }}
+            and
+            max(ai_anomaly_last_success_timestamp_seconds{namespace="{{ ai_engine.namespace }}"}) > 0
+          for: {{ ai_engine.alerts.stale_success_for }}
+          labels:
+            severity: warning
+            category: ai
+            component: ai-engine
+          annotations:
+            summary: "AI anomaly engine has no recent successful run"
+            description: "The anomaly detector has not completed a successful run within the expected freshness window."
+            runbook_hint: "Check whether the pod is running, whether the scheduler loop is alive, and whether Prometheus or OpenSearch calls are timing out."
+
+        - alert: FrameworkAIAnomalyWarning
+          expr: |
+            max(ai_anomaly_severity_level{namespace="{{ ai_engine.namespace }}"}) >= 2
+            and
+            max(ai_anomaly_severity_level{namespace="{{ ai_engine.namespace }}"}) < 3
+          for: {{ ai_engine.alerts.warning_severity_for }}
+          labels:
+            severity: warning
+            category: ai
+            component: ai-engine
+          annotations:
+            summary: "AI anomaly engine detected a warning-level anomaly"
+            description: "The anomaly engine currently reports warning-level severity based on model and rule signals."
+            runbook_hint: "Open the AI Anomaly Overview dashboard, inspect top contributors and rule hits, then correlate with platform/database alerts."
+
+        - alert: FrameworkAIAnomalyCritical
+          expr: max(ai_anomaly_severity_level{namespace="{{ ai_engine.namespace }}"}) >= 3
+          for: {{ ai_engine.alerts.critical_severity_for }}
+          labels:
+            severity: critical
+            category: ai
+            component: ai-engine
+          annotations:
+            summary: "AI anomaly engine detected a critical anomaly"
+            description: "The anomaly engine currently reports critical severity based on model and rule signals."
+            runbook_hint: "Treat this as a correlation alert: inspect AI contributors, then validate the underlying Kubernetes, database, ingress, logging, and node signals."

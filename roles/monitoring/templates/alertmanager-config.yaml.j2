@@ -111,11 +111,13 @@ receivers:
           {{ with index .Alerts 0 }}
           <b>Summary:</b> {{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}No summary provided{{ end }}<br/>
           <b>Description:</b> {{ if .Annotations.description }}{{ .Annotations.description }}{{ else }}No description provided{{ end }}<br/>
+          {{ if .Annotations.runbook_hint }}<b>Hint:</b> {{ .Annotations.runbook_hint }}<br/>{{ end }}
+          {{ if .Annotations.runbook_url }}<b>Runbook:</b> <a href="{{ .Annotations.runbook_url }}">open</a><br/>{{ end }}
           {{ end }}
           ----------------------------------------<br/>
           <b>Targets:</b><br/>
           {{ range .Alerts }}
-          • {{ if .Labels.node }}node=<code>{{ .Labels.node }}</code> {{ end }}{{ if .Labels.namespace }}ns=<code>{{ .Labels.namespace }}</code> {{ end }}{{ if .Labels.pod }}pod=<code>{{ .Labels.pod }}</code> {{ end }}{{ if .Labels.container }}container=<code>{{ .Labels.container }}</code> {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=<code>{{ .Labels.persistentvolumeclaim }}</code> {{ end }}{{ if .Labels.service }}svc=<code>{{ .Labels.service }}</code> {{ end }}{{ if .Labels.job }}job=<code>{{ .Labels.job }}</code> {{ end }}{{ if .Labels.endpoint }}endpoint=<code>{{ .Labels.endpoint }}</code> {{ end }}{{ if .Labels.instance }}instance=<code>{{ .Labels.instance }}</code> {{ end }}links=<a href="{{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}">Grafana</a>{{ if .GeneratorURL }} <a href="{{ .GeneratorURL }}">Prometheus</a>{{ end }}<br/>
+          • {{ if .Labels.node }}node=<code>{{ .Labels.node }}</code> {{ end }}{{ if .Labels.namespace }}ns=<code>{{ .Labels.namespace }}</code> {{ end }}{{ if .Labels.deployment }}deployment=<code>{{ .Labels.deployment }}</code> {{ end }}{{ if .Labels.statefulset }}statefulset=<code>{{ .Labels.statefulset }}</code> {{ end }}{{ if .Labels.pod }}pod=<code>{{ .Labels.pod }}</code> {{ end }}{{ if .Labels.container }}container=<code>{{ .Labels.container }}</code> {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=<code>{{ .Labels.persistentvolumeclaim }}</code> {{ end }}{{ if .Labels.service }}svc=<code>{{ .Labels.service }}</code> {{ end }}{{ if .Labels.job }}job=<code>{{ .Labels.job }}</code> {{ end }}{{ if .Labels.endpoint }}endpoint=<code>{{ .Labels.endpoint }}</code> {{ end }}{{ if .Labels.instance }}instance=<code>{{ .Labels.instance }}</code> {{ end }}links=<a href="{{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}">Grafana</a>{{ if .GeneratorURL }} <a href="{{ .GeneratorURL }}">Prometheus</a>{{ end }}<br/>
           {{ end }}
 {% endraw %}
 {% endif %}
@@ -140,11 +142,13 @@ receivers:
           {{ with index .Alerts 0 }}
           <b>Summary:</b> {{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}No summary provided{{ end }}
           <b>Description:</b> {{ if .Annotations.description }}{{ .Annotations.description }}{{ else }}No description provided{{ end }}
+          {{ if .Annotations.runbook_hint }}<b>Hint:</b> {{ .Annotations.runbook_hint }}{{ end }}
+          {{ if .Annotations.runbook_url }}<b>Runbook:</b> <a href="{{ .Annotations.runbook_url }}">open</a>{{ end }}
           {{ end }}
           ----------------------------------------
           <b>Targets:</b>
           {{ range .Alerts }}
-          • {{ if .Labels.node }}node=<code>{{ .Labels.node }}</code> {{ end }}{{ if .Labels.namespace }}ns=<code>{{ .Labels.namespace }}</code> {{ end }}{{ if .Labels.pod }}pod=<code>{{ .Labels.pod }}</code> {{ end }}{{ if .Labels.container }}container=<code>{{ .Labels.container }}</code> {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=<code>{{ .Labels.persistentvolumeclaim }}</code> {{ end }}{{ if .Labels.service }}svc=<code>{{ .Labels.service }}</code> {{ end }}{{ if .Labels.job }}job=<code>{{ .Labels.job }}</code> {{ end }}{{ if .Labels.endpoint }}endpoint=<code>{{ .Labels.endpoint }}</code> {{ end }}{{ if .Labels.instance }}instance=<code>{{ .Labels.instance }}</code> {{ end }}links=<a href="{{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}">Grafana</a>{{ if .GeneratorURL }} <a href="{{ .GeneratorURL }}">Prometheus</a>{{ end }}
+          • {{ if .Labels.node }}node=<code>{{ .Labels.node }}</code> {{ end }}{{ if .Labels.namespace }}ns=<code>{{ .Labels.namespace }}</code> {{ end }}{{ if .Labels.deployment }}deployment=<code>{{ .Labels.deployment }}</code> {{ end }}{{ if .Labels.statefulset }}statefulset=<code>{{ .Labels.statefulset }}</code> {{ end }}{{ if .Labels.pod }}pod=<code>{{ .Labels.pod }}</code> {{ end }}{{ if .Labels.container }}container=<code>{{ .Labels.container }}</code> {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=<code>{{ .Labels.persistentvolumeclaim }}</code> {{ end }}{{ if .Labels.service }}svc=<code>{{ .Labels.service }}</code> {{ end }}{{ if .Labels.job }}job=<code>{{ .Labels.job }}</code> {{ end }}{{ if .Labels.endpoint }}endpoint=<code>{{ .Labels.endpoint }}</code> {{ end }}{{ if .Labels.instance }}instance=<code>{{ .Labels.instance }}</code> {{ end }}links=<a href="{{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}">Grafana</a>{{ if .GeneratorURL }} <a href="{{ .GeneratorURL }}">Prometheus</a>{{ end }}
           {{ end }}
 {% endraw %}
 {% endif %}
@@ -177,11 +181,13 @@ receivers:
           {{ with index .Alerts 0 }}
           *Summary:* {{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}No summary provided{{ end }}
           *Description:* {{ if .Annotations.description }}{{ .Annotations.description }}{{ else }}No description provided{{ end }}
+          {{ if .Annotations.runbook_hint }}*Hint:* {{ .Annotations.runbook_hint }}{{ end }}
+          {{ if .Annotations.runbook_url }}*Runbook:* <{{ .Annotations.runbook_url }}|open>{{ end }}
           {{ end }}
           ----------------------------------------
           *Targets:*
           {{ range .Alerts }}
-          • {{ if .Labels.node }}node=`{{ .Labels.node }}` {{ end }}{{ if .Labels.namespace }}ns=`{{ .Labels.namespace }}` {{ end }}{{ if .Labels.pod }}pod=`{{ .Labels.pod }}` {{ end }}{{ if .Labels.container }}container=`{{ .Labels.container }}` {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=`{{ .Labels.persistentvolumeclaim }}` {{ end }}{{ if .Labels.service }}svc=`{{ .Labels.service }}` {{ end }}{{ if .Labels.job }}job=`{{ .Labels.job }}` {{ end }}{{ if .Labels.endpoint }}endpoint=`{{ .Labels.endpoint }}` {{ end }}{{ if .Labels.instance }}instance=`{{ .Labels.instance }}` {{ end }}links=<{{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}|Grafana>{{ if .GeneratorURL }} <{{ .GeneratorURL }}|Prometheus>{{ end }}
+          • {{ if .Labels.node }}node=`{{ .Labels.node }}` {{ end }}{{ if .Labels.namespace }}ns=`{{ .Labels.namespace }}` {{ end }}{{ if .Labels.deployment }}deployment=`{{ .Labels.deployment }}` {{ end }}{{ if .Labels.statefulset }}statefulset=`{{ .Labels.statefulset }}` {{ end }}{{ if .Labels.pod }}pod=`{{ .Labels.pod }}` {{ end }}{{ if .Labels.container }}container=`{{ .Labels.container }}` {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=`{{ .Labels.persistentvolumeclaim }}` {{ end }}{{ if .Labels.service }}svc=`{{ .Labels.service }}` {{ end }}{{ if .Labels.job }}job=`{{ .Labels.job }}` {{ end }}{{ if .Labels.endpoint }}endpoint=`{{ .Labels.endpoint }}` {{ end }}{{ if .Labels.instance }}instance=`{{ .Labels.instance }}` {{ end }}links=<{{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}|Grafana>{{ if .GeneratorURL }} <{{ .GeneratorURL }}|Prometheus>{{ end }}
           {{ end }}
 {% endraw %}
 {% endif %}
@@ -209,11 +215,13 @@ receivers:
           {{ with index .Alerts 0 }}
           **Summary:** {{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}No summary provided{{ end }}
           **Description:** {{ if .Annotations.description }}{{ .Annotations.description }}{{ else }}No description provided{{ end }}
+          {{ if .Annotations.runbook_hint }}**Hint:** {{ .Annotations.runbook_hint }}{{ end }}
+          {{ if .Annotations.runbook_url }}**Runbook:** [open]({{ .Annotations.runbook_url }}){{ end }}
           {{ end }}
           ----------------------------------------
           **Targets:**
           {{ range .Alerts }}
-          - {{ if .Labels.node }}node=`{{ .Labels.node }}` {{ end }}{{ if .Labels.namespace }}ns=`{{ .Labels.namespace }}` {{ end }}{{ if .Labels.pod }}pod=`{{ .Labels.pod }}` {{ end }}{{ if .Labels.container }}container=`{{ .Labels.container }}` {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=`{{ .Labels.persistentvolumeclaim }}` {{ end }}{{ if .Labels.service }}svc=`{{ .Labels.service }}` {{ end }}{{ if .Labels.job }}job=`{{ .Labels.job }}` {{ end }}{{ if .Labels.endpoint }}endpoint=`{{ .Labels.endpoint }}` {{ end }}{{ if .Labels.instance }}instance=`{{ .Labels.instance }}` {{ end }}links=[Grafana]({{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}){{ if .GeneratorURL }} [Prometheus]({{ .GeneratorURL }}){{ end }}
+          - {{ if .Labels.node }}node=`{{ .Labels.node }}` {{ end }}{{ if .Labels.namespace }}ns=`{{ .Labels.namespace }}` {{ end }}{{ if .Labels.deployment }}deployment=`{{ .Labels.deployment }}` {{ end }}{{ if .Labels.statefulset }}statefulset=`{{ .Labels.statefulset }}` {{ end }}{{ if .Labels.pod }}pod=`{{ .Labels.pod }}` {{ end }}{{ if .Labels.container }}container=`{{ .Labels.container }}` {{ end }}{{ if .Labels.persistentvolumeclaim }}pvc=`{{ .Labels.persistentvolumeclaim }}` {{ end }}{{ if .Labels.service }}svc=`{{ .Labels.service }}` {{ end }}{{ if .Labels.job }}job=`{{ .Labels.job }}` {{ end }}{{ if .Labels.endpoint }}endpoint=`{{ .Labels.endpoint }}` {{ end }}{{ if .Labels.instance }}instance=`{{ .Labels.instance }}` {{ end }}links=[Grafana]({{ $grafanaURL }}/alerting/list?search={{ $.CommonLabels.alertname }}){{ if .GeneratorURL }} [Prometheus]({{ .GeneratorURL }}){{ end }}
           {{ end }}
 {% endraw %}
 {% endif %}
@@ -272,9 +280,94 @@ receivers:
 {% raw %}
             {{ len .Alerts }}
 {% endraw %}
+          hint: >-
+{% raw %}
+            {{ with index .Alerts 0 }}{{ if .Annotations.runbook_hint }}{{ .Annotations.runbook_hint }}{{ else }}Open Grafana first, then Prometheus for the raw expression.{{ end }}{{ end }}
+{% endraw %}
 {% endif %}
 
 inhibit_rules:
+  - source_matchers:
+      - alertname="FrameworkNodeNotReady"
+      - severity="critical"
+    target_matchers:
+      - alertname="FrameworkTargetDown"
+      - severity="warning"
+    equal:
+      - node
+  - source_matchers:
+      - alertname="FrameworkPersistentVolumeClaimAlmostFull"
+      - severity="critical"
+    target_matchers:
+      - alertname="FrameworkPersistentVolumeClaimFilling"
+      - severity="warning"
+    equal:
+      - namespace
+      - persistentvolumeclaim
+  - source_matchers:
+      - alertname="FrameworkOpenSearchClusterRed"
+      - severity="critical"
+    target_matchers:
+      - alertname="FrameworkOpenSearchClusterYellow"
+      - severity="warning"
+    equal:
+      - category
+      - component
+  - source_matchers:
+      - alertname="FrameworkFluentBitFailedRetries"
+      - severity="critical"
+    target_matchers:
+      - alertname="FrameworkFluentBitOutputErrors"
+      - severity="warning"
+    equal:
+      - category
+      - component
+  - source_matchers:
+      - alertname="FrameworkPostgresReplicationLagCritical"
+      - severity="critical"
+    target_matchers:
+      - alertname="FrameworkPostgresReplicationLagHigh"
+      - severity="warning"
+    equal:
+      - category
+      - component
+  - source_matchers:
+      - alertname="FrameworkPodCrashLooping"
+      - severity="warning"
+    target_matchers:
+      - alertname="FrameworkPodRestartStorm"
+      - severity="warning"
+    equal:
+      - namespace
+      - pod
+      - container
+  - source_matchers:
+      - alertname="FrameworkDeploymentUnavailable"
+      - severity="warning"
+    target_matchers:
+      - alertname="FrameworkDeploymentAvailabilitySLOBreach"
+      - severity="warning"
+    equal:
+      - namespace
+      - deployment
+  - source_matchers:
+      - alertname="FrameworkStatefulSetUnavailable"
+      - severity="warning"
+    target_matchers:
+      - alertname="FrameworkStatefulSetAvailabilitySLOBreach"
+      - severity="warning"
+    equal:
+      - namespace
+      - statefulset
+  - source_matchers:
+      - alertname="FrameworkAIAnomalyCritical"
+      - severity="critical"
+    target_matchers:
+      - alertname="FrameworkAIAnomalyWarning"
+      - severity="warning"
+    equal:
+      - category
+      - component
   - source_matchers:
       - severity="critical"
     target_matchers:

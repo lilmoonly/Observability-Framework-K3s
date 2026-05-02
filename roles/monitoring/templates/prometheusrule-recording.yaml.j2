@@ -1,0 +1,128 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: observability-framework-recording-rules
+  namespace: monitoring
+  labels:
+    release: prometheus
+    app.kubernetes.io/name: observability-framework-recording-rules
+    app.kubernetes.io/part-of: observability-framework
+spec:
+  groups:
+    - name: observability-framework.recording.platform
+      interval: 30s
+      rules:
+        - record: "framework:node_ready:ratio"
+          expr: |
+            sum(kube_node_status_condition{condition="Ready",status="true"} == 1)
+            /
+            clamp_min(count(kube_node_status_condition{condition="Ready",status="true"}), 1)
+
+        - record: "framework:prometheus_target_up:ratio"
+          expr: |
+            sum(up == 1)
+            /
+            clamp_min(count(up), 1)
+
+        - record: "framework:pod_restarts:rate5m"
+          expr: |
+            sum by (namespace, pod, container) (
+              rate(kube_pod_container_status_restarts_total{container!="POD"}[5m])
+            )
+
+        - record: "framework:pvc_used:ratio"
+          expr: |
+            1 - (
+              kubelet_volume_stats_available_bytes
+              /
+              clamp_min(kubelet_volume_stats_capacity_bytes, 1)
+            )
+
+        - record: "framework:kube_deployment_available:ratio"
+          expr: |
+            kube_deployment_status_replicas_available
+            /
+            clamp_min(kube_deployment_spec_replicas, 1)
+
+        - record: "framework:kube_statefulset_ready:ratio"
+          expr: |
+            kube_statefulset_status_replicas_ready
+            /
+            clamp_min(kube_statefulset_replicas, 1)
+
+    - name: observability-framework.recording.http
+      interval: 30s
+      rules:
+        - record: "framework:traefik_http_requests:rate5m"
+          expr: |
+            sum by (service) (
+              rate(traefik_service_requests_total{protocol="http",service!=""}[{{ monitoring.slo.window }}])
+            )
+
+        - record: "framework:traefik_http_5xx:rate5m"
+          expr: |
+            sum by (service) (
+              rate(traefik_service_requests_total{protocol="http",service!="",code=~"5.."}[{{ monitoring.slo.window }}])
+            )
+
+        - record: "framework:traefik_http_5xx:ratio5m"
+          expr: |
+            framework:traefik_http_5xx:rate5m
+            /
+            clamp_min(framework:traefik_http_requests:rate5m, 0.001)
+
+        - record: "framework:traefik_http_request_duration:p95_5m"
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (service, le) (
+                rate(traefik_service_request_duration_seconds_bucket{protocol="http",service!=""}[{{ monitoring.slo.window }}])
+              )
+            )
+
+{% set database_recording_enabled = (database.type == 'postgresql') or (database.type == 'mongodb' and (database.mongodb.metrics.enabled | default(true) | bool)) %}
+{% if database_recording_enabled %}
+    - name: observability-framework.recording.database
+      interval: 30s
+      rules:
+{% if database.type == 'mongodb' %}
+        - record: "framework:mongodb_primary_members:count"
+          expr: |
+            count(max by (instance) (
+              mongodb_info{process_type="mongod",replica_state_name=~"PRIMARY|Primary|primary"}
+            ))
+
+        - record: "framework:mongodb_secondary_members:count"
+          expr: |
+            count(max by (instance) (
+              mongodb_info{process_type="mongod",replica_state_name=~"SECONDARY|Secondary|secondary"}
+            ))
+{% elif database.type == 'postgresql' %}
+        - record: "framework:postgres_replication_lag:max_seconds"
+          expr: |
+            max(
+              cnpg_pg_replication_lag{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"}
+              or
+              cnpg_pg_stat_replication_replay_lag_seconds{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"}
+            )
+
+        - record: "framework:postgres_connections:ratio"
+          expr: |
+            max(
+              sum by (pod) (cnpg_backends_total{namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"})
+              /
+              clamp_min(sum by (pod) (cnpg_pg_settings_setting{name="max_connections",namespace="{{ database.namespace }}",pod=~"{{ database.cluster_name }}-[0-9]+"}), 1)
+            )
+{% endif %}
+
+{% endif %}
+    - name: observability-framework.recording.ai
+      interval: 30s
+      rules:
+        - record: "framework:ai_anomaly_score:max"
+          expr: |
+            max(ai_anomaly_score_normalized{namespace="{{ ai_engine.namespace }}"})
+
+        - record: "framework:ai_anomaly_severity:max"
+          expr: |
+            max(ai_anomaly_severity_level{namespace="{{ ai_engine.namespace }}"})

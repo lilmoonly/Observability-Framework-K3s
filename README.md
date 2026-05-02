@@ -284,18 +284,29 @@ Alert groups:
 
 - `observability-framework.platform` covers Prometheus target health, Kubernetes nodes, Deployments, StatefulSets, pods, PVC capacity, Traefik 5xx rate, Fluent Bit delivery errors, and OpenSearch health/disk usage
 - `observability-framework.database` renders backend-specific rules for the selected `database.type`
+- `observability-framework.slo` covers reusable golden signals for Traefik-routed services and Kubernetes workload availability
+- `observability-framework.ai-engine` covers AI anomaly engine health, run failures, stale successful runs, and warning/critical anomaly severity; this rule pack is installed by the AI engine role after monitoring has installed the PrometheusRule CRD
 - PostgreSQL rules cover CNPG collector health, instance readiness, streaming replica count, replication lag, collection errors, long transactions, and connection pressure
 - MongoDB rules cover metrics presence, member pod readiness, primary count, secondary count, operator readiness, and member restarts
 
-The initial thresholds live under `monitoring.alerts` in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml). This keeps the alert pack reusable across lab and larger topologies without tying it to Forgejo or WeKan.
+Recording rules:
+
+- `observability-framework.recording.platform` precomputes node readiness, target health, restart rates, PVC usage, and workload availability ratios
+- `observability-framework.recording.http` precomputes Traefik request rate, 5xx rate, 5xx ratio, and p95 latency by service
+- `observability-framework.recording.database` precomputes MongoDB member counts or PostgreSQL lag/connection ratios depending on `database.type`
+- `observability-framework.recording.ai` precomputes AI anomaly score and severity summaries
+
+The initial thresholds live under `monitoring.alerts`, `monitoring.slo`, and `ai_engine.alerts` in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml). This keeps the alert pack reusable across lab and larger topologies without tying it to Forgejo or WeKan.
 
 Alert notifications:
 
 - Alertmanager notification routing is configured from the top-level `alerting` block in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml)
 - Email, Telegram, Slack, Webex, and PagerDuty notifications use the same formatted alert style with status/severity emoji, alert-type emoji, grouped alert count, Kubernetes labels, a primary Grafana link, and a secondary Prometheus debug link when available
+- Alerts include a short first-check hint when the rule has enough context to recommend the safest next action
 - Grafana alert links use `monitoring.grafana_external_url`, which defaults to `http://grafana.local`
 - Prometheus debug links use `monitoring.prometheus_external_url`, which defaults to `http://prometheus.local`
 - Grouped notifications show one shared summary/description plus a compact affected-target list, so repeated scrape-target alerts do not spam the same explanation over and over
+- Alertmanager inhibition rules suppress known symptom noise: node-not-ready suppresses target-down on the same node, critical PVC usage suppresses the PVC warning, OpenSearch red suppresses yellow, critical Fluent Bit delivery failures suppress output-error warnings, critical PostgreSQL replication lag suppresses warning lag, CrashLoopBackOff suppresses restart-storm noise for the same container, workload availability alerts suppress duplicate SLO availability alerts, and critical AI anomaly alerts suppress warning-level AI anomaly alerts
 - Email, Telegram, Slack, Webex, and PagerDuty receivers are optional; PagerDuty defaults to critical alerts only
 - Non-secret settings such as SMTP host, sender, recipient, and routing intervals live in `alerting`
 - Sensitive values live in [inventory/group_vars/all/secrets.yml](inventory/group_vars/all/secrets.yml)
@@ -399,8 +410,11 @@ Verify alert rules:
 
 ```bash
 kubectl get prometheusrule -n monitoring
+kubectl get prometheusrule observability-framework-recording-rules -n monitoring -o yaml
+kubectl get prometheusrule observability-framework-slo-alerts -n monitoring -o yaml
 kubectl get prometheusrule observability-framework-platform-alerts -n monitoring -o yaml
 kubectl get prometheusrule observability-framework-database-alerts -n monitoring -o yaml
+kubectl get prometheusrule observability-framework-ai-alerts -n monitoring -o yaml
 kubectl get secret alertmanager-prometheus-kube-prometheus-alertmanager -n monitoring -o jsonpath='{.data.alertmanager\\.yaml}' | base64 -d
 ```
 

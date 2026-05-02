@@ -193,6 +193,29 @@
     state: present
     definition: "{{ lookup('template', 'servicemonitor.yaml.j2') | from_yaml }}"
 
+- name: Check PrometheusRule CRD exists for AI alert rules
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s_info:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: prometheusrules.monitoring.coreos.com
+  register: ai_engine_prometheusrule_crd
+  changed_when: false
+
+- name: Deploy AI engine PrometheusRule alerts
+  become: true
+  delegate_to: k8s-ctrl
+  when:
+    - monitoring.alerts.enabled | default(true) | bool
+    - ai_engine.alerts.enabled | default(true) | bool
+    - ai_engine_prometheusrule_crd.resources | length > 0
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('template', 'prometheusrule-ai.yaml.j2') | from_yaml }}"
+
 - name: Wait for AI engine pod to be ready
   become: true
   delegate_to: k8s-ctrl

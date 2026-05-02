@@ -12,13 +12,13 @@ The framework already provides:
 - vendored Grafana dashboards for offline-safe provisioning
 - metrics scraping for Kubernetes, Traefik, CloudNativePG, Fluent Bit, OpenSearch exporter, Forgejo, and the AI engine
 - a base PrometheusRule pack for platform, logging, ingress, storage, PostgreSQL, and MongoDB health
+- baseline Alertmanager routing, receiver templates, recording rules, SLO-style golden-signal alerts, and AI anomaly alerts
 - an AI dashboard that explains detector health, contributors, rule checks, and recent anomaly outcomes
 
 What still keeps it in "advanced lab" territory rather than "production framework":
 
 - live internet/bootstrap dependencies
 - some soft readiness gates and best-effort checks
-- basic Alertmanager routing and SLO coverage
 - no CI or automated smoke validation
 
 ## Milestone Plan
@@ -119,6 +119,8 @@ What still keeps it in "advanced lab" territory rather than "production framewor
 
 ## v1.5 Alerting and SLOs
 
+Status: implemented in the current framework baseline.
+
 ### Goals
 
 - Move from dashboard-first observability to incident-ready observability.
@@ -189,9 +191,9 @@ What still keeps it in "advanced lab" territory rather than "production framewor
 
 ## Next Sprint
 
-With the first reusable alert pack in place, the next sprint should continue production hardening without making the example apps part of the core framework:
+With `v1.5` alerting and SLO coverage in place, the next sprint should move to `v1.6` validation:
 
-1. Add baseline Alertmanager routing and receiver configuration.
-2. Add recording rules for high-value platform and database queries.
-3. Define generic service SLOs that can apply to future real workloads.
-4. Continue replacing live bootstrap dependencies with mirrored or vendored artifacts.
+1. Add YAML, JSON, Ansible template, and dashboard validation commands.
+2. Add `ansible-lint` once the role syntax is normalized for the installed collection versions.
+3. Add post-deploy smoke checks for cluster health, scrape targets, dashboards, and alert rules.
+4. Start documenting upgrade validation so framework changes can be released with confidence.
