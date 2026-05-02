@@ -13,6 +13,7 @@
 #   7. ai_engine   — anomaly detection on the AI node
 #   8. ingress     — Traefik ingress rules for all services
 #   9. forgejo     — Forgejo Git server
+#  10. wekan       — WeKan MongoDB-backed example app
 # ==============================================================
 
 # --------------------------------------------------------------
@@ -131,6 +132,7 @@
 
 # Required /etc/hosts on host machine:
 #   192.168.56.10  forgejo.local
+#   192.168.56.10  wekan.local
 #   192.168.56.10  grafana.local
 #   192.168.56.10  opensearch.local
 # --------------------------------------------------------------
@@ -157,3 +159,20 @@
   roles:
     - role: forgejo
       when: database.type == 'postgresql'
+
+# --------------------------------------------------------------
+# Phase 10 — Deploy WeKan + create its Ingress
+# WeKan is the MongoDB-backed example workload.
+# It is skipped automatically when database.type != mongodb.
+# --------------------------------------------------------------
+- name: Phase 10 - Deploy WeKan
+  hosts: master
+  become: true
+  tags:
+    - phase10
+    - wekan
+  roles:
+    - role: wekan
+      when:
+        - database.type == 'mongodb'
+        - wekan.enabled | default(true) | bool

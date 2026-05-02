@@ -2,7 +2,7 @@
 
 This repository provisions a reusable K3s observability framework with Ansible and Vagrant. The default lab profile is an 8-node reference environment with a lightweight app pool and a 3-node database pool so the same roles can be reused across larger topologies without rewriting scheduling logic.
 
-The framework is opinionated about platform observability, but application roles can stay lightweight. Forgejo is included as an example workload, not as the core purpose of the project.
+The framework is opinionated about platform observability, but application roles can stay lightweight. Forgejo and WeKan are included as backend-specific example workloads, not as the core purpose of the project.
 
 ## What This Framework Deploys
 
@@ -13,6 +13,7 @@ The framework is opinionated about platform observability, but application roles
 - kube-prometheus-stack with Prometheus, Alertmanager, Grafana, kube-state-metrics, and node-exporter
 - Traefik ingress with Prometheus metrics enabled
 - A custom AI anomaly detector that reads Prometheus and writes anomaly events to OpenSearch
+- Forgejo for the PostgreSQL path or WeKan for the MongoDB path
 - Vendored Grafana dashboards that work without internet access
 
 ## Reference Lab Topology
@@ -35,7 +36,7 @@ The framework now uses named worker pools instead of hardcoded node identities.
 - Inventory groups follow the pattern `pool_<name>`, for example `pool_general` or `pool_logging`
 - Each host declares `node_pool=<name>`
 - Shared pool definitions live in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) under `cluster_topology.node_pools`
-- Workloads target pools like `forgejo.pool`, `database.pool`, `monitoring.pool`, `opensearch.pool`, and `ai_engine.pool`
+- Workloads target pools like `forgejo.pool`, `wekan.pool`, `database.pool`, `monitoring.pool`, `opensearch.pool`, and `ai_engine.pool`
 - Today the control plane is still single-node, but worker pools can now scale horizontally by adding more hosts to the corresponding `pool_*` groups
 - Smaller topologies can share infrastructure by pointing multiple workload settings at the same pool, for example `monitoring.pool: general` and `ai_engine.pool: general`
 - The default lab now uses one `general` node and three `database` nodes so the lab stays lighter for example apps while both PostgreSQL and MongoDB can be exercised with quorum-style database layouts
@@ -73,10 +74,11 @@ The framework now uses named worker pools instead of hardcoded node identities.
 - [roles/ai_engine](roles/ai_engine) - anomaly detector service, metrics, and AI dashboard
 - [roles/ingress](roles/ingress) - Grafana and OpenSearch ingress
 - [roles/forgejo](roles/forgejo) - example app role with metrics scraping
+- [roles/wekan](roles/wekan) - MongoDB-backed example app role using a local Helm chart
 
 ## Deployment Phases
 
-The full deployment is split into nine tagged phases in [site.yml](site.yml).
+The full deployment is split into ten tagged phases in [site.yml](site.yml).
 
 | Phase | Tag | Role | Purpose |
 | --- | --- | --- | --- |
@@ -88,7 +90,8 @@ The full deployment is split into nine tagged phases in [site.yml](site.yml).
 | 6 | `phase6`, `monitoring` | `monitoring` | Prometheus, Grafana, Alertmanager, vendored dashboards |
 | 7 | `phase7`, `ai_engine` | `ai_engine` | AI anomaly detector, ServiceMonitor, AI dashboard |
 | 8 | `phase8`, `ingress` | `ingress` | Grafana and OpenSearch ingress |
-| 9 | `phase9`, `forgejo` | `forgejo` | Example app deployment and ingress |
+| 9 | `phase9`, `forgejo` | `forgejo` | PostgreSQL-backed example app deployment and ingress |
+| 10 | `phase10`, `wekan` | `wekan` | MongoDB-backed example app deployment and ingress |
 
 ## Quick Start
 
@@ -120,13 +123,14 @@ Important settings live under:
 - `ai_engine`
 - `ingress`
 - `forgejo`
+- `wekan`
 
 The default inventory is [inventory/inventory.ini](inventory/inventory.ini). You can also copy one of the pool-based examples from [inventory/examples/lab.inventory.ini](inventory/examples/lab.inventory.ini) or [inventory/examples/scaled.inventory.ini](inventory/examples/scaled.inventory.ini) and adapt it to your environment.
 
 Database backend selection lives in `database.type`:
 
 - `postgresql` deploys CloudNativePG and keeps Forgejo as the example app
-- `mongodb` deploys a MongoDB Community replica set through MongoDB Controllers for Kubernetes and skips Forgejo automatically
+- `mongodb` deploys a MongoDB Community replica set through MongoDB Controllers for Kubernetes, skips Forgejo automatically, and deploys WeKan when `wekan.enabled: true`
 
 Database availability and scaling are now configured explicitly:
 
@@ -159,6 +163,7 @@ This currently pins:
 - Helm CLI version
 - Python Kubernetes client version used by Ansible hosts
 - Helm chart versions for OpenSearch, OpenSearch Dashboards, Fluent Bit, kube-prometheus-stack, CloudNativePG, MongoDB Controllers for Kubernetes, and Forgejo
+- The WeKan application image tag used by the local Helm chart
 - The K3s binary version via `k3s_version`
 
 This means reruns no longer drift just because an upstream chart repository published a newer release between installs.
@@ -206,7 +211,7 @@ Examples:
 ansible-playbook site.yml --tags monitoring
 ansible-playbook site.yml --tags ai_engine
 ansible-playbook site.yml --tags phase5,phase6
-ansible-playbook site.yml --tags k3s_master,database,logging,monitoring,forgejo
+ansible-playbook site.yml --tags k3s_master,database,logging,monitoring,wekan
 ```
 
 ## Access URLs
@@ -215,6 +220,7 @@ Add these entries to your host machine `/etc/hosts`:
 
 ```text
 192.168.56.10  forgejo.local
+192.168.56.10  wekan.local
 192.168.56.10  grafana.local
 192.168.56.10  opensearch.local
 ```
@@ -224,6 +230,7 @@ Then use:
 - Grafana: [http://grafana.local](http://grafana.local)
 - OpenSearch Dashboards: [http://opensearch.local](http://opensearch.local)
 - Forgejo: [http://forgejo.local](http://forgejo.local)
+- WeKan: [http://wekan.local](http://wekan.local)
 
 ## Observability Coverage
 

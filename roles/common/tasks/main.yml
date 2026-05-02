@@ -28,37 +28,45 @@
   loop:
     - label: K3s cluster token
       variable: vault_k3s_token
+      enabled: true
       min_length: 16
       forbidden_values:
         - "SuperSecretTokenForK3sClusterJoin123!"
     - label: OpenSearch admin password
       variable: vault_opensearch_admin_password
+      enabled: true
       min_length: 12
       forbidden_values:
         - "S#r2-L%m4!"
     - label: Grafana admin password
       variable: vault_grafana_admin_password
+      enabled: true
       min_length: 12
       forbidden_values:
         - "admin"
     - label: Database admin password
       variable: vault_database_superuser_password
+      enabled: true
       min_length: 12
       forbidden_values:
         - "SuperuserPassword123!"
     - label: Application database password
       variable: vault_database_app_password
+      enabled: true
       min_length: 12
       forbidden_values:
         - "appuserpassword"
     - label: Forgejo admin password
       variable: vault_forgejo_admin_password
+      enabled: "{{ database.type == 'postgresql' }}"
       min_length: 12
       forbidden_values:
         - "Strong_AdminPassword123!"
   loop_control:
     label: "{{ item.label }}"
-  when: secret_is_invalid | bool
+  when:
+    - item.enabled | default(true) | bool
+    - secret_is_invalid | bool
   run_once: true
 
 # ============================================================
@@ -80,19 +88,29 @@
       '{{ cluster_topology.pool_group_prefix ~ item.pool }}'.
       Add at least one host to that pool before deploying {{ item.workload }}.
   loop:
-    - workload: Forgejo and general application workloads
+    - workload: Forgejo PostgreSQL application
       pool: "{{ forgejo.pool }}"
+      enabled: "{{ database.type == 'postgresql' }}"
+    - workload: WeKan MongoDB application
+      pool: "{{ wekan.pool }}"
+      enabled: "{{ database.type == 'mongodb' and (wekan.enabled | default(true) | bool) }}"
     - workload: database backend
       pool: "{{ database.pool }}"
+      enabled: true
     - workload: OpenSearch and logging
       pool: "{{ opensearch.pool }}"
+      enabled: true
     - workload: monitoring stack
       pool: "{{ monitoring.pool }}"
+      enabled: true
     - workload: AI engine
       pool: "{{ ai_engine.pool }}"
+      enabled: true
   loop_control:
     label: "{{ item.pool }}"
-  when: (groups[cluster_topology.pool_group_prefix ~ item.pool] | default([]) | length) == 0
+  when:
+    - item.enabled | bool
+    - (groups[cluster_topology.pool_group_prefix ~ item.pool] | default([]) | length) == 0
   run_once: true
 
 - name: Validate database availability goal value

@@ -1,0 +1,31 @@
+replicaCount: 1
+
+image:
+  repository: wekanteam/wekan
+  tag: v9.03
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: traefik
+  host: wekan.local
+  path: /
+
+existingSecret:
+  name: wekan-mongodb-secret
+  mongoUrlKey: MONGO_URL
+
+env:
+  rootUrl: http://wekan.local
+  port: "8080"
+  withApi: "true"
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -6,11 +6,12 @@
 #   - OpenSearch Dashboards (Phase 5)
 #   - Grafana               (Phase 6)
 #
-# NOTE: Forgejo Ingress is created by the forgejo role
-# in Phase 8 — after the forgejo namespace exists.
+# NOTE: Forgejo and WeKan Ingress resources are created by
+# their app roles after their namespaces exist.
 #
 # Required /etc/hosts entries on host machine:
 #   192.168.56.10  forgejo.local
+#   192.168.56.10  wekan.local
 #   192.168.56.10  grafana.local
 #   192.168.56.10  opensearch.local
 # ============================================================

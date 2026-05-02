@@ -27,6 +27,8 @@ artifact_versions:
     cloudnative_pg: "0.26.1"
     mongodb_kubernetes: "1.7.0"
     forgejo: "16.0.2"
+  images:
+    wekan: "v9.03"
 
 # This token is loaded from the encrypted secrets file.
 k3s_token: "{{ vault_k3s_token }}"
@@ -263,6 +265,25 @@ forgejo:
   admin_password: "{{ vault_forgejo_admin_password }}"
   admin_email: "admin@example.com"
 
+wekan:
+  enabled: true
+  namespace: "wekan"
+  pool: "general"
+  replicas: 1
+  port: 8080
+  image:
+    repository: "wekanteam/wekan"
+    tag: "{{ artifact_versions.images.wekan }}"
+    pull_policy: "IfNotPresent"
+  api_enabled: true
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "768Mi"
+
 # ==========================================
 # 9. PRODUCTION STORAGE SETTINGS
 # ==========================================
@@ -291,10 +312,12 @@ ingress:
   class:           "traefik"
   base_domain:     "local"
   forgejo_host:    "forgejo.local"
+  wekan_host:      "wekan.local"
   grafana_host:    "grafana.local"
   opensearch_host: "opensearch.local"
   # Pre-cast port integers for Ingress port.number field
   # Kubernetes requires int32 — quoted Jinja2 returns string
   forgejo_port:    8080
+  wekan_port:      8080
   grafana_port:    3000
   opensearch_port: 5601

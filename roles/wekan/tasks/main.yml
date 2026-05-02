@@ -1,0 +1,191 @@
+---
+# ============================================================
+# ROLE: wekan
+# Deploys WeKan as the MongoDB-backed example application.
+#
+# Depends on:
+#   - database   (MongoDBCommunity replica set must be healthy)
+#   - monitoring (optional, for platform visibility)
+#   - k3s_worker (general workload pool must be ready + tainted)
+# ============================================================
+
+- name: Create WeKan namespace
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ wekan.namespace }}"
+
+- name: Wait for MongoDB replica set to be running
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - wait
+      - --kubeconfig
+      - /etc/rancher/k3s/k3s.yaml
+      - --namespace
+      - "{{ database.namespace }}"
+      - --for=jsonpath={.status.phase}=Running
+      - --timeout=10m
+      - "mongodbcommunity/{{ database.mongodb.cluster_name }}"
+  changed_when: false
+
+- name: Create WeKan MongoDB connection secret
+  become: true
+  delegate_to: k8s-ctrl
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: wekan-mongodb-secret
+        namespace: "{{ wekan.namespace }}"
+      type: Opaque
+      stringData:
+        MONGO_URL: >-
+          mongodb://{{ database.app_user | urlencode }}:{{ database.app_password | urlencode }}@{{ database.mongodb.host }}:{{ database.mongodb.port | int }}/{{ database.app_db_name }}?replicaSet={{ database.mongodb.cluster_name }}&authSource={{ database.app_db_name }}
+  no_log: true
+
+- name: Stage WeKan Helm chart on the control-plane node
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.copy:
+    src: "{{ role_path }}/chart/"
+    dest: /tmp/observability-framework-wekan-chart/
+
+- name: Deploy WeKan via local Helm chart
+  become: true
+  delegate_to: k8s-ctrl
+  community.kubernetes.helm:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    name: wekan
+    chart_ref: /tmp/observability-framework-wekan-chart
+    release_namespace: "{{ wekan.namespace }}"
+    create_namespace: false
+    wait: yes
+    timeout: "900s"
+    values:
+      replicaCount: "{{ wekan.replicas | int }}"
+      image:
+        repository: "{{ wekan.image.repository }}"
+        tag: "{{ wekan.image.tag }}"
+        pullPolicy: "{{ wekan.image.pull_policy }}"
+      service:
+        type: ClusterIP
+        port: "{{ wekan.port | int }}"
+      ingress:
+        enabled: true
+        className: "{{ ingress.class }}"
+        host: "{{ ingress.wekan_host }}"
+        path: /
+      env:
+        rootUrl: "http://{{ ingress.wekan_host }}"
+        port: "{{ wekan.port | string }}"
+        withApi: "{{ wekan.api_enabled | bool | ternary('true', 'false') }}"
+      existingSecret:
+        name: wekan-mongodb-secret
+        mongoUrlKey: MONGO_URL
+      resources: "{{ wekan.resources }}"
+      nodeSelector:
+        workload: "{{ cluster_topology.node_pools[wekan.pool].workload_label }}"
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "{{ cluster_topology.node_pools[wekan.pool].workload_label }}"
+          effect: "{{ cluster_topology.node_pools[wekan.pool].taints[0].effect }}"
+
+- name: Wait for WeKan deployment rollout
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - rollout
+      - status
+      - deployment/wekan
+      - --kubeconfig
+      - /etc/rancher/k3s/k3s.yaml
+      - -n
+      - "{{ wekan.namespace }}"
+      - --timeout=10m
+  changed_when: false
+
+- name: Look up WeKan service ClusterIP
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get svc wekan \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ wekan.namespace }} \
+      -o jsonpath='{.spec.clusterIP}'
+  register: wekan_service_ip
+  changed_when: false
+
+- name: Verify WeKan is responding through the service
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - curl
+      - -sS
+      - -o
+      - /dev/null
+      - -w
+      - "%{http_code}"
+      - "http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/"
+  register: wekan_health
+  until: wekan_health.rc == 0 and wekan_health.stdout in ['200', '302']
+  retries: 30
+  delay: 15
+  changed_when: false
+
+- name: Verify WeKan is reachable through Ingress
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    curl -sk \
+      -o /dev/null \
+      -w "%{http_code}" \
+      -H "Host: {{ ingress.wekan_host }}" \
+      http://{{ master_ip }}/
+  register: wekan_http_check
+  until: wekan_http_check.stdout in ['200', '302']
+  retries: 30
+  delay: 10
+  changed_when: false
+
+- name: Show WeKan pod summary
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    kubectl get pods \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ wekan.namespace }} \
+      -o wide
+  register: wekan_pods
+  changed_when: false
+
+- name: Print WeKan access summary
+  ansible.builtin.debug:
+    msg:
+      - "=============================================="
+      - " WeKan MongoDB Example App"
+      - "=============================================="
+      - " Add to /etc/hosts on your host machine:"
+      - " {{ master_ip }}  {{ ingress.wekan_host }}"
+      - ""
+      - " URL: http://{{ ingress.wekan_host }}"
+      - " Service check: HTTP {{ wekan_health.stdout }}"
+      - " Ingress check: HTTP {{ wekan_http_check.stdout }}"
+      - " Pods:"
+      - "{{ wekan_pods.stdout_lines }}"
+      - "=============================================="
