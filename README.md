@@ -184,6 +184,7 @@ This file is intentionally ignored by git and should hold:
 - Grafana admin password
 - database passwords
 - Forgejo admin password
+- WeKan admin password when `database.type: mongodb`
 
 The playbook now fails early if this file still contains placeholders or the old demo credentials.
 
@@ -231,6 +232,8 @@ Then use:
 - OpenSearch Dashboards: [http://opensearch.local](http://opensearch.local)
 - Forgejo: [http://forgejo.local](http://forgejo.local)
 - WeKan: [http://wekan.local](http://wekan.local)
+
+For WeKan, log in with `wekan.admin_username` and the password from `vault_wekan_admin_password`.
 
 ## Observability Coverage
 

@@ -9,6 +9,16 @@
 #   - k3s_worker (general workload pool must be ready + tainted)
 # ============================================================
 
+- name: Validate WeKan admin password is configured
+  ansible.builtin.fail:
+    msg: >-
+      vault_wekan_admin_password is required when deploying WeKan. Add it to
+      inventory/group_vars/all/secrets.yml and rerun the wekan phase.
+  vars:
+    configured_wekan_password: "{{ vars.vault_wekan_admin_password | default('') | string | trim }}"
+  when:
+    - configured_wekan_password | length < 12
+
 - name: Create WeKan namespace
   become: true
   delegate_to: k8s-ctrl
@@ -91,6 +101,9 @@
         rootUrl: "http://{{ ingress.wekan_host }}"
         port: "{{ wekan.port | string }}"
         withApi: "{{ wekan.api_enabled | bool | ternary('true', 'false') }}"
+        mailUrl: "{{ wekan.mail_url }}"
+        mailFrom: "{{ wekan.mail_from }}"
+        emailNotificationTimeout: "{{ wekan.email_notification_timeout | string }}"
       existingSecret:
         name: wekan-mongodb-secret
         mongoUrlKey: MONGO_URL
@@ -147,6 +160,99 @@
   retries: 30
   delay: 15
   changed_when: false
+
+- name: Check whether configured WeKan admin can already log in
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - curl
+      - -sS
+      - -o
+      - /dev/null
+      - -w
+      - "%{http_code}"
+      - -X
+      - POST
+      - -H
+      - "Content-Type: application/json"
+      - -d
+      - "{{ {'username': wekan.admin_username, 'password': wekan.admin_password} | to_json }}"
+      - "http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login"
+  register: wekan_admin_login_initial
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Register configured WeKan admin account
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - curl
+      - -sS
+      - -o
+      - /dev/null
+      - -w
+      - "%{http_code}"
+      - -X
+      - POST
+      - -H
+      - "Content-Type: application/json"
+      - -d
+      - "{{ {'username': wekan.admin_username, 'email': wekan.admin_email, 'password': wekan.admin_password} | to_json }}"
+      - "http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/register"
+  register: wekan_admin_register
+  changed_when: wekan_admin_register.stdout in ['200', '201']
+  failed_when: false
+  no_log: true
+  when: wekan_admin_login_initial.stdout != "200"
+
+- name: Ensure configured WeKan user has admin permissions
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - exec
+      - -n
+      - "{{ database.namespace }}"
+      - "{{ database.mongodb.cluster_name }}-0"
+      - -c
+      - mongod
+      - --
+      - mongosh
+      - "mongodb://{{ database.app_user | urlencode }}:{{ database.app_password | urlencode }}@{{ database.mongodb.host }}:{{ database.mongodb.port | int }}/{{ database.app_db_name }}?replicaSet={{ database.mongodb.cluster_name }}&authSource={{ database.app_db_name }}"
+      - --quiet
+      - --eval
+      - "db.users.updateOne({ username: {{ wekan.admin_username | to_json }} }, { $set: { isAdmin: true } });"
+  changed_when: false
+  no_log: true
+
+- name: Verify configured WeKan admin login
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - curl
+      - -sS
+      - -o
+      - /dev/null
+      - -w
+      - "%{http_code}"
+      - -X
+      - POST
+      - -H
+      - "Content-Type: application/json"
+      - -d
+      - "{{ {'username': wekan.admin_username, 'password': wekan.admin_password} | to_json }}"
+      - "http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login"
+  register: wekan_admin_login
+  until: wekan_admin_login.stdout == "200"
+  retries: 20
+  delay: 10
+  changed_when: false
+  no_log: true
 
 - name: Verify WeKan is reachable through Ingress
   become: true

@@ -271,6 +271,12 @@ wekan:
   pool: "general"
   replicas: 1
   port: 8080
+  admin_username: "admin"
+  admin_email: "admin@example.com"
+  admin_password: "{{ vault_wekan_admin_password }}"
+  mail_url: "smtp://127.0.0.1:25/"
+  mail_from: "WeKan <noreply@wekan.local>"
+  email_notification_timeout: "1000"
   image:
     repository: "wekanteam/wekan"
     tag: "{{ artifact_versions.images.wekan }}"
@@ -279,10 +285,10 @@ wekan:
   resources:
     requests:
       cpu: "100m"
-      memory: "256Mi"
+      memory: "384Mi"
     limits:
       cpu: "500m"
-      memory: "768Mi"
+      memory: "1Gi"
 
 # ==========================================
 # 9. PRODUCTION STORAGE SETTINGS

@@ -23,6 +23,9 @@ env:
   rootUrl: http://wekan.local
   port: "8080"
   withApi: "true"
+  mailUrl: "smtp://127.0.0.1:25/"
+  mailFrom: "WeKan <noreply@wekan.local>"
+  emailNotificationTimeout: "1000"
 
 resources: {}
 
