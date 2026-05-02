@@ -233,6 +233,8 @@
       - /dev/null
       - -w
       - "%{http_code}"
+      - -H
+      - "Host: {{ ingress.wekan_host }}"
       - "http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/"
   register: wekan_health
   until: wekan_health.rc == 0 and wekan_health.stdout in ['200', '302']
@@ -291,12 +293,16 @@
     set +e
     json_code="$(curl -sS -o /dev/null -w "%{http_code}" \
       -X POST \
+      -H "Host: {{ ingress.wekan_host }}" \
       -H "Content-Type: application/json" \
+      -H "Accept: */*" \
       --data-binary @{{ wekan_bootstrap_tmp.path }}/login.json \
       http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login)"
     form_code="$(curl -sS -o /dev/null -w "%{http_code}" \
       -X POST \
+      -H "Host: {{ ingress.wekan_host }}" \
       -H "Content-Type: application/x-www-form-urlencoded" \
+      -H "Accept: */*" \
       --data-binary @{{ wekan_bootstrap_tmp.path }}/login.form \
       http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login)"
     printf 'json=%s form=%s\n' "$json_code" "$form_code"
@@ -322,7 +328,11 @@
       - -X
       - POST
       - -H
+      - "Host: {{ ingress.wekan_host }}"
+      - -H
       - "Content-Type: application/json"
+      - -H
+      - "Accept: */*"
       - --data-binary
       - "@{{ wekan_bootstrap_tmp.path }}/register.json"
       - "http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/register"
@@ -345,7 +355,11 @@
       - -X
       - POST
       - -H
+      - "Host: {{ ingress.wekan_host }}"
+      - -H
       - "Content-Type: application/x-www-form-urlencoded"
+      - -H
+      - "Accept: */*"
       - --data-binary
       - "@{{ wekan_bootstrap_tmp.path }}/register.form"
       - "http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/register"
@@ -366,48 +380,92 @@
 - name: Wait for configured WeKan admin user record to exist
   become: true
   delegate_to: k8s-ctrl
-  ansible.builtin.command:
-    argv:
-      - kubectl
-      - exec
-      - -n
-      - "{{ database.namespace }}"
-      - "{{ database.mongodb.cluster_name }}-0"
-      - -c
-      - mongod
-      - --
-      - mongosh
-      - "mongodb://{{ database.app_user | urlencode }}:{{ database.app_password | urlencode }}@{{ database.mongodb.host }}:{{ database.mongodb.port | int }}/{{ database.app_db_name }}?replicaSet={{ database.mongodb.cluster_name }}&authSource={{ database.app_db_name }}"
-      - --quiet
-      - --eval
-      - "db.users.countDocuments({ username: {{ wekan.admin_username | to_json }} });"
+  ansible.builtin.shell: |
+    set +e
+    mongo_url="$(kubectl get secret wekan-mongodb-secret \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ wekan.namespace }} \
+      -o jsonpath='{.data.MONGO_URL}' | base64 -d)"
+
+    for attempt in $(seq 1 30); do
+      login_json_code="$(curl -sS -o /dev/null -w "%{http_code}" \
+        -X POST \
+        -H "Host: {{ ingress.wekan_host }}" \
+        -H "Content-Type: application/json" \
+        -H "Accept: */*" \
+        --data-binary @{{ wekan_bootstrap_tmp.path }}/login.json \
+        http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login)"
+      login_form_code="$(curl -sS -o /dev/null -w "%{http_code}" \
+        -X POST \
+        -H "Host: {{ ingress.wekan_host }}" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -H "Accept: */*" \
+        --data-binary @{{ wekan_bootstrap_tmp.path }}/login.form \
+        http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login)"
+
+      register_json_code="skipped"
+      register_form_code="skipped"
+      if [ "$login_json_code" != "200" ] && [ "$login_form_code" != "200" ]; then
+        register_json_code="$(curl -sS -o /dev/null -w "%{http_code}" \
+          -X POST \
+          -H "Host: {{ ingress.wekan_host }}" \
+          -H "Content-Type: application/json" \
+          -H "Accept: */*" \
+          --data-binary @{{ wekan_bootstrap_tmp.path }}/register.json \
+          http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/register)"
+        if [ "$register_json_code" != "200" ] && [ "$register_json_code" != "201" ]; then
+          register_form_code="$(curl -sS -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -H "Host: {{ ingress.wekan_host }}" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -H "Accept: */*" \
+            --data-binary @{{ wekan_bootstrap_tmp.path }}/register.form \
+            http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/register)"
+        fi
+      fi
+
+      raw_count="$(kubectl exec \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml \
+        -n {{ database.namespace }} \
+        {{ database.mongodb.cluster_name }}-0 \
+        -c mongod \
+        -- mongosh "$mongo_url" --quiet --eval \
+        'const username = {{ wekan.admin_username | to_json }}; const email = {{ wekan.admin_email | to_json }}; print(db.users.countDocuments({ $or: [{ username: username }, { "emails.address": email }] }));' 2>/dev/null)"
+      query_rc=$?
+      user_count="$(printf '%s\n' "$raw_count" | tail -n 1 | tr -dc '0-9')"
+
+      if [ "$query_rc" -eq 0 ] && [ "${user_count:-0}" -ge 1 ]; then
+        printf 'admin_user_count=%s\n' "$user_count"
+        exit 0
+      fi
+
+      printf 'attempt=%s login_json=%s login_form=%s register_json=%s register_form=%s mongo_query_rc=%s admin_user_count=%s\n' "$attempt" "$login_json_code" "$login_form_code" "$register_json_code" "$register_form_code" "$query_rc" "${user_count:-0}"
+      sleep 5
+    done
+
+    echo "WeKan admin user was not found in MongoDB after registration attempts."
+    echo "Registration status: initial_login={{ wekan_admin_login_initial.stdout | default('not-run') }}, json_register={{ wekan_admin_register_json.stdout | default('skipped') }}, form_register={{ wekan_admin_register_form.stdout | default('skipped') }}"
+    exit 1
   register: wekan_admin_user_count
-  until: (wekan_admin_user_count.stdout | default('0') | int) >= 1
-  retries: 20
-  delay: 5
   changed_when: false
-  no_log: true
 
 - name: Ensure configured WeKan user has admin permissions
   become: true
   delegate_to: k8s-ctrl
-  ansible.builtin.command:
-    argv:
-      - kubectl
-      - exec
-      - -n
-      - "{{ database.namespace }}"
-      - "{{ database.mongodb.cluster_name }}-0"
-      - -c
-      - mongod
-      - --
-      - mongosh
-      - "mongodb://{{ database.app_user | urlencode }}:{{ database.app_password | urlencode }}@{{ database.mongodb.host }}:{{ database.mongodb.port | int }}/{{ database.app_db_name }}?replicaSet={{ database.mongodb.cluster_name }}&authSource={{ database.app_db_name }}"
-      - --quiet
-      - --eval
-      - "db.users.updateOne({ username: {{ wekan.admin_username | to_json }} }, { $set: { isAdmin: true } });"
+  ansible.builtin.shell: |
+    mongo_url="$(kubectl get secret wekan-mongodb-secret \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ wekan.namespace }} \
+      -o jsonpath='{.data.MONGO_URL}' | base64 -d)"
+    kubectl exec \
+      --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n {{ database.namespace }} \
+      {{ database.mongodb.cluster_name }}-0 \
+      -c mongod \
+      -- mongosh "$mongo_url" --quiet --eval \
+      'const username = {{ wekan.admin_username | to_json }}; const email = {{ wekan.admin_email | to_json }}; const result = db.users.updateOne({ $or: [{ username: username }, { "emails.address": email }] }, { $set: { isAdmin: true } }); print("matched=" + result.matchedCount + " modified=" + result.modifiedCount);'
+  register: wekan_admin_update
   changed_when: false
-  no_log: true
 
 - name: Verify configured WeKan admin login with JSON and form payloads
   become: true
@@ -416,12 +474,16 @@
     set +e
     json_code="$(curl -sS -o /dev/null -w "%{http_code}" \
       -X POST \
+      -H "Host: {{ ingress.wekan_host }}" \
       -H "Content-Type: application/json" \
+      -H "Accept: */*" \
       --data-binary @{{ wekan_bootstrap_tmp.path }}/login.json \
       http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login)"
     form_code="$(curl -sS -o /dev/null -w "%{http_code}" \
       -X POST \
+      -H "Host: {{ ingress.wekan_host }}" \
       -H "Content-Type: application/x-www-form-urlencoded" \
+      -H "Accept: */*" \
       --data-binary @{{ wekan_bootstrap_tmp.path }}/login.form \
       http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login)"
     printf 'json=%s form=%s\n' "$json_code" "$form_code"

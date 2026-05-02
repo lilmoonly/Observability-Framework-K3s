@@ -29,8 +29,8 @@ env:
   rootUrl: http://wekan.local
   port: "8080"
   withApi: "true"
-  mailUrl: "smtp://127.0.0.1:25/"
-  mailFrom: "WeKan <noreply@wekan.local>"
+  mailUrl: "smtp://:25/?ignoreTLS=true&tls={rejectUnauthorized:false}"
+  mailFrom: "WeKan Notifications"
   emailNotificationTimeout: "1000"
   meteorReactivityOrder: "polling"
   nodeOptions: "--max_old_space_size=512"
