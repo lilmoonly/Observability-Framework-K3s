@@ -6,7 +6,7 @@
 - name: Install CloudNativePG operator
   become: true
   delegate_to: k8s-ctrl
-  community.kubernetes.helm:
+  kubernetes.core.helm:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: cnpg-operator
     chart_ref: cnpg/cloudnative-pg
@@ -23,19 +23,23 @@
           value:    "{{ cluster_topology.node_pools[database.pool].workload_label }}"
           effect:   "{{ cluster_topology.node_pools[database.pool].taints[0].effect }}"
 
-- name: Wait for CNPG operator pod to be ready
+- name: Wait for CNPG operator deployment to become available
   become: true
   delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl get pods \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n cnpg-system \
-      -l app.kubernetes.io/name=cloudnative-pg \
-      -o jsonpath='{.items[0].status.phase}'
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - wait
+      - --kubeconfig
+      - /etc/rancher/k3s/k3s.yaml
+      - --namespace
+      - cnpg-system
+      - --for=condition=Available
+      - --timeout=300s
+      - deployment
+      - -l
+      - app.kubernetes.io/name=cloudnative-pg
   register: cnpg_operator_status
-  until: cnpg_operator_status.stdout == "Running"
-  retries: 30
-  delay: 10
   changed_when: false
 
 - name: Create database namespace
@@ -169,7 +173,7 @@
        FROM pg_stat_replication;"
   register: replication_status
   changed_when: false
-  failed_when: false
+  failed_when: database.postgresql.instances | int > 1 and replication_status.rc != 0
 
 - name: Show PostgreSQL replication status
   ansible.builtin.debug:

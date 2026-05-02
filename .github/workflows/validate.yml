@@ -1,0 +1,40 @@
+---
+name: Validate Framework
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Local validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ansible-core ansible-lint
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Install pinned Helm
+        run: |
+          HELM_VERSION="$(awk -F'"' '/^[[:space:]]+helm:/ { print $2; exit }' inventory/group_vars/all/main.yml)"
+          curl -fsSLo /tmp/helm.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          tar -xzf /tmp/helm.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/linux-amd64/helm /usr/local/bin/helm
+          helm version --short
+
+      - name: Validate repository
+        run: scripts/validate.sh

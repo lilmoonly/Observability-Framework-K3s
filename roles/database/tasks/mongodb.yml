@@ -75,7 +75,7 @@
 - name: Install MongoDB Controllers for Kubernetes
   become: true
   delegate_to: k8s-ctrl
-  community.kubernetes.helm:
+  kubernetes.core.helm:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: mongodb-kubernetes-operator
     chart_ref: mongodb/mongodb-kubernetes
@@ -143,6 +143,22 @@
                 operator: "Equal"
                 value: "{{ cluster_topology.node_pools[mongodb_operator_pool].workload_label }}"
                 effect: "{{ cluster_topology.node_pools[mongodb_operator_pool].taints[0].effect }}"
+
+- name: Wait for MongoDB operator rollout after placement patch
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - rollout
+      - status
+      - "deployment/{{ mongodb_operator_deployment.stdout }}"
+      - --kubeconfig
+      - /etc/rancher/k3s/k3s.yaml
+      - --namespace
+      - "{{ mongodb_operator_namespace }}"
+      - --timeout=300s
+  changed_when: false
 
 - name: Create MongoDB admin password secret
   become: true

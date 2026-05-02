@@ -1,0 +1,200 @@
+---
+# ==============================================================
+# cleanup.yml — Guarded Framework Cleanup Playbook
+#
+# This playbook removes framework workloads from an existing K3s
+# cluster without resetting the VMs themselves.
+#
+# Safety:
+#   - Requires -e cleanup_confirm=true
+#   - Defaults to keeping namespaces/PVCs
+#   - Use -e cleanup_delete_namespaces=true for a destructive
+#     namespace cleanup that removes PVCs and in-cluster data
+#
+# Scope examples:
+#   -e cleanup_scope=monitoring
+#   -e cleanup_scope=logging,database
+#   -e cleanup_scope=all
+# ==============================================================
+
+- name: Cleanup Observability Framework Components
+  hosts: master
+  become: true
+  gather_facts: false
+  vars:
+    cleanup_confirm: false
+    cleanup_scope: "all"
+    cleanup_delete_namespaces: false
+    cleanup_delete_crds: false
+    cleanup_scopes: >-
+      {{
+        ['apps', 'ai', 'ingress', 'monitoring', 'logging', 'database']
+        if cleanup_scope == 'all'
+        else cleanup_scope.split(',')
+      }}
+    cleanup_helm_releases:
+      - { scope: "apps", name: "wekan", namespace: "{{ wekan.namespace | default('wekan') }}" }
+      - { scope: "apps", name: "forgejo", namespace: "forgejo" }
+      - { scope: "monitoring", name: "prometheus", namespace: "monitoring" }
+      - { scope: "logging", name: "fluent-bit", namespace: "opensearch" }
+      - { scope: "logging", name: "opensearch-dashboards", namespace: "opensearch" }
+      - { scope: "logging", name: "opensearch", namespace: "opensearch" }
+      - { scope: "database", name: "mongodb-kubernetes-operator", namespace: "{{ database.mongodb.operator_namespace | default(database.namespace | default('database')) }}" }
+      - { scope: "database", name: "mongodb-kubernetes-operator", namespace: "mongodb-system" }
+      - { scope: "database", name: "mongodb-kubernetes-operator", namespace: "db" }
+      - { scope: "database", name: "cnpg-operator", namespace: "cnpg-system" }
+    cleanup_k8s_objects:
+      - { scope: "ingress", resource: "ingress", name: "grafana-ingress", namespace: "monitoring" }
+      - { scope: "ingress", resource: "ingress", name: "prometheus-ingress", namespace: "monitoring" }
+      - { scope: "ingress", resource: "ingress", name: "opensearch-dashboards-ingress", namespace: "opensearch" }
+      - { scope: "apps", resource: "ingress", name: "forgejo-ingress", namespace: "forgejo" }
+      - { scope: "apps", resource: "ingress", name: "wekan", namespace: "{{ wekan.namespace | default('wekan') }}" }
+      - { scope: "ai", resource: "prometheusrule", name: "observability-framework-ai-alerts", namespace: "monitoring" }
+      - { scope: "monitoring", resource: "prometheusrule", name: "observability-framework-platform-alerts", namespace: "monitoring" }
+      - { scope: "monitoring", resource: "prometheusrule", name: "observability-framework-database-alerts", namespace: "monitoring" }
+      - { scope: "monitoring", resource: "prometheusrule", name: "observability-framework-recording-rules", namespace: "monitoring" }
+      - { scope: "monitoring", resource: "prometheusrule", name: "observability-framework-slo-alerts", namespace: "monitoring" }
+      - { scope: "database", resource: "mongodbcommunity", name: "{{ database.mongodb.cluster_name | default('app-mongo-rs') }}", namespace: "{{ database.namespace | default('database') }}" }
+      - { scope: "database", resource: "cluster.postgresql.cnpg.io", name: "{{ database.cluster_name | default('app-db-cluster') }}", namespace: "{{ database.namespace | default('database') }}" }
+    cleanup_namespaces:
+      - { scope: "apps", name: "{{ wekan.namespace | default('wekan') }}" }
+      - { scope: "apps", name: "forgejo" }
+      - { scope: "ai", name: "{{ ai_engine.namespace | default('ai-engine') }}" }
+      - { scope: "monitoring", name: "monitoring" }
+      - { scope: "logging", name: "opensearch" }
+      - { scope: "database", name: "{{ database.namespace | default('database') }}" }
+      - { scope: "database", name: "cnpg-system" }
+      - { scope: "database", name: "mongodb-system" }
+      - { scope: "database", name: "db" }
+    cleanup_crds:
+      - servicemonitors.monitoring.coreos.com
+      - podmonitors.monitoring.coreos.com
+      - prometheusrules.monitoring.coreos.com
+      - alertmanagerconfigs.monitoring.coreos.com
+      - alertmanagers.monitoring.coreos.com
+      - prometheuses.monitoring.coreos.com
+      - clusters.postgresql.cnpg.io
+      - mongodbcommunity.mongodbcommunity.mongodb.com
+
+  pre_tasks:
+    - name: Refuse cleanup unless explicitly confirmed
+      ansible.builtin.assert:
+        that:
+          - cleanup_confirm | bool
+        fail_msg: >-
+          Cleanup is destructive. Rerun with -e cleanup_confirm=true after
+          selecting cleanup_scope and cleanup_delete_namespaces intentionally.
+
+    - name: Show cleanup plan
+      ansible.builtin.debug:
+        msg:
+          - "Cleanup scopes: {{ cleanup_scopes | join(', ') }}"
+          - "Delete namespaces/PVCs: {{ cleanup_delete_namespaces | bool }}"
+          - "Delete framework/operator CRDs: {{ cleanup_delete_crds | bool }}"
+
+  tasks:
+    - name: Check Helm releases selected for cleanup
+      ansible.builtin.command:
+        argv:
+          - helm
+          - status
+          - "{{ item.name }}"
+          - -n
+          - "{{ item.namespace }}"
+      loop: "{{ cleanup_helm_releases }}"
+      loop_control:
+        label: "{{ item.namespace }}/{{ item.name }}"
+      register: cleanup_helm_status
+      changed_when: false
+      failed_when: false
+      when: item.scope in cleanup_scopes
+
+    - name: Uninstall Helm releases selected for cleanup
+      ansible.builtin.command:
+        argv:
+          - helm
+          - uninstall
+          - "{{ item.item.name }}"
+          - -n
+          - "{{ item.item.namespace }}"
+      loop: "{{ cleanup_helm_status.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.namespace }}/{{ item.item.name }}"
+      changed_when: true
+      when:
+        - item.skipped | default(false) | bool == false
+        - item.rc == 0
+
+    - name: Delete selected Kubernetes resources
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - delete
+          - "{{ item.resource }}"
+          - "{{ item.name }}"
+          - --namespace
+          - "{{ item.namespace }}"
+          - --ignore-not-found
+          - --kubeconfig
+          - /etc/rancher/k3s/k3s.yaml
+      loop: "{{ cleanup_k8s_objects }}"
+      loop_control:
+        label: "{{ item.namespace }}/{{ item.resource }}/{{ item.name }}"
+      register: cleanup_object_delete
+      changed_when: "'deleted' in cleanup_object_delete.stdout"
+      failed_when: >-
+        cleanup_object_delete.rc != 0
+        and 'not found' not in (cleanup_object_delete.stderr | lower)
+        and 'the server doesn' not in cleanup_object_delete.stderr
+      when: item.scope in cleanup_scopes
+
+    - name: Delete selected namespaces and PVC-backed data
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - delete
+          - namespace
+          - "{{ item.name }}"
+          - --ignore-not-found
+          - --kubeconfig
+          - /etc/rancher/k3s/k3s.yaml
+      loop: "{{ cleanup_namespaces }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: cleanup_namespace_delete
+      changed_when: "'deleted' in cleanup_namespace_delete.stdout"
+      when:
+        - cleanup_delete_namespaces | bool
+        - item.scope in cleanup_scopes
+
+    - name: Delete framework/operator CRDs when explicitly requested
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - delete
+          - crd
+          - "{{ item }}"
+          - --ignore-not-found
+          - --kubeconfig
+          - /etc/rancher/k3s/k3s.yaml
+      loop: "{{ cleanup_crds }}"
+      register: cleanup_crd_delete
+      changed_when: "'deleted' in cleanup_crd_delete.stdout"
+      when:
+        - cleanup_delete_crds | bool
+        - cleanup_scope == 'all'
+
+    - name: Show remaining framework namespaces
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - namespaces
+          - --kubeconfig
+          - /etc/rancher/k3s/k3s.yaml
+      register: cleanup_namespace_summary
+      changed_when: false
+
+    - name: Print cleanup namespace summary
+      ansible.builtin.debug:
+        var: cleanup_namespace_summary.stdout_lines

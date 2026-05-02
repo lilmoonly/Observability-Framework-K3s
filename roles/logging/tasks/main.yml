@@ -20,7 +20,7 @@
 - name: Deploy OpenSearch via Helm
   become: true
   delegate_to: k8s-ctrl
-  community.kubernetes.helm:
+  kubernetes.core.helm:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: opensearch
     chart_ref: opensearch/opensearch
@@ -69,19 +69,23 @@
 # being fully up before they start — without this check
 # they will fail their initial connection attempts.
 # ============================================================
-- name: Wait for OpenSearch pod to be ready
+- name: Wait for OpenSearch pod Ready condition
   become: true
   delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl get pods \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n opensearch \
-      -l app.kubernetes.io/name=opensearch \
-      -o jsonpath='{.items[0].status.phase}'
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - wait
+      - --kubeconfig
+      - /etc/rancher/k3s/k3s.yaml
+      - --namespace
+      - opensearch
+      - --for=condition=Ready
+      - --timeout=900s
+      - pod
+      - -l
+      - app.kubernetes.io/name=opensearch
   register: opensearch_status
-  until: opensearch_status.stdout == "Running"
-  retries: 40
-  delay: 15
   changed_when: false
 
 # ============================================================
@@ -90,7 +94,7 @@
 - name: Deploy OpenSearch Dashboards via Helm
   become: true
   delegate_to: k8s-ctrl
-  community.kubernetes.helm:
+  kubernetes.core.helm:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: opensearch-dashboards
     chart_ref: opensearch/opensearch-dashboards
@@ -135,7 +139,7 @@
 - name: Deploy Fluent-bit via Helm
   become: true
   delegate_to: k8s-ctrl
-  community.kubernetes.helm:
+  kubernetes.core.helm:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: fluent-bit
     chart_ref: fluent/fluent-bit

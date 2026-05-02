@@ -115,7 +115,7 @@
 - name: Deploy Forgejo via OCI Helm chart
   become: true
   delegate_to: k8s-ctrl
-  community.kubernetes.helm:
+  kubernetes.core.helm:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: forgejo
     chart_ref: oci://code.forgejo.org/forgejo-helm/forgejo
@@ -265,21 +265,25 @@
     definition: "{{ lookup('template', 'metrics-servicemonitor.yaml.j2') | from_yaml }}"
 
 # ============================================================
-# STEP 7: Wait for Forgejo Pod to Be Running
+# STEP 7: Wait for Forgejo Pod to Be Ready
 # ============================================================
-- name: Wait for Forgejo pod to be ready
+- name: Wait for Forgejo pod Ready condition
   become: true
   delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl get pods \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n forgejo \
-      -l app.kubernetes.io/name=forgejo \
-      -o jsonpath='{.items[0].status.phase}'
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - wait
+      - --kubeconfig
+      - /etc/rancher/k3s/k3s.yaml
+      - --namespace
+      - forgejo
+      - --for=condition=Ready
+      - --timeout=600s
+      - pod
+      - -l
+      - app.kubernetes.io/name=forgejo
   register: forgejo_status
-  until: forgejo_status.stdout == "Running"
-  retries: 40
-  delay: 15
   changed_when: false
 
 # ============================================================

@@ -212,6 +212,7 @@
     curl -sk https://{{ master_ip }}:6443/healthz
   register: api_reach
   changed_when: false
+  failed_when: api_reach.rc != 0 or api_reach.stdout | trim != "ok"
   run_once: true
 
 - name: Show API reachability from database pool

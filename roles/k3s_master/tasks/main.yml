@@ -191,18 +191,22 @@
 # are created — if Traefik is not ready the Ingress
 # resources will exist but no traffic will be routed.
 # ============================================================
-- name: Wait for Traefik ingress controller to be ready
+- name: Wait for Traefik ingress controller deployment to become available
   become: true
-  ansible.builtin.shell: |
-    kubectl get pods \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n kube-system \
-      -l app.kubernetes.io/name=traefik \
-      -o jsonpath='{.items[0].status.phase}'
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - wait
+      - --kubeconfig
+      - /etc/rancher/k3s/k3s.yaml
+      - --namespace
+      - kube-system
+      - --for=condition=Available
+      - --timeout=300s
+      - deployment
+      - -l
+      - app.kubernetes.io/name=traefik
   register: traefik_status
-  until: traefik_status.stdout == "Running"
-  retries: 30
-  delay: 10
   changed_when: false
 
 # ============================================================

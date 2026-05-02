@@ -273,7 +273,6 @@
   retries: 30
   delay: 10
   changed_when: "'\"acknowledged\":true' in (ai_index_template_result.stdout | replace(' ', ''))"
-  failed_when: false
   no_log: true
 
 - name: Show OpenSearch anomaly index template result
@@ -314,7 +313,6 @@
   retries: 30
   delay: 10
   changed_when: false
-  failed_when: false
 
 - name: Show AI engine metrics verification
   ansible.builtin.debug:

@@ -21,24 +21,28 @@
 # ============================================================
 # 1. Verify Traefik is Running
 # ============================================================
-- name: Verify Traefik ingress controller is running
+- name: Verify Traefik ingress controller deployment is available
   become: true
   delegate_to: k8s-ctrl
-  ansible.builtin.shell: |
-    kubectl get pods \
-      --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n kube-system \
-      -l app.kubernetes.io/name=traefik \
-      -o jsonpath='{.items[0].status.phase}'
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - wait
+      - --kubeconfig
+      - /etc/rancher/k3s/k3s.yaml
+      - --namespace
+      - kube-system
+      - --for=condition=Available
+      - --timeout=300s
+      - deployment
+      - -l
+      - app.kubernetes.io/name=traefik
   register: traefik_status
-  until: traefik_status.stdout == "Running"
-  retries: 20
-  delay: 10
   changed_when: false
 
 - name: Show Traefik status
   ansible.builtin.debug:
-    msg: "Traefik ingress controller: {{ traefik_status.stdout }}"
+    msg: "Traefik ingress controller availability check: {{ traefik_status.stdout }}"
 
 # ============================================================
 # 2. Render Templates to Control Plane

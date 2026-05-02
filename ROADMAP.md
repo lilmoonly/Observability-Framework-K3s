@@ -18,8 +18,8 @@ The framework already provides:
 What still keeps it in "advanced lab" territory rather than "production framework":
 
 - live internet/bootstrap dependencies
-- some soft readiness gates and best-effort checks
-- no CI or automated smoke validation
+- environment/profile documentation is still compact
+- backup, restore, and disaster-recovery guidance still needs dedicated runbooks
 
 ## Milestone Plan
 
@@ -98,6 +98,8 @@ What still keeps it in "advanced lab" territory rather than "production framewor
 
 ## v1.4 Readiness and Rerun Hardening
 
+Status: implemented in the current framework baseline.
+
 ### Goals
 
 - Make failure states explicit.
@@ -140,6 +142,8 @@ Status: implemented in the current framework baseline.
 - AI anomaly severity can participate in alerting
 
 ## v1.6 CI and Smoke Validation
+
+Status: implemented in the current framework baseline.
 
 ### Goals
 
@@ -191,9 +195,9 @@ Status: implemented in the current framework baseline.
 
 ## Next Sprint
 
-With `v1.5` alerting and SLO coverage in place, the next sprint should move to `v1.6` validation:
+With `v1.6` validation in place, the next sprint should move to `v1.7` profiles and runbooks:
 
-1. Add YAML, JSON, Ansible template, and dashboard validation commands.
-2. Add `ansible-lint` once the role syntax is normalized for the installed collection versions.
-3. Add post-deploy smoke checks for cluster health, scrape targets, dashboards, and alert rules.
-4. Start documenting upgrade validation so framework changes can be released with confidence.
+1. Split lab and production-oriented configuration guidance.
+2. Add storage, sizing, scaling, backup, and restore docs.
+3. Add operator runbooks for common incidents.
+4. Keep the README concise by moving deep operational guidance into dedicated docs.

@@ -97,7 +97,7 @@
 - name: Deploy WeKan via local Helm chart
   become: true
   delegate_to: k8s-ctrl
-  community.kubernetes.helm:
+  kubernetes.core.helm:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     name: wekan
     chart_ref: /tmp/observability-framework-wekan-chart

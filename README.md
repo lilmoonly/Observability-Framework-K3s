@@ -531,7 +531,60 @@ Useful AI metrics exposed by the service:
 
 ## Verification
 
-Basic cluster verification:
+Run local validation before redeploying VMs or applying a large role change:
+
+```bash
+scripts/validate.sh
+```
+
+The same validation is wired into [`.github/workflows/validate.yml`](.github/workflows/validate.yml) for pull requests and pushes to `main`.
+
+The local validator checks:
+
+- YAML syntax for playbooks, vars, workflows, and Kubernetes manifests
+- JSON syntax for vendored Grafana dashboards
+- shell syntax for scripts
+- representative Jinja template rendering for MongoDB and PostgreSQL paths
+- WeKan chart lint when `helm` is installed
+- Ansible syntax checks when the required collections are installed
+- `ansible-lint` when it is installed
+
+Install Ansible collections used by the framework:
+
+```bash
+ansible-galaxy collection install -r requirements.yml
+```
+
+Run live smoke checks after a deploy:
+
+```bash
+scripts/smoke-cluster.sh
+```
+
+The smoke checker validates:
+
+- Kubernetes API access and node readiness
+- pod phases and container readiness
+- ServiceMonitor and PrometheusRule presence
+- Prometheus scrape target health
+- Grafana dashboard ConfigMaps
+- database custom-resource status
+- ingress HTTP responses when ingress resources exist
+
+Useful smoke-check options:
+
+```bash
+# Use an explicit kubeconfig from outside the control-plane VM.
+KUBECONFIG=/path/to/k3s.yaml scripts/smoke-cluster.sh
+
+# Skip HTTP ingress checks if the script cannot reach 192.168.56.10.
+SMOKE_CHECK_INGRESS=false scripts/smoke-cluster.sh
+
+# Allow known-down scrape targets temporarily, for example during node maintenance.
+SMOKE_ALLOW_UNHEALTHY_TARGETS=true scripts/smoke-cluster.sh
+```
+
+Manual cluster verification:
 
 ```bash
 kubectl get nodes -L workload
@@ -552,6 +605,7 @@ kubectl exec -n opensearch statefulset/opensearch-cluster-master -- \
 - Community dashboards are vendored under [roles/monitoring/files/grafana](roles/monitoring/files/grafana) for offline-safe provisioning
 - The database role is safe to rerun for monitoring changes because [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) now uses `database.force_recreate: false` by default
 - If you intentionally want to destroy and recreate the PostgreSQL cluster, set `database.force_recreate: true`
+- Component cleanup is automated through [cleanup.yml](cleanup.yml) and always requires `-e cleanup_confirm=true`
 - Traefik metrics are enabled through a K3s `HelmChartConfig`
 - OpenSearch is monitored through a separate exporter instead of modifying the OpenSearch image
 - The AI engine can be stopped without deleting it by scaling the deployment to zero:
@@ -559,6 +613,32 @@ kubectl exec -n opensearch statefulset/opensearch-cluster-master -- \
 ```bash
 kubectl scale deploy/pyod-anomaly-detector -n ai-engine --replicas=0
 ```
+
+Cleanup examples:
+
+```bash
+# Remove monitoring Helm release and framework monitoring rules, keep PVCs/namespaces.
+ansible-playbook -i inventory/inventory.ini cleanup.yml \
+  -e cleanup_confirm=true \
+  -e cleanup_scope=monitoring \
+  --ask-vault-pass
+
+# Remove logging and monitoring namespaces too. This deletes PVC-backed data.
+ansible-playbook -i inventory/inventory.ini cleanup.yml \
+  -e cleanup_confirm=true \
+  -e cleanup_scope=logging,monitoring \
+  -e cleanup_delete_namespaces=true \
+  --ask-vault-pass
+
+# Remove all framework components from the cluster, but keep operator CRDs.
+ansible-playbook -i inventory/inventory.ini cleanup.yml \
+  -e cleanup_confirm=true \
+  -e cleanup_scope=all \
+  -e cleanup_delete_namespaces=true \
+  --ask-vault-pass
+```
+
+Use `cleanup_delete_crds=true` only for a full operator reset after all framework workloads are removed. For a VM-level reset, prefer `vagrant destroy` and redeploy from Phase 1.
 
 ## Production Roadmap
 
