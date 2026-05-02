@@ -186,11 +186,29 @@
 
 # ============================================================
 # 7. Verify Traefik Ingress Controller is Running
-# K3s deploys Traefik automatically as a DaemonSet.
+# K3s deploys Traefik automatically through its Helm controller.
 # We confirm it is running before Phase 7 ingress rules
 # are created — if Traefik is not ready the Ingress
 # resources will exist but no traffic will be routed.
 # ============================================================
+- name: Wait for K3s Helm controller to create Traefik deployment
+  become: true
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - get
+      - deployment
+      - traefik
+      - --kubeconfig
+      - /etc/rancher/k3s/k3s.yaml
+      - --namespace
+      - kube-system
+  register: traefik_deployment
+  until: traefik_deployment.rc == 0
+  retries: 60
+  delay: 5
+  changed_when: false
+
 - name: Wait for Traefik ingress controller deployment to become available
   become: true
   ansible.builtin.command:
@@ -204,8 +222,7 @@
       - --for=condition=Available
       - --timeout=300s
       - deployment
-      - -l
-      - app.kubernetes.io/name=traefik
+      - traefik
   register: traefik_status
   changed_when: false
 
