@@ -161,30 +161,75 @@
   delay: 15
   changed_when: false
 
-- name: Check whether configured WeKan admin can already log in
+- name: Create temporary WeKan bootstrap payload directory
   become: true
   delegate_to: k8s-ctrl
-  ansible.builtin.command:
-    argv:
-      - curl
-      - -sS
-      - -o
-      - /dev/null
-      - -w
-      - "%{http_code}"
-      - -X
-      - POST
-      - -H
-      - "Content-Type: application/json"
-      - -d
-      - "{{ {'username': wekan.admin_username, 'password': wekan.admin_password} | to_json }}"
-      - "http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login"
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: wekan-bootstrap
+  register: wekan_bootstrap_tmp
+
+- name: Write WeKan JSON login payload
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.copy:
+    dest: "{{ wekan_bootstrap_tmp.path }}/login.json"
+    mode: '0600'
+    content: "{{ {'username': wekan.admin_username, 'password': wekan.admin_password} | to_json }}"
+  no_log: true
+
+- name: Write WeKan JSON register payload
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.copy:
+    dest: "{{ wekan_bootstrap_tmp.path }}/register.json"
+    mode: '0600'
+    content: "{{ {'username': wekan.admin_username, 'email': wekan.admin_email, 'password': wekan.admin_password} | to_json }}"
+  no_log: true
+
+- name: Write WeKan form login payload
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.copy:
+    dest: "{{ wekan_bootstrap_tmp.path }}/login.form"
+    mode: '0600'
+    content: "username={{ wekan.admin_username | urlencode }}&password={{ wekan.admin_password | urlencode }}"
+  no_log: true
+
+- name: Write WeKan form register payload
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.copy:
+    dest: "{{ wekan_bootstrap_tmp.path }}/register.form"
+    mode: '0600'
+    content: "username={{ wekan.admin_username | urlencode }}&email={{ wekan.admin_email | urlencode }}&password={{ wekan.admin_password | urlencode }}"
+  no_log: true
+
+- name: Check configured WeKan admin login with JSON and form payloads
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.shell: |
+    set +e
+    json_code="$(curl -sS -o /dev/null -w "%{http_code}" \
+      -X POST \
+      -H "Content-Type: application/json" \
+      --data-binary @{{ wekan_bootstrap_tmp.path }}/login.json \
+      http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login)"
+    form_code="$(curl -sS -o /dev/null -w "%{http_code}" \
+      -X POST \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      --data-binary @{{ wekan_bootstrap_tmp.path }}/login.form \
+      http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login)"
+    printf 'json=%s form=%s\n' "$json_code" "$form_code"
+    if [ "$json_code" = "200" ] || [ "$form_code" = "200" ]; then
+      exit 0
+    fi
+    exit 1
   register: wekan_admin_login_initial
   changed_when: false
   failed_when: false
-  no_log: true
 
-- name: Register configured WeKan admin account
+- name: Register configured WeKan admin account with JSON payload
   become: true
   delegate_to: k8s-ctrl
   ansible.builtin.command:
@@ -199,14 +244,70 @@
       - POST
       - -H
       - "Content-Type: application/json"
-      - -d
-      - "{{ {'username': wekan.admin_username, 'email': wekan.admin_email, 'password': wekan.admin_password} | to_json }}"
+      - --data-binary
+      - "@{{ wekan_bootstrap_tmp.path }}/register.json"
       - "http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/register"
-  register: wekan_admin_register
-  changed_when: wekan_admin_register.stdout in ['200', '201']
+  register: wekan_admin_register_json
+  changed_when: wekan_admin_register_json.stdout in ['200', '201']
   failed_when: false
+  when: wekan_admin_login_initial.rc != 0
+
+- name: Register configured WeKan admin account with form payload
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - curl
+      - -sS
+      - -o
+      - /dev/null
+      - -w
+      - "%{http_code}"
+      - -X
+      - POST
+      - -H
+      - "Content-Type: application/x-www-form-urlencoded"
+      - --data-binary
+      - "@{{ wekan_bootstrap_tmp.path }}/register.form"
+      - "http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/register"
+  register: wekan_admin_register_form
+  changed_when: wekan_admin_register_form.stdout in ['200', '201']
+  failed_when: false
+  when:
+    - wekan_admin_login_initial.rc != 0
+    - wekan_admin_register_json.stdout | default('') not in ['200', '201']
+
+- name: Show sanitized WeKan registration attempt status
+  ansible.builtin.debug:
+    msg:
+      - "Initial login: {{ wekan_admin_login_initial.stdout | default('not-run') }}"
+      - "JSON register: {{ wekan_admin_register_json.stdout | default('skipped') }}"
+      - "Form register: {{ wekan_admin_register_form.stdout | default('skipped') }}"
+
+- name: Wait for configured WeKan admin user record to exist
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - exec
+      - -n
+      - "{{ database.namespace }}"
+      - "{{ database.mongodb.cluster_name }}-0"
+      - -c
+      - mongod
+      - --
+      - mongosh
+      - "mongodb://{{ database.app_user | urlencode }}:{{ database.app_password | urlencode }}@{{ database.mongodb.host }}:{{ database.mongodb.port | int }}/{{ database.app_db_name }}?replicaSet={{ database.mongodb.cluster_name }}&authSource={{ database.app_db_name }}"
+      - --quiet
+      - --eval
+      - "db.users.countDocuments({ username: {{ wekan.admin_username | to_json }} });"
+  register: wekan_admin_user_count
+  until: (wekan_admin_user_count.stdout | default('0') | int) >= 1
+  retries: 20
+  delay: 5
+  changed_when: false
   no_log: true
-  when: wekan_admin_login_initial.stdout != "200"
 
 - name: Ensure configured WeKan user has admin permissions
   become: true
@@ -229,30 +330,46 @@
   changed_when: false
   no_log: true
 
-- name: Verify configured WeKan admin login
+- name: Verify configured WeKan admin login with JSON and form payloads
   become: true
   delegate_to: k8s-ctrl
-  ansible.builtin.command:
-    argv:
-      - curl
-      - -sS
-      - -o
-      - /dev/null
-      - -w
-      - "%{http_code}"
-      - -X
-      - POST
-      - -H
-      - "Content-Type: application/json"
-      - -d
-      - "{{ {'username': wekan.admin_username, 'password': wekan.admin_password} | to_json }}"
-      - "http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login"
+  ansible.builtin.shell: |
+    set +e
+    json_code="$(curl -sS -o /dev/null -w "%{http_code}" \
+      -X POST \
+      -H "Content-Type: application/json" \
+      --data-binary @{{ wekan_bootstrap_tmp.path }}/login.json \
+      http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login)"
+    form_code="$(curl -sS -o /dev/null -w "%{http_code}" \
+      -X POST \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      --data-binary @{{ wekan_bootstrap_tmp.path }}/login.form \
+      http://{{ wekan_service_ip.stdout }}:{{ wekan.port }}/users/login)"
+    printf 'json=%s form=%s\n' "$json_code" "$form_code"
+    if [ "$json_code" = "200" ] || [ "$form_code" = "200" ]; then
+      exit 0
+    fi
+    exit 1
   register: wekan_admin_login
-  until: wekan_admin_login.stdout == "200"
+  until: wekan_admin_login.rc == 0
   retries: 20
   delay: 10
   changed_when: false
-  no_log: true
+
+- name: Show sanitized WeKan admin bootstrap status
+  ansible.builtin.debug:
+    msg:
+      - "Initial login: {{ wekan_admin_login_initial.stdout | default('not-run') }}"
+      - "JSON register: {{ wekan_admin_register_json.stdout | default('skipped') }}"
+      - "Form register: {{ wekan_admin_register_form.stdout | default('skipped') }}"
+      - "Final login: {{ wekan_admin_login.stdout | default('not-run') }}"
+
+- name: Remove temporary WeKan bootstrap payload directory
+  become: true
+  delegate_to: k8s-ctrl
+  ansible.builtin.file:
+    path: "{{ wekan_bootstrap_tmp.path }}"
+    state: absent
 
 - name: Verify WeKan is reachable through Ingress
   become: true
