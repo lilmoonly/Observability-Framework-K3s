@@ -4,6 +4,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/observability-smoke.XXXXXX")"
 KUBECTL="${KUBECTL:-kubectl}"
+SMOKE_KUBECTL_MODE="${SMOKE_KUBECTL_MODE:-auto}"
+SMOKE_SSH_HOST="${SMOKE_SSH_HOST:-}"
+SMOKE_SSH_USER="${SMOKE_SSH_USER:-vagrant}"
+SMOKE_SSH_PORT="${SMOKE_SSH_PORT:-}"
+SMOKE_SSH_KEY="${SMOKE_SSH_KEY:-}"
+SMOKE_REMOTE_KUBECTL="${SMOKE_REMOTE_KUBECTL:-sudo k3s kubectl}"
+SMOKE_REMOTE_KUBECONFIG="${SMOKE_REMOTE_KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-300s}"
 SMOKE_NODE_TIMEOUT="${SMOKE_NODE_TIMEOUT:-300s}"
 SMOKE_POD_STRICT="${SMOKE_POD_STRICT:-true}"
@@ -33,17 +40,6 @@ fail() {
   exit 1
 }
 
-kubectl_args=()
-if [ -n "${KUBECONFIG:-}" ]; then
-  kubectl_args+=(--kubeconfig "$KUBECONFIG")
-elif [ -r /etc/rancher/k3s/k3s.yaml ]; then
-  kubectl_args+=(--kubeconfig /etc/rancher/k3s/k3s.yaml)
-fi
-
-kube() {
-  "$KUBECTL" "${kubectl_args[@]}" "$@"
-}
-
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "$1 is required"
 }
@@ -56,6 +52,97 @@ load_master_ip() {
   if [ -f "$ROOT_DIR/inventory/group_vars/all/main.yml" ]; then
     SMOKE_MASTER_IP="$(awk -F'"' '/^master_ip:/ { print $2; exit }' "$ROOT_DIR/inventory/group_vars/all/main.yml")"
   fi
+
+  if [ -z "$SMOKE_MASTER_IP" ] && [ -f "$ROOT_DIR/inventory/inventory.ini" ]; then
+    SMOKE_MASTER_IP="$(
+      awk '
+        $0 == "[control_plane]" { in_section = 1; next }
+        /^\[/ { in_section = 0 }
+        in_section && NF > 0 && $1 !~ /^#/ {
+          for (i = 1; i <= NF; i++) {
+            if ($i ~ /^ansible_host=/) {
+              split($i, host, "=")
+              print host[2]
+              exit
+            }
+          }
+          print $1
+          exit
+        }
+      ' "$ROOT_DIR/inventory/inventory.ini"
+    )"
+  fi
+}
+
+kubectl_args=()
+ssh_args=()
+ssh_target=""
+kubectl_mode=""
+
+configure_kubectl() {
+  case "$SMOKE_KUBECTL_MODE" in
+    auto|direct|ssh)
+      ;;
+    *)
+      fail "SMOKE_KUBECTL_MODE must be one of: auto, direct, ssh"
+      ;;
+  esac
+
+  if [ "$SMOKE_KUBECTL_MODE" = "direct" ] \
+    || { [ "$SMOKE_KUBECTL_MODE" = "auto" ] && command -v "$KUBECTL" >/dev/null 2>&1; }; then
+    kubectl_mode="direct"
+    if [ -n "${KUBECONFIG:-}" ]; then
+      kubectl_args+=(--kubeconfig "$KUBECONFIG")
+    elif [ -r /etc/rancher/k3s/k3s.yaml ]; then
+      kubectl_args+=(--kubeconfig /etc/rancher/k3s/k3s.yaml)
+    fi
+    return 0
+  fi
+
+  require_command ssh
+  load_master_ip
+  SMOKE_SSH_HOST="${SMOKE_SSH_HOST:-$SMOKE_MASTER_IP}"
+
+  if [ -z "$SMOKE_SSH_HOST" ]; then
+    fail "kubectl is missing and no control-plane SSH host could be detected"
+  fi
+
+  kubectl_mode="ssh"
+  ssh_args=(-o BatchMode=yes -o ConnectTimeout=10)
+  if [ -n "$SMOKE_SSH_PORT" ]; then
+    ssh_args+=(-p "$SMOKE_SSH_PORT")
+  fi
+  if [ -n "$SMOKE_SSH_KEY" ]; then
+    ssh_args+=(-i "$SMOKE_SSH_KEY")
+  fi
+
+  if [[ "$SMOKE_SSH_HOST" == *@* ]] || [ -z "$SMOKE_SSH_USER" ]; then
+    ssh_target="$SMOKE_SSH_HOST"
+  else
+    ssh_target="$SMOKE_SSH_USER@$SMOKE_SSH_HOST"
+  fi
+
+  printf 'INFO: local kubectl not found; using SSH kubectl via %s\n' "$ssh_target"
+}
+
+kube() {
+  if [ "$kubectl_mode" = "ssh" ]; then
+    local remote_command="$SMOKE_REMOTE_KUBECTL"
+
+    if [ -n "$SMOKE_REMOTE_KUBECONFIG" ]; then
+      remote_command+=" --kubeconfig $(printf '%q' "$SMOKE_REMOTE_KUBECONFIG")"
+    fi
+
+    local arg
+    for arg in "$@"; do
+      remote_command+=" $(printf '%q' "$arg")"
+    done
+
+    ssh "${ssh_args[@]}" "$ssh_target" "$remote_command"
+    return
+  fi
+
+  "$KUBECTL" "${kubectl_args[@]}" "$@"
 }
 
 check_cluster_access() {
@@ -339,8 +426,8 @@ PY
   pass "ingress HTTP checks passed"
 }
 
-require_command "$KUBECTL"
 require_command python3
+configure_kubectl
 
 check_cluster_access
 check_nodes_ready

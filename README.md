@@ -561,6 +561,10 @@ Run live smoke checks after a deploy:
 scripts/smoke-cluster.sh
 ```
 
+If `kubectl` is not installed on the Ansible controller, the script
+automatically falls back to SSH and runs `sudo k3s kubectl` on the
+control-plane host from `inventory/inventory.ini`.
+
 The smoke checker validates:
 
 - Kubernetes API access and node readiness
@@ -576,6 +580,12 @@ Useful smoke-check options:
 ```bash
 # Use an explicit kubeconfig from outside the control-plane VM.
 KUBECONFIG=/path/to/k3s.yaml scripts/smoke-cluster.sh
+
+# Force SSH mode from the Ansible controller.
+SMOKE_KUBECTL_MODE=ssh scripts/smoke-cluster.sh
+
+# Override the SSH target or user if your inventory is different.
+SMOKE_SSH_HOST=192.168.56.10 SMOKE_SSH_USER=vagrant scripts/smoke-cluster.sh
 
 # Skip HTTP ingress checks if the script cannot reach 192.168.56.10.
 SMOKE_CHECK_INGRESS=false scripts/smoke-cluster.sh
