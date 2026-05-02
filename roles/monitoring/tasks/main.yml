@@ -107,6 +107,22 @@
     wait: yes
     timeout: "1200s"
     values:
+      # K3s embeds several control-plane components differently than a
+      # kubeadm-style cluster. The upstream kube-prometheus-stack defaults
+      # expect standalone scrape targets for scheduler, controller-manager
+      # and kube-proxy, which creates false-positive "Down" alerts in K3s.
+      defaultRules:
+        rules:
+          kubeControllerManager: false
+          kubeProxy: false
+          kubeSchedulerAlerting: false
+          kubeSchedulerRecording: false
+      kubeControllerManager:
+        enabled: false
+      kubeProxy:
+        enabled: false
+      kubeScheduler:
+        enabled: false
       prometheus:
         prometheusSpec:
           retention: "{{ monitoring.prometheus_retention }}"

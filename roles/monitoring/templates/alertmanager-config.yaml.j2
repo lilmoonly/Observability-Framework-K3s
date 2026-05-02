@@ -50,21 +50,37 @@ receivers:
         headers:
           subject: >-
 {% raw %}
-            [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}
+            {{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}🔴{{ else if eq .CommonLabels.severity "warning" }}🟠{{ else }}🔵{{ end }} FIRING{{ else }}✅ RESOLVED{{ end }} | {{ if .CommonLabels.component }}{{ .CommonLabels.component }}{{ else }}kube-prometheus-stack{{ end }} | {{ .CommonLabels.alertname }}
 {% endraw %}
         html: |-
 {% raw %}
-          <b>{{ .Status | toUpper }}</b>: {{ .CommonLabels.alertname }}<br/>
-          <b>Severity:</b> {{ .CommonLabels.severity }}<br/>
-          <b>Category:</b> {{ .CommonLabels.category }}<br/>
-          <b>Component:</b> {{ .CommonLabels.component }}<br/>
+          {{ if eq .Status "firing" }}
+            {{ if eq .CommonLabels.severity "critical" }}🔴 <b>FIRING CRITICAL</b>{{ else if eq .CommonLabels.severity "warning" }}🟠 <b>FIRING WARNING</b>{{ else }}🔵 <b>FIRING</b>{{ end }}
+          {{ else }}
+            ✅ <b>RESOLVED</b>
+          {{ end }}
+          <br/>
+          {{ if match ".*(Primary|SplitBrain|Secondary|Replica|Replication).*" .CommonLabels.alertname }}🔁{{ else if match ".*(CrashLoop|Restart).*" .CommonLabels.alertname }}♻️{{ else if match ".*(Filesystem|Volume|PVC|Disk|Filling|Full).*" .CommonLabels.alertname }}💾{{ else if match ".*(Traefik|Ingress|5xx).*" .CommonLabels.alertname }}🌐{{ else if match ".*(Fluent|Log).*" .CommonLabels.alertname }}📜{{ else if match ".*OpenSearch.*" .CommonLabels.alertname }}🔎{{ else if match ".*(Mongo|Postgres|Database).*" .CommonLabels.alertname }}🗄️{{ else if match ".*(Node|Pod|Deployment|StatefulSet|Kubernetes).*" .CommonLabels.alertname }}☸️{{ else if match ".*(Target|Prometheus|Metrics|Collector).*" .CommonLabels.alertname }}🎯{{ else }}📣{{ end }}
+          <b>{{ .CommonLabels.alertname }}</b><br/>
+          <br/>
+          <b>Severity:</b> <code>{{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}unknown{{ end }}</code><br/>
+          <b>Category:</b> <code>{{ if .CommonLabels.category }}{{ .CommonLabels.category }}{{ else }}platform{{ end }}</code><br/>
+          <b>Component:</b> <code>{{ if .CommonLabels.component }}{{ .CommonLabels.component }}{{ else }}kube-prometheus-stack{{ end }}</code><br/>
+          <b>Grouped alerts:</b> <code>{{ len .Alerts }}</code><br/>
           <br/>
           {{ range .Alerts }}
-          <b>{{ .Annotations.summary }}</b><br/>
-          {{ .Annotations.description }}<br/>
-          {{ if .Labels.namespace }}Namespace: {{ .Labels.namespace }}<br/>{{ end }}
-          {{ if .Labels.pod }}Pod: {{ .Labels.pod }}<br/>{{ end }}
-          {{ if .Labels.node }}Node: {{ .Labels.node }}<br/>{{ end }}
+          <hr/>
+          <b>Summary:</b> {{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}No summary provided{{ end }}<br/>
+          <b>Description:</b> {{ if .Annotations.description }}{{ .Annotations.description }}{{ else }}No description provided{{ end }}<br/>
+          {{ if .Labels.namespace }}<b>Namespace:</b> <code>{{ .Labels.namespace }}</code><br/>{{ end }}
+          {{ if .Labels.pod }}<b>Pod:</b> <code>{{ .Labels.pod }}</code><br/>{{ end }}
+          {{ if .Labels.container }}<b>Container:</b> <code>{{ .Labels.container }}</code><br/>{{ end }}
+          {{ if .Labels.node }}<b>Node:</b> <code>{{ .Labels.node }}</code><br/>{{ end }}
+          {{ if .Labels.persistentvolumeclaim }}<b>PVC:</b> <code>{{ .Labels.persistentvolumeclaim }}</code><br/>{{ end }}
+          {{ if .Labels.service }}<b>Service:</b> <code>{{ .Labels.service }}</code><br/>{{ end }}
+          {{ if .Labels.job }}<b>Job:</b> <code>{{ .Labels.job }}</code><br/>{{ end }}
+          {{ if .Labels.instance }}<b>Instance:</b> <code>{{ .Labels.instance }}</code><br/>{{ end }}
+          {{ if .GeneratorURL }}<b>Prometheus:</b> <a href="{{ .GeneratorURL }}">open query</a><br/>{{ end }}
           <br/>
           {{ end }}
 {% endraw %}
@@ -78,17 +94,27 @@ receivers:
         send_resolved: {{ alerting.telegram.send_resolved | default(true) | bool | lower }}
         message: |-
 {% raw %}
-          {{ if eq .Status "firing" }}<b>FIRING</b>{{ else }}<b>RESOLVED</b>{{ end }}: {{ .CommonLabels.alertname }}
-          Severity: {{ .CommonLabels.severity }}
-          Category: {{ .CommonLabels.category }}
-          Component: {{ .CommonLabels.component }}
+          {{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}🔴 <b>FIRING CRITICAL</b>{{ else if eq .CommonLabels.severity "warning" }}🟠 <b>FIRING WARNING</b>{{ else }}🔵 <b>FIRING</b>{{ end }}{{ else }}✅ <b>RESOLVED</b>{{ end }}
+          {{ if match ".*(Primary|SplitBrain|Secondary|Replica|Replication).*" .CommonLabels.alertname }}🔁{{ else if match ".*(CrashLoop|Restart).*" .CommonLabels.alertname }}♻️{{ else if match ".*(Filesystem|Volume|PVC|Disk|Filling|Full).*" .CommonLabels.alertname }}💾{{ else if match ".*(Traefik|Ingress|5xx).*" .CommonLabels.alertname }}🌐{{ else if match ".*(Fluent|Log).*" .CommonLabels.alertname }}📜{{ else if match ".*OpenSearch.*" .CommonLabels.alertname }}🔎{{ else if match ".*(Mongo|Postgres|Database).*" .CommonLabels.alertname }}🗄️{{ else if match ".*(Node|Pod|Deployment|StatefulSet|Kubernetes).*" .CommonLabels.alertname }}☸️{{ else if match ".*(Target|Prometheus|Metrics|Collector).*" .CommonLabels.alertname }}🎯{{ else }}📣{{ end }} <b>{{ .CommonLabels.alertname }}</b>
+
+          <b>Severity:</b> <code>{{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}unknown{{ end }}</code>
+          <b>Category:</b> <code>{{ if .CommonLabels.category }}{{ .CommonLabels.category }}{{ else }}platform{{ end }}</code>
+          <b>Component:</b> <code>{{ if .CommonLabels.component }}{{ .CommonLabels.component }}{{ else }}kube-prometheus-stack{{ end }}</code>
+          <b>Grouped alerts:</b> <code>{{ len .Alerts }}</code>
 
           {{ range .Alerts }}
-          {{ .Annotations.summary }}
-          {{ .Annotations.description }}
-          {{ if .Labels.namespace }}Namespace: {{ .Labels.namespace }}{{ end }}
-          {{ if .Labels.pod }}Pod: {{ .Labels.pod }}{{ end }}
-          {{ if .Labels.node }}Node: {{ .Labels.node }}{{ end }}
+          ----------
+          <b>Summary:</b> {{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}No summary provided{{ end }}
+          <b>Description:</b> {{ if .Annotations.description }}{{ .Annotations.description }}{{ else }}No description provided{{ end }}
+          {{ if .Labels.namespace }}<b>Namespace:</b> <code>{{ .Labels.namespace }}</code>{{ end }}
+          {{ if .Labels.pod }}<b>Pod:</b> <code>{{ .Labels.pod }}</code>{{ end }}
+          {{ if .Labels.container }}<b>Container:</b> <code>{{ .Labels.container }}</code>{{ end }}
+          {{ if .Labels.node }}<b>Node:</b> <code>{{ .Labels.node }}</code>{{ end }}
+          {{ if .Labels.persistentvolumeclaim }}<b>PVC:</b> <code>{{ .Labels.persistentvolumeclaim }}</code>{{ end }}
+          {{ if .Labels.service }}<b>Service:</b> <code>{{ .Labels.service }}</code>{{ end }}
+          {{ if .Labels.job }}<b>Job:</b> <code>{{ .Labels.job }}</code>{{ end }}
+          {{ if .Labels.instance }}<b>Instance:</b> <code>{{ .Labels.instance }}</code>{{ end }}
+          {{ if .GeneratorURL }}<a href="{{ .GeneratorURL }}">Open in Prometheus</a>{{ end }}
 
           {{ end }}
 {% endraw %}

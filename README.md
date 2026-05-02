@@ -288,6 +288,7 @@ The initial thresholds live under `monitoring.alerts` in [inventory/group_vars/a
 Alert notifications:
 
 - Alertmanager notification routing is configured from the top-level `alerting` block in [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml)
+- Email and Telegram notifications use the same formatted alert style with status/severity emoji, alert-type emoji, grouped alert count, Kubernetes labels, and a Prometheus query link when available
 - Email and Telegram receivers are optional and disabled by default
 - Non-secret settings such as SMTP host, sender, recipient, and routing intervals live in `alerting`
 - Sensitive values live in [inventory/group_vars/all/secrets.yml](inventory/group_vars/all/secrets.yml)
