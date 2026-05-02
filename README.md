@@ -4,6 +4,8 @@ This repository provisions a reusable K3s observability framework with Ansible a
 
 The framework is opinionated about platform observability, but application roles can stay lightweight. Forgejo and WeKan are included as backend-specific example workloads, not as the core purpose of the project.
 
+For the full styled operator guide, open [docs/observability-framework.html](docs/observability-framework.html) in a browser. It is a self-contained offline HTML page with architecture notes, lab/production guidance, runbooks, backup notes, validation steps, and the framework logo.
+
 ## What This Framework Deploys
 
 - A pool-based K3s topology for general, database, logging, monitoring, and AI workloads
@@ -65,6 +67,10 @@ The framework now uses named worker pools instead of hardcoded node identities.
 - [inventory/examples/scaled.inventory.ini](inventory/examples/scaled.inventory.ini) - larger worker-pool example with 3 database nodes for quorum-style MongoDB HA
 - [inventory/group_vars/all/main.yml](inventory/group_vars/all/main.yml) - framework-wide non-secret configuration
 - [inventory/group_vars/all/secrets.yml.example](inventory/group_vars/all/secrets.yml.example) - example secrets file for vault-managed values
+- [docs/observability-framework.html](docs/observability-framework.html) - self-contained HTML documentation portal and operator guide
+- [cleanup.yml](cleanup.yml) - guarded cleanup playbook for framework components
+- [scripts/validate.sh](scripts/validate.sh) - local syntax, template, dashboard, and playbook validation
+- [scripts/smoke-cluster.sh](scripts/smoke-cluster.sh) - live post-deploy cluster smoke checks
 - [roles/common](roles/common) - base OS and tooling setup
 - [roles/k3s_master](roles/k3s_master) - control plane bootstrap and Traefik metrics
 - [roles/k3s_worker](roles/k3s_worker) - worker join, taints, and labels

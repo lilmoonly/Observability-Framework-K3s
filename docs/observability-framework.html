@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI-Powered K3s Observability Framework Documentation</title>
+  <style>
+    :root {
+      --ink: #0d1b24;
+      --muted: #5c6b73;
+      --paper: #fbf7ed;
+      --paper-strong: #fffdf8;
+      --line: rgba(13, 27, 36, 0.14);
+      --navy: #0f2a35;
+      --teal: #0b7c72;
+      --mint: #8dd7c7;
+      --amber: #f1b33b;
+      --ember: #df653b;
+      --blue: #326b94;
+      --green: #2f8f64;
+      --shadow: 0 24px 70px rgba(13, 27, 36, 0.16);
+      --radius-xl: 34px;
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --mono: "SFMono-Regular", "Cascadia Code", "Liberation Mono", monospace;
+      --display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      --body: "Avenir Next", "Segoe UI", Verdana, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 18% 8%, rgba(241, 179, 59, 0.26), transparent 28rem),
+        radial-gradient(circle at 90% 14%, rgba(11, 124, 114, 0.24), transparent 30rem),
+        linear-gradient(135deg, #f8eedc 0%, #f6f4ee 48%, #e8f1ee 100%);
+      font-family: var(--body);
+      line-height: 1.62;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.42;
+      background-image:
+        linear-gradient(rgba(15, 42, 53, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15, 42, 53, 0.06) 1px, transparent 1px);
+      background-size: 34px 34px;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.95), transparent 80%);
+    }
+
+    a {
+      color: var(--teal);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    code {
+      padding: 0.16rem 0.38rem;
+      border-radius: 0.45rem;
+      color: #13333f;
+      background: rgba(13, 27, 36, 0.08);
+      font-family: var(--mono);
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 1rem 0 0;
+      padding: 1.05rem;
+      overflow-x: auto;
+      border: 1px solid rgba(141, 215, 199, 0.22);
+      border-radius: var(--radius-md);
+      color: #edf8f5;
+      background:
+        linear-gradient(135deg, rgba(15, 42, 53, 0.98), rgba(10, 62, 67, 0.98)),
+        radial-gradient(circle at top right, rgba(241, 179, 59, 0.16), transparent 18rem);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: none;
+      font-size: 0.86rem;
+      line-height: 1.55;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 1.5rem;
+      width: min(1480px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 1rem 0 4rem;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 1rem;
+      align-self: start;
+      height: calc(100vh - 2rem);
+      padding: 1rem;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: rgba(255, 253, 248, 0.72);
+      box-shadow: 0 18px 48px rgba(13, 27, 36, 0.08);
+      backdrop-filter: blur(16px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0.55rem 0.5rem 1rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand svg {
+      flex: 0 0 auto;
+      width: 52px;
+      height: 52px;
+    }
+
+    .brand strong {
+      display: block;
+      font-family: var(--display);
+      font-size: 1.15rem;
+      line-height: 1.05;
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 0.2rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .nav {
+      display: grid;
+      gap: 0.3rem;
+      margin: 1rem 0 0;
+    }
+
+    .nav a {
+      display: block;
+      padding: 0.52rem 0.7rem;
+      border-radius: 0.8rem;
+      color: #17303b;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .nav a:hover {
+      background: rgba(11, 124, 114, 0.1);
+      text-decoration: none;
+    }
+
+    .content {
+      display: grid;
+      gap: 1.1rem;
+    }
+
+    .hero {
+      position: relative;
+      min-height: 560px;
+      padding: clamp(2rem, 5vw, 5rem);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: var(--radius-xl);
+      color: #f8fbf7;
+      background:
+        radial-gradient(circle at 80% 20%, rgba(241, 179, 59, 0.52), transparent 21rem),
+        radial-gradient(circle at 15% 80%, rgba(141, 215, 199, 0.36), transparent 20rem),
+        linear-gradient(135deg, #0d1b24 0%, #103d45 48%, #0b7c72 100%);
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -7rem;
+      bottom: -8rem;
+      width: 34rem;
+      height: 34rem;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 50%;
+      background:
+        repeating-radial-gradient(circle, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px 34px);
+      animation: drift 18s ease-in-out infinite;
+    }
+
+    @keyframes drift {
+      0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+      50% { transform: translate3d(-1.2rem, -0.8rem, 0) rotate(4deg); }
+    }
+
+    .hero-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+      gap: clamp(2rem, 5vw, 4rem);
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 0.5rem;
+      align-items: center;
+      padding: 0.34rem 0.7rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      color: #d7f5ee;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      font-family: var(--display);
+      line-height: 1.05;
+    }
+
+    h1 {
+      max-width: 890px;
+      margin-top: 1rem;
+      font-size: clamp(3.3rem, 8vw, 7.8rem);
+      letter-spacing: -0.065em;
+    }
+
+    h2 {
+      margin-bottom: 1rem;
+      font-size: clamp(2rem, 4vw, 4rem);
+      letter-spacing: -0.045em;
+    }
+
+    h3 {
+      margin-bottom: 0.5rem;
+      font-size: 1.45rem;
+      letter-spacing: -0.02em;
+    }
+
+    .hero p {
+      max-width: 760px;
+      color: rgba(248, 251, 247, 0.83);
+      font-size: clamp(1.05rem, 1.9vw, 1.35rem);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      margin-top: 1.4rem;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0.68rem 1rem;
+      border-radius: 999px;
+      color: #0d1b24;
+      background: var(--amber);
+      font-weight: 900;
+      box-shadow: 0 12px 28px rgba(241, 179, 59, 0.28);
+    }
+
+    .button.secondary {
+      color: #f8fbf7;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: none;
+    }
+
+    .logo-card {
+      position: relative;
+      padding: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 2rem;
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    }
+
+    .logo-card svg {
+      display: block;
+      width: min(100%, 360px);
+      margin: 0 auto;
+      filter: drop-shadow(0 24px 44px rgba(0, 0, 0, 0.28));
+    }
+
+    .logo-card .caption {
+      margin-top: 1rem;
+      color: rgba(248, 251, 247, 0.74);
+      font-size: 0.95rem;
+    }
+
+    .section {
+      padding: clamp(1.4rem, 3vw, 2.4rem);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: rgba(255, 253, 248, 0.8);
+      box-shadow: 0 16px 45px rgba(13, 27, 36, 0.08);
+    }
+
+    .section.lead {
+      background:
+        linear-gradient(135deg, rgba(255, 253, 248, 0.9), rgba(232, 241, 238, 0.82)),
+        radial-gradient(circle at 100% 0%, rgba(241, 179, 59, 0.2), transparent 22rem);
+    }
+
+    .lede {
+      max-width: 920px;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.four {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .card {
+      padding: 1.1rem;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: rgba(255, 253, 248, 0.72);
+    }
+
+    .card.dark {
+      color: #f8fbf7;
+      background: linear-gradient(135deg, #0f2a35, #123f45);
+    }
+
+    .card.dark p,
+    .card.dark li {
+      color: rgba(248, 251, 247, 0.76);
+    }
+
+    .metric {
+      display: grid;
+      gap: 0.2rem;
+      padding: 1rem;
+      border-radius: var(--radius-md);
+      background: #0f2a35;
+      color: #f8fbf7;
+    }
+
+    .metric strong {
+      color: var(--amber);
+      font-family: var(--display);
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .metric span {
+      color: rgba(248, 251, 247, 0.72);
+      font-size: 0.88rem;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin: 1rem 0 0;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.32rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid rgba(13, 27, 36, 0.12);
+      color: #17303b;
+      background: rgba(255, 253, 248, 0.72);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 0.22rem 0.5rem;
+      border-radius: 999px;
+      color: #073a36;
+      background: rgba(141, 215, 199, 0.45);
+      font-weight: 900;
+      font-size: 0.78rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: rgba(255, 253, 248, 0.72);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+    }
+
+    th, td {
+      padding: 0.82rem 0.9rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      color: #0f2a35;
+      background: rgba(141, 215, 199, 0.22);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    ul, ol {
+      padding-left: 1.2rem;
+    }
+
+    li + li {
+      margin-top: 0.42rem;
+    }
+
+    .phase-list {
+      display: grid;
+      gap: 0.65rem;
+      counter-reset: phase;
+      margin-top: 1rem;
+    }
+
+    .phase {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem;
+      align-items: start;
+      padding: 0.85rem;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(255, 253, 248, 0.7);
+      counter-increment: phase;
+    }
+
+    .phase::before {
+      content: counter(phase);
+      display: grid;
+      width: 2.2rem;
+      height: 2.2rem;
+      place-items: center;
+      border-radius: 50%;
+      color: #0d1b24;
+      background: var(--amber);
+      font-weight: 900;
+    }
+
+    .phase strong {
+      display: block;
+    }
+
+    .phase span {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .callout {
+      padding: 1rem;
+      border-left: 5px solid var(--teal);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      background: rgba(141, 215, 199, 0.2);
+    }
+
+    .callout.warning {
+      border-left-color: var(--ember);
+      background: rgba(223, 101, 59, 0.12);
+    }
+
+    .callout.gold {
+      border-left-color: var(--amber);
+      background: rgba(241, 179, 59, 0.16);
+    }
+
+    .runbook {
+      display: grid;
+      gap: 0.75rem;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: rgba(255, 253, 248, 0.76);
+    }
+
+    .runbook h3 {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: center;
+      font-size: 1.2rem;
+    }
+
+    .runbook h3 span {
+      padding: 0.2rem 0.48rem;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--blue);
+      font-family: var(--body);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 1rem;
+      position: relative;
+    }
+
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 1rem;
+      top: 0.5rem;
+      bottom: 0.5rem;
+      width: 2px;
+      background: rgba(11, 124, 114, 0.3);
+    }
+
+    .step {
+      position: relative;
+      display: grid;
+      grid-template-columns: 2.2rem 1fr;
+      gap: 0.9rem;
+      align-items: start;
+    }
+
+    .dot {
+      position: relative;
+      z-index: 1;
+      width: 2rem;
+      height: 2rem;
+      border: 3px solid var(--paper);
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 0 2px rgba(11, 124, 114, 0.24);
+    }
+
+    .footer {
+      padding: 2rem;
+      text-align: center;
+      color: rgba(248, 251, 247, 0.72);
+      border-radius: var(--radius-xl);
+      background: linear-gradient(135deg, #0d1b24, #123f45);
+    }
+
+    .print-note {
+      margin-top: 1rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 1100px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        top: 0;
+        height: auto;
+      }
+
+      .nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .hero-grid,
+      .grid.two,
+      .grid.three,
+      .grid.four {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        width: min(100% - 20px, 1480px);
+      }
+
+      .hero,
+      .section {
+        border-radius: 24px;
+      }
+
+      h1 {
+        font-size: 3rem;
+      }
+
+      .nav {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+
+      body::before,
+      .sidebar,
+      .hero::after {
+        display: none;
+      }
+
+      .page {
+        display: block;
+        width: 100%;
+      }
+
+      .hero,
+      .section,
+      .card,
+      .runbook {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+
+      a {
+        color: inherit;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar" aria-label="Documentation navigation">
+      <div class="brand">
+        <svg viewBox="0 0 120 120" role="img" aria-label="Observability Framework K3s logo">
+          <defs>
+            <linearGradient id="miniLogoGradient" x1="12" y1="10" x2="110" y2="110">
+              <stop offset="0" stop-color="#f1b33b"/>
+              <stop offset="0.5" stop-color="#8dd7c7"/>
+              <stop offset="1" stop-color="#0b7c72"/>
+            </linearGradient>
+          </defs>
+          <path d="M60 8 104 33v54L60 112 16 87V33z" fill="#0f2a35"/>
+          <path d="M60 15 98 37v46L60 105 22 83V37z" fill="none" stroke="url(#miniLogoGradient)" stroke-width="5"/>
+          <circle cx="60" cy="60" r="22" fill="none" stroke="#8dd7c7" stroke-width="5"/>
+          <circle cx="60" cy="60" r="6" fill="#f1b33b"/>
+          <path d="M60 38v-13M60 95V82M38 60H25M95 60H82M45 45l-9-9M84 84l-9-9M75 45l9-9M36 84l9-9" stroke="#fbf7ed" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <div>
+          <strong>OFK3s</strong>
+          <span>Docs v1.7</span>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="#overview">Overview</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#profiles">Profiles</a>
+        <a href="#quickstart">Quick Start</a>
+        <a href="#configuration">Configuration</a>
+        <a href="#operations">Operations</a>
+        <a href="#observability">Observability</a>
+        <a href="#runbooks">Runbooks</a>
+        <a href="#backup">Backup</a>
+        <a href="#release">Release Checklist</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <section class="hero" id="top">
+        <div class="hero-grid">
+          <div>
+            <div class="eyebrow">AI-Powered K3s Observability Framework</div>
+            <h1>Production-minded observability for small Kubernetes platforms.</h1>
+            <p>
+              A reusable Ansible and Vagrant framework for K3s, metrics, logs,
+              dashboards, alert routing, AI anomaly detection, and example
+              database-backed applications.
+            </p>
+            <div class="hero-actions">
+              <a class="button" href="#quickstart">Deploy the lab</a>
+              <a class="button secondary" href="#runbooks">Open runbooks</a>
+            </div>
+            <div class="tag-row">
+              <span class="tag">K3s</span>
+              <span class="tag">Prometheus</span>
+              <span class="tag">Grafana</span>
+              <span class="tag">Alertmanager</span>
+              <span class="tag">OpenSearch</span>
+              <span class="tag">CloudNativePG</span>
+              <span class="tag">MongoDB</span>
+              <span class="tag">AI Anomaly Detection</span>
+            </div>
+          </div>
+          <div class="logo-card">
+            <svg viewBox="0 0 420 420" role="img" aria-label="Observability Framework K3s logo">
+              <defs>
+                <linearGradient id="logoGradient" x1="24" y1="30" x2="386" y2="390">
+                  <stop offset="0" stop-color="#f1b33b"/>
+                  <stop offset="0.45" stop-color="#8dd7c7"/>
+                  <stop offset="1" stop-color="#0b7c72"/>
+                </linearGradient>
+                <radialGradient id="logoCore" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-color="#f1b33b"/>
+                  <stop offset="0.7" stop-color="#0b7c72"/>
+                  <stop offset="1" stop-color="#0d1b24"/>
+                </radialGradient>
+              </defs>
+              <path d="M210 24 360 110v200L210 396 60 310V110z" fill="#0d1b24"/>
+              <path d="M210 42 344 119v182L210 378 76 301V119z" fill="none" stroke="url(#logoGradient)" stroke-width="14"/>
+              <circle cx="210" cy="210" r="86" fill="none" stroke="#8dd7c7" stroke-width="13" opacity="0.9"/>
+              <circle cx="210" cy="210" r="48" fill="url(#logoCore)" stroke="#fbf7ed" stroke-width="7"/>
+              <circle cx="210" cy="82" r="12" fill="#f1b33b"/>
+              <circle cx="322" cy="146" r="12" fill="#8dd7c7"/>
+              <circle cx="322" cy="274" r="12" fill="#8dd7c7"/>
+              <circle cx="210" cy="338" r="12" fill="#f1b33b"/>
+              <circle cx="98" cy="274" r="12" fill="#8dd7c7"/>
+              <circle cx="98" cy="146" r="12" fill="#8dd7c7"/>
+              <path d="M210 94v68M310 151l-59 34M310 269l-59-34M210 326v-68M110 269l59-34M110 151l59 34" stroke="#fbf7ed" stroke-width="9" stroke-linecap="round" opacity="0.84"/>
+              <text x="210" y="222" text-anchor="middle" fill="#fbf7ed" font-family="Verdana, sans-serif" font-size="28" font-weight="800">K3s</text>
+            </svg>
+            <p class="caption">
+              The logo combines a Kubernetes-style node ring, a signal core,
+              and a protective hexagon to represent platform telemetry,
+              workload placement, and production guardrails.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section lead" id="overview">
+        <h2>Overview</h2>
+        <p class="lede">
+          This framework is designed for teams that want a complete,
+          understandable platform baseline without jumping directly into a
+          large managed Kubernetes estate. It provisions K3s, separates worker
+          pools, deploys database backends, centralizes logs, scrapes metrics,
+          imports dashboards, routes alerts, and verifies the result with smoke
+          tests.
+        </p>
+        <div class="grid four">
+          <div class="metric"><strong>10</strong><span>Tagged deployment phases</span></div>
+          <div class="metric"><strong>8</strong><span>Reference lab nodes</span></div>
+          <div class="metric"><strong>2</strong><span>Database backend choices</span></div>
+          <div class="metric"><strong>1</strong><span>Offline-friendly docs page</span></div>
+        </div>
+      </section>
+
+      <section class="section" id="architecture">
+        <h2>Architecture</h2>
+        <div class="grid two">
+          <div class="card">
+            <h3>Control Plane</h3>
+            <p>
+              `k8s-ctrl` runs the K3s API server and is the target for cluster
+              control tasks. The control-plane taint is applied after workers
+              join so K3s bootstrap jobs can schedule during a fresh install.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Worker Pools</h3>
+            <p>
+              Hosts are assigned to named pools using `node_pool`. Roles target
+              pools through node selectors and tolerations, so the framework can
+              grow beyond the reference VM layout without rewriting tasks.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Data Layer</h3>
+            <p>
+              The database role can deploy CloudNativePG PostgreSQL or MongoDB
+              Community through MongoDB Controllers for Kubernetes. MongoDB
+              quorum HA expects three odd-numbered members spread across nodes.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Observability Layer</h3>
+            <p>
+              Prometheus, Grafana, Alertmanager, Fluent Bit, OpenSearch, and
+              the AI detector create a single loop: collect telemetry, visualize
+              state, alert on failure, and flag unusual behavior.
+            </p>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top: 1rem;">
+          <table>
+            <thead>
+              <tr>
+                <th>Node</th>
+                <th>Default host</th>
+                <th>Pool</th>
+                <th>Primary purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td><code>k8s-ctrl</code></td><td><code>control_plane</code></td><td>K3s API and cluster bootstrap</td></tr>
+              <tr><td>2</td><td><code>app-node-1</code></td><td><code>general</code></td><td>Example application workloads</td></tr>
+              <tr><td>3-5</td><td><code>db-node-1..3</code></td><td><code>database</code></td><td>PostgreSQL or MongoDB members</td></tr>
+              <tr><td>6</td><td><code>logging-node</code></td><td><code>logging</code></td><td>OpenSearch, Dashboards, Fluent Bit</td></tr>
+              <tr><td>7</td><td><code>monitor-node</code></td><td><code>monitoring</code></td><td>Prometheus, Grafana, Alertmanager</td></tr>
+              <tr><td>8</td><td><code>ai-node</code></td><td><code>ai</code></td><td>AI anomaly detector</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="profiles">
+        <h2>Profiles</h2>
+        <p class="lede">
+          The repository keeps one deployable baseline, but operators should
+          think in profiles. A lab profile proves behavior on a laptop. A
+          production profile keeps the same role model and increases capacity,
+          storage durability, secret discipline, and recovery planning.
+        </p>
+        <div class="grid two">
+          <div class="card dark">
+            <h3>Lab Profile</h3>
+            <ul>
+              <li>Use Vagrant and the default 8-node inventory.</li>
+              <li>Use smaller retention windows and storage sizes.</li>
+              <li>Keep one app node and three database nodes.</li>
+              <li>Use `scripts/validate.sh` before deploy and `scripts/smoke-cluster.sh` after deploy.</li>
+              <li>Accept disposable SSH host keys for rebuilt VMs.</li>
+            </ul>
+          </div>
+          <div class="card dark">
+            <h3>Production-Oriented Profile</h3>
+            <ul>
+              <li>Use real infrastructure inventory instead of Vagrant-only assumptions.</li>
+              <li>Keep secrets in Ansible Vault or an external secret workflow.</li>
+              <li>Use durable storage classes and tested backup targets.</li>
+              <li>Enable strict SSH host key checking for smoke checks.</li>
+              <li>Scale database and app pools before scaling monitoring complexity.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout gold" style="margin-top: 1rem;">
+          <strong>Practical guidance:</strong> keep monitoring, logging, and AI
+          on dedicated single nodes in the simple baseline. Scale application
+          and database pools first. Add HA for observability components only
+          after the workload and data layer need it.
+        </div>
+      </section>
+
+      <section class="section" id="quickstart">
+        <h2>Quick Start</h2>
+        <div class="timeline">
+          <div class="step">
+            <span class="dot"></span>
+            <div>
+              <h3>1. Start the lab VMs</h3>
+              <pre><code>vagrant up</code></pre>
+            </div>
+          </div>
+          <div class="step">
+            <span class="dot"></span>
+            <div>
+              <h3>2. Install Ansible collections</h3>
+              <pre><code>ansible-galaxy collection install -r requirements.yml --force</code></pre>
+            </div>
+          </div>
+          <div class="step">
+            <span class="dot"></span>
+            <div>
+              <h3>3. Create and encrypt secrets</h3>
+              <pre><code>cp inventory/group_vars/all/secrets.yml.example inventory/group_vars/all/secrets.yml
+ansible-vault encrypt inventory/group_vars/all/secrets.yml</code></pre>
+            </div>
+          </div>
+          <div class="step">
+            <span class="dot"></span>
+            <div>
+              <h3>4. Validate locally</h3>
+              <pre><code>./scripts/validate.sh</code></pre>
+            </div>
+          </div>
+          <div class="step">
+            <span class="dot"></span>
+            <div>
+              <h3>5. Deploy</h3>
+              <pre><code>ansible-playbook -i inventory/inventory.ini site.yml --ask-vault-pass</code></pre>
+            </div>
+          </div>
+          <div class="step">
+            <span class="dot"></span>
+            <div>
+              <h3>6. Smoke test the live cluster</h3>
+              <pre><code>./scripts/smoke-cluster.sh</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="configuration">
+        <h2>Configuration</h2>
+        <div class="grid two">
+          <div>
+            <h3>Important files</h3>
+            <ul>
+              <li><code>site.yml</code> controls the phase order.</li>
+              <li><code>inventory/inventory.ini</code> defines hosts and pools.</li>
+              <li><code>inventory/group_vars/all/main.yml</code> holds non-secret framework settings.</li>
+              <li><code>inventory/group_vars/all/secrets.yml</code> holds vault-encrypted secrets.</li>
+              <li><code>cleanup.yml</code> safely removes framework components.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>High-impact settings</h3>
+            <ul>
+              <li><code>database.type</code>: choose <code>postgresql</code> or <code>mongodb</code>.</li>
+              <li><code>database.availability_goal</code>: choose <code>dev</code>, <code>replication</code>, or <code>quorum_ha</code>.</li>
+              <li><code>database.scheduling.spread_policy</code>: choose <code>required</code>, <code>preferred</code>, or <code>none</code>.</li>
+              <li><code>alerting.*.enabled</code>: enable email, Telegram, Slack, Webex, or PagerDuty receivers.</li>
+              <li><code>artifact_versions</code>: pin K3s-adjacent tooling and Helm charts.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top: 1rem;">
+          <table>
+            <thead>
+              <tr>
+                <th>Database mode</th>
+                <th>Use when</th>
+                <th>Example app</th>
+                <th>HA shape</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>postgresql</code></td>
+                <td>You want CloudNativePG-managed PostgreSQL.</td>
+                <td>Forgejo</td>
+                <td>Two or more CNPG instances, spread by policy.</td>
+              </tr>
+              <tr>
+                <td><code>mongodb</code></td>
+                <td>You want MongoDB Community replica sets.</td>
+                <td>WeKan</td>
+                <td>Three odd members for quorum HA.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="operations">
+        <h2>Operations</h2>
+        <div class="grid three">
+          <div class="card">
+            <h3>Rerun one phase</h3>
+            <pre><code>ansible-playbook -i inventory/inventory.ini site.yml \
+  --ask-vault-pass \
+  --tags phase6</code></pre>
+          </div>
+          <div class="card">
+            <h3>Run smoke checks through SSH</h3>
+            <pre><code>SMOKE_KUBECTL_MODE=ssh \
+SMOKE_SSH_HOST=192.168.56.10 \
+SMOKE_SSH_USER=vagrant \
+./scripts/smoke-cluster.sh</code></pre>
+          </div>
+          <div class="card">
+            <h3>Scratch redeploy</h3>
+            <pre><code>vagrant destroy -f
+vagrant up
+./scripts/validate.sh
+ansible-playbook -i inventory/inventory.ini site.yml --ask-vault-pass
+./scripts/smoke-cluster.sh</code></pre>
+          </div>
+        </div>
+
+        <div class="callout warning" style="margin-top: 1rem;">
+          <strong>Cleanup safety:</strong> `cleanup.yml` never runs unless
+          `cleanup_confirm=true` is provided. Namespace deletion removes PVCs
+          and in-cluster data, so use it only when you intend to reset data.
+        </div>
+
+        <pre><code># Remove logging stack but keep namespace and PVC data.
+ansible-playbook -i inventory/inventory.ini cleanup.yml \
+  --ask-vault-pass \
+  -e cleanup_confirm=true \
+  -e cleanup_scope=logging
+
+# Remove logging stack and delete OpenSearch PVC-backed data.
+ansible-playbook -i inventory/inventory.ini cleanup.yml \
+  --ask-vault-pass \
+  -e cleanup_confirm=true \
+  -e cleanup_scope=logging \
+  -e cleanup_delete_namespaces=true</code></pre>
+      </section>
+
+      <section class="section" id="observability">
+        <h2>Observability</h2>
+        <div class="grid three">
+          <div class="card">
+            <h3>Metrics</h3>
+            <p>
+              kube-prometheus-stack deploys Prometheus, Grafana,
+              Alertmanager, kube-state-metrics, and node-exporter.
+              ServiceMonitors cover Traefik, Fluent Bit, OpenSearch exporter,
+              database metrics, Forgejo, and AI engine where enabled.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Logs</h3>
+            <p>
+              Fluent Bit ships cluster logs to OpenSearch. OpenSearch
+              Dashboards provides the exploration UI, while Prometheus alerts
+              track exporter and logging pipeline health.
+            </p>
+          </div>
+          <div class="card">
+            <h3>AI Signals</h3>
+            <p>
+              The AI anomaly detector reads Prometheus features, writes anomaly
+              events to OpenSearch, and exposes metrics and dashboards for
+              detector health and recent anomaly outcomes.
+            </p>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 1.5rem;">Notification receivers</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Receiver</th>
+                <th>Config path</th>
+                <th>Secret needed</th>
+                <th>Typical use</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Email</td><td><code>alerting.email</code></td><td>SMTP username/password</td><td>Basic team mailbox alerts</td></tr>
+              <tr><td>Telegram</td><td><code>alerting.telegram</code></td><td>Bot token and chat ID</td><td>Fast lab or small-team notifications</td></tr>
+              <tr><td>Slack</td><td><code>alerting.slack</code></td><td>Incoming webhook URL</td><td>Team channel alerts</td></tr>
+              <tr><td>Webex</td><td><code>alerting.webex</code></td><td>Bot token and room ID</td><td>Enterprise chat alerts</td></tr>
+              <tr><td>PagerDuty</td><td><code>alerting.pagerduty</code></td><td>Routing key</td><td>Critical incident paging</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="runbooks">
+        <h2>Runbooks</h2>
+        <div class="grid two">
+          <article class="runbook">
+            <h3>Pod stuck Pending <span>Scheduling</span></h3>
+            <ol>
+              <li>Run <code>kubectl describe pod -n &lt;namespace&gt; &lt;pod&gt;</code>.</li>
+              <li>Check taints, tolerations, node selectors, and resource requests.</li>
+              <li>Check pool capacity with <code>kubectl get nodes -L workload</code>.</li>
+              <li>If the pod belongs to a framework role, verify the role pool setting in <code>main.yml</code>.</li>
+            </ol>
+          </article>
+
+          <article class="runbook">
+            <h3>Prometheus target down <span>Metrics</span></h3>
+            <ol>
+              <li>Open Grafana alert details and identify namespace, service, and job.</li>
+              <li>Run <code>kubectl get servicemonitor -A</code>.</li>
+              <li>Check endpoint existence with <code>kubectl get endpoints -n &lt;namespace&gt;</code>.</li>
+              <li>Use <code>SMOKE_ALLOW_UNHEALTHY_TARGETS=true ./scripts/smoke-cluster.sh</code> during known maintenance.</li>
+            </ol>
+          </article>
+
+          <article class="runbook">
+            <h3>MongoDB not Ready <span>Database</span></h3>
+            <ol>
+              <li>Run <code>kubectl get mongodbcommunity -A</code>.</li>
+              <li>Check operator logs in the database namespace.</li>
+              <li>Verify member pods have enough memory and PVCs are bound.</li>
+              <li>Confirm <code>database.mongodb.members</code> does not exceed usable database nodes when spread is required.</li>
+            </ol>
+          </article>
+
+          <article class="runbook">
+            <h3>OpenSearch unhealthy <span>Logging</span></h3>
+            <ol>
+              <li>Run <code>kubectl get pods -n opensearch -o wide</code>.</li>
+              <li>Check memory pressure and PVC usage.</li>
+              <li>Review OpenSearch logs and exporter metrics.</li>
+              <li>For lab reset, use <code>cleanup_scope=logging</code> with namespace deletion only if data can be removed.</li>
+            </ol>
+          </article>
+
+          <article class="runbook">
+            <h3>Ingress not responding <span>Traffic</span></h3>
+            <ol>
+              <li>Check <code>/etc/hosts</code> entries point to <code>192.168.56.10</code>.</li>
+              <li>Run <code>kubectl get ingress -A</code>.</li>
+              <li>Verify Traefik is available in <code>kube-system</code>.</li>
+              <li>Check backend service endpoints.</li>
+            </ol>
+          </article>
+
+          <article class="runbook">
+            <h3>Python OpenSSL module error <span>Bootstrap</span></h3>
+            <ol>
+              <li>Rerun Phase 1 so pinned Python packages are repaired.</li>
+              <li>Confirm the import verification task passes.</li>
+              <li>Continue the failed phase after Phase 1 finishes.</li>
+              <li>Avoid mixing apt-managed and pip-managed versions outside the framework pins.</li>
+            </ol>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="backup">
+        <h2>Backup and Restore</h2>
+        <p class="lede">
+          The framework creates the platform, but production confidence comes
+          from rehearsed recovery. Treat the commands below as starter runbooks
+          and adapt them to your storage class, retention policy, and backup
+          destination.
+        </p>
+        <div class="grid two">
+          <div class="card">
+            <h3>PostgreSQL</h3>
+            <p>
+              For production, prefer CloudNativePG-native backup integration
+              with object storage. For a lab export, use `pg_dump` through a
+              temporary client pod or a controlled exec into the cluster.
+            </p>
+            <pre><code>kubectl get cluster.postgresql.cnpg.io -n database
+kubectl get pods -n database -l cnpg.io/cluster=app-db-cluster</code></pre>
+          </div>
+          <div class="card">
+            <h3>MongoDB</h3>
+            <p>
+              Use `mongodump` against the replica set service with the app or
+              admin credentials. Restore with `mongorestore` after validating
+              the target replica set is healthy.
+            </p>
+            <pre><code>kubectl get mongodbcommunity -n database
+kubectl get pods -n database -l app=app-mongo-rs-svc</code></pre>
+          </div>
+          <div class="card">
+            <h3>OpenSearch</h3>
+            <p>
+              Production OpenSearch should use snapshot repositories. The lab
+              can be reset through namespace and PVC deletion, but that is not
+              a backup strategy.
+            </p>
+            <pre><code>kubectl get pvc -n opensearch
+kubectl logs -n opensearch -l app.kubernetes.io/name=opensearch</code></pre>
+          </div>
+          <div class="card">
+            <h3>Grafana</h3>
+            <p>
+              Framework dashboards are vendored in git, so the main state to
+              preserve is custom UI changes and credentials. Prefer managing
+              dashboards as code whenever possible.
+            </p>
+            <pre><code>kubectl get configmap -A -l grafana_dashboard=1
+kubectl get secret -n monitoring</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="release">
+        <h2>Release Checklist</h2>
+        <div class="grid two">
+          <div class="card">
+            <h3>Before merging changes</h3>
+            <ul>
+              <li>Run <code>./scripts/validate.sh</code>.</li>
+              <li>Review changed playbooks for idempotency.</li>
+              <li>Confirm no real secrets are committed.</li>
+              <li>Check the GitHub Actions validation workflow.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Before calling a release stable</h3>
+            <ul>
+              <li>Run a scratch redeploy from destroyed VMs.</li>
+              <li>Run <code>./scripts/smoke-cluster.sh</code>.</li>
+              <li>Open Grafana and check dashboards load.</li>
+              <li>Confirm alerts are normal or understood.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout" style="margin-top: 1rem;">
+          <strong>Current recommendation:</strong> freeze playbook changes once
+          a scratch redeploy and smoke validation pass. Start new work in a
+          dedicated milestone so production confidence does not get blurred by
+          unrelated improvements.
+        </div>
+      </section>
+
+      <footer class="footer">
+        <h2>Built for boring redeploys.</h2>
+        <p>
+          A good platform should feel almost uneventful after the hard work is
+          done: validate, deploy, smoke test, observe, recover.
+        </p>
+        <p class="print-note">
+          This page is self-contained and can be opened directly from disk:
+          <code>docs/observability-framework.html</code>
+        </p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

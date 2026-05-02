@@ -14,12 +14,13 @@ The framework already provides:
 - a base PrometheusRule pack for platform, logging, ingress, storage, PostgreSQL, and MongoDB health
 - baseline Alertmanager routing, receiver templates, recording rules, SLO-style golden-signal alerts, and AI anomaly alerts
 - an AI dashboard that explains detector health, contributors, rule checks, and recent anomaly outcomes
+- a self-contained HTML operator guide with profiles, validation flow, runbooks, backup notes, and release checklist
 
 What still keeps it in "advanced lab" territory rather than "production framework":
 
 - live internet/bootstrap dependencies
-- environment/profile documentation is still compact
-- backup, restore, and disaster-recovery guidance still needs dedicated runbooks
+- lab and production guidance is documented, but not yet split into separate reusable profile files
+- backup, restore, and disaster-recovery guidance still needs tested automation
 
 ## Milestone Plan
 
@@ -165,6 +166,8 @@ Status: implemented in the current framework baseline.
 
 ## v1.7 Profiles, Docs, and Runbooks
 
+Status: implemented in the current framework baseline.
+
 ### Goals
 
 - Make the framework easier to adopt in both lab and production settings.
@@ -195,9 +198,9 @@ Status: implemented in the current framework baseline.
 
 ## Next Sprint
 
-With `v1.6` validation in place, the next sprint should move to `v1.7` profiles and runbooks:
+With `v1.7` documentation in place, the next sprint should move to production recovery depth and profile extraction:
 
-1. Split lab and production-oriented configuration guidance.
-2. Add storage, sizing, scaling, backup, and restore docs.
-3. Add operator runbooks for common incidents.
-4. Keep the README concise by moving deep operational guidance into dedicated docs.
+1. Convert the documented lab and production guidance into optional inventory/profile examples.
+2. Add tested backup and restore automation for PostgreSQL, MongoDB, OpenSearch, and Grafana custom state.
+3. Add upgrade notes for pinned chart and K3s version changes.
+4. Keep playbook changes frozen unless the scratch redeploy or smoke checks expose a real deployment bug.
